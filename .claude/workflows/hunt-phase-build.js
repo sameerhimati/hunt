@@ -15,10 +15,15 @@ export const meta = {
 // ---- inputs ----
 const PHASE = args && args.phase != null ? args.phase : 0
 const MAX_FIX = (args && args.maxFixAttempts) || 6
+// The wave orchestrator (scripts/orchestrate-phases.workflow.js) runs each
+// phase in its own git worktree and passes it here. Standalone runs default
+// to the main checkout.
+const DIR = (args && args.dir) || '/Users/sameer/Code/hunt'
 
 // Shared context every agent gets. Encodes the non-negotiables from AGENTS.md / PLAN.md.
 const CTX = [
-  'Repo: /Users/sameer/Code/hunt. Before writing code, read AGENTS.md, PLAN.md, DESIGN.md, SCREENS.md,',
+  `Work ONLY in ${DIR} (a git worktree of hunt; run every command with cwd=${DIR}).`,
+  'Before writing code, read AGENTS.md, PLAN.md, PHASE-PLAN.md (the execution contract), DESIGN.md, SCREENS.md,',
   'and the specific *.dc.html mockups for the screens this phase touches (design is GROUND TRUTH).',
   'This is a MODIFIED Next.js — read node_modules/next/dist/docs/ before using any Next API; heed deprecations.',
   'Conventions: pnpm 10; "pnpm verify" = typecheck+lint+test+build and MUST stay green (it is the verifier).',
@@ -29,12 +34,14 @@ const CTX = [
   'all other providers (Bright Data, Hunter, free job boards) ship as adapter-ready STUBS behind the same interface.',
   'OpenAI-compatible model list is DISCOVERED from the key\'s /v1/models endpoint, never hardcoded.',
   'Every provider carries metadata: getKeyUrl + 2–4 setup steps + free-tier note + degradation string (drives Settings, docs, onboarding).',
+  `THE EXIT GATE PRE-EXISTS: gates/unit/phase-${PHASE}/ and gates/e2e/phase-${PHASE}/ are committed RED and run via "pnpm gate ${PHASE}".`,
+  'Gate files are the contract — NEVER edit, weaken, or delete them; implement the module paths and data-testids they import. If a gate is genuinely wrong, STOP and report it as blocking instead of changing it.',
 ].join(' ')
 
 // ---- structured-output schemas ----
 const PLAN_SCHEMA = {
   type: 'object',
-  required: ['tasks', 'exitGateTestFiles'],
+  required: ['tasks'],
   properties: {
     tasks: {
       type: 'array',
@@ -54,7 +61,11 @@ const PLAN_SCHEMA = {
         },
       },
     },
-    exitGateTestFiles: { type: 'array', items: { type: 'string' }, description: 'test files written RED before any impl' },
+    exitGateTestFiles: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'ONLY missing fixture files the plan says this phase must record (gate .ts files pre-exist and are untouchable)',
+    },
   },
 }
 
@@ -89,17 +100,17 @@ const REVIEW_SCHEMA = {
 // ============ 1. PLAN — decompose at runtime (don't fake-hardcode the DAG) ============
 phase('Plan')
 const plan = await agent(
-  `${CTX}\n\nYou are PLANNING Phase ${PHASE} of hunt. Read the "Phase ${PHASE}" section of PLAN.md and every screen it touches.\n` +
+  `${CTX}\n\nYou are PLANNING Phase ${PHASE} of hunt. Read the "Phase ${PHASE}" section of PHASE-PLAN.md (task breakdown, contracts, file ownership) and of PLAN.md, plus every screen it touches. Read the committed RED gates under gates/*/phase-${PHASE}/ — they define the module APIs and data-testids you must plan toward.\n` +
     'Produce a task DAG splitting the phase into:\n' +
-    '  • FOUNDATION tasks — shared files (Prisma schema/migrations, shared types, adapter/registry index files, screen shells). Built SERIALLY. Pre-create a slot/placeholder for every leaf that will plug in, so leaves never edit a shared file.\n' +
-    '  • LEAF tasks — file-disjoint additive units (one adapter + its Fake twin + fixtures, one LaTeX template, one check, one Settings provider card). Each lists the EXACT paths it owns; no two leaves may share a path.\n' +
+    '  • FOUNDATION tasks — shared files (shared types, adapter/registry index files, screen shells). Built SERIALLY. Pre-create a slot/placeholder for every leaf that will plug in, so leaves never edit a shared file.\n' +
+    '  • LEAF tasks — file-disjoint additive units (one adapter + its Fake twin + fixtures, one LaTeX template, one check, one Settings provider card). Each lists the EXACT paths it owns; no two leaves may share a path. Respect the ownership map in PHASE-PLAN.md — files owned by another phase this wave are OFF LIMITS.\n' +
     'Mark purely mechanical leaves (fixture JSON, provider-metadata boilerplate) with model:"fable" or "haiku"; leave real logic on opus.\n' +
-    'Then WRITE THE EXIT-GATE TESTS FOR THIS PHASE TO DISK NOW — they must FAIL (red), since nothing is built yet. Return the DAG and the list of test files you wrote.',
+    `If PHASE-PLAN.md lists a "verifier gap" for this phase (fixtures the gate needs that don't exist), recording those fixtures is the FIRST foundation task. Do NOT write or edit gate test files — they exist and are the contract. Return the DAG (and any fixture files you must create) now.`,
   { phase: 'Plan', model: 'opus', schema: PLAN_SCHEMA }
 )
 const foundation = plan.tasks.filter((t) => t.kind === 'foundation')
 const leaves = plan.tasks.filter((t) => t.kind === 'leaf')
-log(`Phase ${PHASE}: ${foundation.length} foundation + ${leaves.length} leaves; ${plan.exitGateTestFiles.length} exit-gate tests written RED.`)
+log(`Phase ${PHASE}: ${foundation.length} foundation + ${leaves.length} leaves; gate = pnpm gate ${PHASE} (pre-committed RED).`)
 
 // ============ 2. FOUNDATION — serial, dependency order (shared files) ============
 phase('Foundation')
@@ -129,7 +140,7 @@ log(`Phase ${PHASE}: ${leaves.length} leaves built in parallel.`)
 // ============ 4. INTEGRATE — wire it up, run the real verifier ============
 phase('Integrate')
 let verify = await agent(
-  `${CTX}\n\nPhase ${PHASE} INTEGRATE: wire every leaf into the shared registries/routes, resolve import gaps, then run "pnpm verify" AND the Phase ${PHASE} exit-gate suite. Report green:true only if BOTH pass. List every failure with where + message.`,
+  `${CTX}\n\nPhase ${PHASE} INTEGRATE: wire every leaf into the shared registries/routes, resolve import gaps, then run "pnpm verify" AND "pnpm gate ${PHASE}". Report green:true only if BOTH pass. List every failure with where + message.`,
   { phase: 'Integrate', model: 'opus', schema: VERIFY_SCHEMA }
 )
 
@@ -139,8 +150,8 @@ let attempts = 0
 while (!verify.green && attempts < MAX_FIX) {
   attempts++
   verify = await agent(
-    `${CTX}\n\nPhase ${PHASE} AUTOLOOP fix attempt ${attempts}/${MAX_FIX}. "pnpm verify"/exit-gate is RED:\n${JSON.stringify(verify.failures, null, 2)}\n` +
-      'Find the ROOT CAUSE of each failure — no band-aids, never delete or weaken a test to make it pass. Fix, re-run "pnpm verify" + exit-gate, report the new state.',
+    `${CTX}\n\nPhase ${PHASE} AUTOLOOP fix attempt ${attempts}/${MAX_FIX}. "pnpm verify"/"pnpm gate ${PHASE}" is RED:\n${JSON.stringify(verify.failures, null, 2)}\n` +
+      `Find the ROOT CAUSE of each failure — no band-aids, never delete or weaken a test to make it pass, and gate files under gates/ are strictly read-only. Fix, re-run "pnpm verify" + "pnpm gate ${PHASE}", report the new state.`,
     { phase: 'Autoloop', label: `fix:${attempts}`, model: 'opus', schema: VERIFY_SCHEMA }
   )
   log(`Phase ${PHASE} autoloop ${attempts}: ${verify.green ? 'GREEN ✓' : `${verify.failures.length} still failing`}`)
