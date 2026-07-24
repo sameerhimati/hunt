@@ -1,0 +1,28 @@
+{
+  "_comment": "Scripted FakeLlmProvider output for promptKind 'rate' in HUNT_TEST_MODE — rates the FakeJobsAdapter default fixtures (fake-1 Northwind, fake-2 Meridian). Qualitative tiers with cited reasons; no numbers, ever.",
+  "promptKind": "rate",
+  "response": {
+    "ratings": [
+      {
+        "externalId": "fake-1",
+        "tier": "strong",
+        "reasons": [
+          {
+            "text": "Six years of Go backend and distributed-systems ownership maps to the fleet-coordination scope",
+            "citations": ["basics.summary", "skills[0].items[0]"]
+          }
+        ]
+      },
+      {
+        "externalId": "fake-2",
+        "tier": "possible",
+        "reasons": [
+          {
+            "text": "Kubernetes and Terraform are present, but the platform/CI focus is adjacent to Alex's payments background",
+            "citations": ["skills[1].items[3]"]
+          }
+        ]
+      }
+    ]
+  }
+}

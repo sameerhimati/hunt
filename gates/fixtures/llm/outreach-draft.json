@@ -1,0 +1,12 @@
+{
+  "_comment": "Scripted FakeLlmProvider output for promptKind 'outreach' in HUNT_TEST_MODE.",
+  "promptKind": "outreach",
+  "response": {
+    "subject": "Senior Backend Engineer — payments reliability background",
+    "body": "Hi Jordan — I saw the Senior Backend Engineer opening on the Payments Reliability team. I own a ledger service settling $40M/month and cut p99 from 210ms to 130ms by sharding the balance-read path, so the charge-path SLO work maps directly. Would you be open to a short call this week?",
+    "citations": [
+      { "path": "experience[0].bullets[0]" },
+      { "path": "experience[0].bullets[3]" }
+    ]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "_comment": "Scripted FakeLlmProvider output for promptKind 'extract' in HUNT_TEST_MODE — pairs with jobs/stripe-sbe.md served by the fake scrape adapter.",
+  "promptKind": "extract",
+  "response": {
+    "title": "Senior Backend Engineer",
+    "company": "Stripe",
+    "location": "San Francisco, CA",
+    "companyBlurb": "Stripe builds economic infrastructure for the internet."
+  }
+}

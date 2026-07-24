@@ -1,0 +1,35 @@
+{
+  "_comment": "Scripted FakeLlmProvider output for a tailor run of alex-chen against stripe-sbe. Three proposals: [0] validly cited edit (must survive validation), [1] uncited fabrication (must be REFUSED and shown, never applied, never rendered), [2] citation pointing at a nonexistent path (must be REFUSED). This file pins the tailor LLM response contract: the model returns JSON with a `changes` array; the validator — not the prompt — decides what is citable.",
+  "promptKind": "tailor",
+  "response": {
+    "changes": [
+      {
+        "kind": "edit",
+        "path": "experience[0].bullets[3]",
+        "now": "Cut p99 latency from 210ms to 130ms by sharding the balance-read path — the exact reliability work Stripe's charge-path SLOs demand",
+        "why": "The JD leads with latency SLOs (p99 under 150ms); the original bullet buried the metric.",
+        "citation": {
+          "path": "experience[0].bullets[3]",
+          "snippet": "Reduced p99 from 210ms to 130ms after sharding the balance-read path"
+        }
+      },
+      {
+        "kind": "add",
+        "path": "experience[0].bullets",
+        "now": "Scaled Stripe-grade payment infrastructure to 10x volume as tech lead of a 12-person team",
+        "why": "The JD asks for leadership at scale.",
+        "citation": null
+      },
+      {
+        "kind": "edit",
+        "path": "experience[1].bullets[0]",
+        "now": "Built exactly-once payment APIs in Go with gRPC service meshes",
+        "why": "Mirror the JD's exactly-once and gRPC language.",
+        "citation": {
+          "path": "experience[9].bullets[9]",
+          "snippet": "this path does not exist in the source résumé"
+        }
+      }
+    ]
+  }
+}

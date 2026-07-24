@@ -1,0 +1,4 @@
+# Phases whose exit gates are promoted into `pnpm verify` / `pnpm e2e`.
+# One phase number per line. Append a phase ONLY at a wave-integrate step,
+# after `pnpm gate <N>` is green. Never remove a line.
+0

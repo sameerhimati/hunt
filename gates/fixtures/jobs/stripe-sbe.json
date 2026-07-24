@@ -1,0 +1,9 @@
+{
+  "_comment": "Expected extraction for stripe-sbe.md. The fake scrape adapter serves the markdown at this URL in HUNT_TEST_MODE; the P2 ingest gate asserts these fields land on the Job row.",
+  "url": "https://jobs.example.com/stripe/senior-backend-engineer",
+  "expected": {
+    "title": "Senior Backend Engineer",
+    "company": "Stripe",
+    "location": "San Francisco, CA"
+  }
+}

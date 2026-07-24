@@ -18,6 +18,10 @@ const eslintConfig = defineConfig([
     // not application source. `support.js` is its vendored runtime.
     "design/**",
     ".e2e-data/**",
+    // Phase exit gates are committed RED — they import modules that don't
+    // exist until their phase is built, so they are runtime-verified only
+    // (see scripts/run-gates.mjs). Excluded from tsc for the same reason.
+    "gates/**",
   ]),
   {
     rules: {
