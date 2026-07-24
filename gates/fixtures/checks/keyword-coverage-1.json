@@ -1,0 +1,28 @@
+{
+  "_comment": "Hand-labeled (Fable, 2026-07-24) against resume/alex-chen.json. Matching rule the scorer must implement: case-insensitive, word-boundary match over the flattened résumé text, singular/plural treated as equivalent. 'latency' is deliberately labeled missing — Alex's résumé says 'p99', not 'latency'; the check reports what is literally covered, it does not infer synonyms. That IS the honesty property under test.",
+  "jdTerms": [
+    "Go",
+    "Kafka",
+    "Postgres",
+    "payments",
+    "Kubernetes",
+    "SLO",
+    "on-call",
+    "observability",
+    "distributed systems",
+    "latency",
+    "gRPC",
+    "Ruby"
+  ],
+  "expectedMatched": [
+    "Go",
+    "Kafka",
+    "Postgres",
+    "payments",
+    "Kubernetes",
+    "SLO",
+    "on-call",
+    "observability"
+  ],
+  "expectedMissing": ["distributed systems", "latency", "gRPC", "Ruby"]
+}
