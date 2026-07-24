@@ -42,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# session handoff (local work log — never commit to the public repo)
+/session-handoff.md
