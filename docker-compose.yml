@@ -2,7 +2,9 @@ services:
   hunt:
     build: .
     ports:
-      - '3000:3000'
+      # Port 3000 is the busiest port on a developer's machine. Override with
+      # HUNT_PORT=3300 docker compose up if something else already has it.
+      - '${HUNT_PORT:-3000}:3000'
     volumes:
       # Everything hunt persists — the SQLite database and the key-encryption
       # secret — lives here. Back this up and you have backed up hunt.

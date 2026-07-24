@@ -33,6 +33,8 @@ Next.js / TypeScript / Tailwind / SQLite + Prisma / Tectonic (LaTeX → PDF). Sh
 
 ```sh
 docker compose up
+# or, if something already has port 3000:
+HUNT_PORT=3300 docker compose up
 ```
 
 Then open <http://localhost:3000> and add your keys under Settings. The image
