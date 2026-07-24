@@ -7,7 +7,11 @@ import path from 'node:path'
  * one volume. Override with `HUNT_DATA_DIR` (tests and e2e do exactly that).
  */
 export function dataDir(): string {
-  return path.resolve(process.cwd(), process.env.HUNT_DATA_DIR ?? './data')
+  // The turbopackIgnore hint is load-bearing: resolving against process.cwd()
+  // makes the build tracer assume the whole project is a runtime dependency and
+  // bundle it into the standalone output. This path is resolved at runtime and
+  // nothing under it needs tracing.
+  return path.resolve(/* turbopackIgnore: true */ process.cwd(), process.env.HUNT_DATA_DIR ?? './data')
 }
 
 export function dbPath(): string {

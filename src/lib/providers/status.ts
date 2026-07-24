@@ -1,6 +1,6 @@
 import { readMasked, readSetting } from '@/lib/settings/store'
 
-import { PROVIDERS, requiredFields, settingKey } from './registry'
+import { getProvider, PROVIDERS, requiredFields, settingKey } from './registry'
 import type { ProviderMeta, ProviderStatus } from './types'
 
 /** Where a configured value came from — surfaced so dev keys aren't mistaken for saved ones. */
@@ -59,7 +59,12 @@ export async function readProviderState(meta: ProviderMeta): Promise<ProviderSta
   const filled = fields.filter((field) => required.includes(field.key) && field.source !== null)
 
   let status: ProviderStatus
-  if (required.length === 0 || filled.length === required.length) {
+  if (meta.ship === 'stub') {
+    // Stubs declare every field optional, which would otherwise make them read
+    // as "configured" — claiming a provider works when it cannot is exactly the
+    // kind of dishonesty this app is built to avoid.
+    status = 'not-set'
+  } else if (required.length === 0 || filled.length === required.length) {
     status = 'configured'
   } else if (filled.length > 0) {
     // Half-filled is worse than empty: it looks configured but cannot work.
@@ -78,10 +83,15 @@ export async function readAllProviderStates(): Promise<ProviderState[]> {
   return Promise.all(PROVIDERS.map(readProviderState))
 }
 
+/**
+ * Counts only what the user can actually act on. Stubs aren't wired in v1, so
+ * listing them as "missing" would invent work that doesn't exist.
+ */
 export function summarise(states: ProviderState[]): { configured: number; missing: number } {
+  const actionable = states.filter((state) => getProvider(state.id)?.ship !== 'stub')
   return {
-    configured: states.filter((state) => state.status === 'configured').length,
-    missing: states.filter((state) => state.status !== 'configured').length,
+    configured: actionable.filter((state) => state.status === 'configured').length,
+    missing: actionable.filter((state) => state.status !== 'configured').length,
   }
 }
 

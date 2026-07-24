@@ -19,7 +19,9 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: `pnpm exec next start --port ${PORT}`,
+    // The wipe lives here, not in globalSetup: Playwright starts webServer first,
+    // so anything in globalSetup would run after the app had already booted.
+    command: `node e2e/reset-data.mjs && pnpm exec next start --port ${PORT}`,
     url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: false,
     timeout: 120_000,

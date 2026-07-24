@@ -8,7 +8,6 @@ export default defineConfig({
     // Node by default (most of Phase 0 is server-side plumbing); component
     // tests opt into jsdom with a `// @vitest-environment jsdom` docblock.
     environment: 'node',
-    globalSetup: ['./test/global-setup.ts'],
     setupFiles: ['./test/setup.ts'],
     include: ['test/**/*.test.ts', 'test/**/*.test.tsx'],
   },

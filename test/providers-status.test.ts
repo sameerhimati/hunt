@@ -2,8 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { prisma } from '@/lib/db/client'
 import { anthropicMeta, openAiCompatMeta } from '@/lib/llm/meta'
-import { getProvider } from '@/lib/providers/registry'
-import { readProviderState, resolveSecret, summarise } from '@/lib/providers/status'
+import { getProvider, PROVIDERS } from '@/lib/providers/registry'
+import {
+  readAllProviderStates,
+  readProviderState,
+  resolveSecret,
+  summarise,
+} from '@/lib/providers/status'
 import { writeSetting } from '@/lib/settings/store'
 
 const KEY = 'sk-ant-api03-status-test-4242'
@@ -76,6 +81,24 @@ describe('provider status', () => {
   it('treats the no-key board tier as configured with nothing entered', async () => {
     const state = await readProviderState(getProvider('free_boards')!)
     expect(state.status).toBe('configured')
+  })
+
+  it('never reports a stub as configured, even though all its fields are optional', async () => {
+    for (const id of ['brightdata_scrape', 'brightdata_people', 'linkedin']) {
+      const state = await readProviderState(getProvider(id)!)
+      expect(state.status, `${id} must not claim to be configured`).toBe('not-set')
+    }
+  })
+
+  it('leaves stubs out of the summary — they are not work the user can do', async () => {
+    const states = await readAllProviderStates()
+    const summary = summarise(states)
+
+    // Only the free public boards work with no key at all.
+    expect(summary.configured).toBe(1)
+    expect(summary.configured + summary.missing).toBe(
+      PROVIDERS.filter((provider) => provider.ship === 'live').length,
+    )
   })
 
   it('summarises configured vs missing for the topbar', () => {
