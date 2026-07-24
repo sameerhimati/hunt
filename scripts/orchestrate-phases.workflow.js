@@ -14,10 +14,15 @@ export const meta = {
 // ---- the DAG (validated in PHASE-PLAN.md §1; do not reorder without replanning) ----
 const WAVES = { 1: [1, 2], 2: [3, 4, 5], 3: [6, 7], 4: [8] }
 
-const WAVE = args && args.wave
+// args can arrive as an object or as a JSON-encoded string depending on how the
+// Workflow tool call was serialized; a bare number is accepted as the wave too.
+const ARGS =
+  typeof args === 'string' ? JSON.parse(args) : typeof args === 'number' ? { wave: args } : args || {}
+
+const WAVE = Number(ARGS.wave)
 if (!WAVES[WAVE]) throw new Error(`args.wave must be one of ${Object.keys(WAVES).join(', ')}`)
 const PHASES = WAVES[WAVE]
-const MAX_FIX = (args && args.maxFixAttempts) || 8
+const MAX_FIX = ARGS.maxFixAttempts || 8
 const ROOT = '/Users/sameer/Code/hunt'
 const BRANCH = `wave-${WAVE}`
 
