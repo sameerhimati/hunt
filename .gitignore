@@ -51,4 +51,3 @@ next-env.d.ts
 
 # local session scaffolding (work log, phase plan) — never commit to the public repo
 /session-handoff.md
-/PHASE-PLAN.md
