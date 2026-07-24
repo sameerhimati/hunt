@@ -1,0 +1,20 @@
+services:
+  hunt:
+    build: .
+    ports:
+      - '3000:3000'
+    volumes:
+      # Everything hunt persists — the SQLite database and the key-encryption
+      # secret — lives here. Back this up and you have backed up hunt.
+      - ./data:/data
+    environment:
+      # Dev keys can be passed through instead of typed into Settings; each is
+      # optional and the app degrades gracefully without it.
+      - ANTHROPIC_API_KEY
+      - OPENAI_API_KEY
+      - FIRECRAWL_API_KEY
+      - APOLLO_API_KEY
+      - JSEARCH_API_KEY
+      - ADZUNA_APP_KEY
+      - RESEND_API_KEY
+    restart: unless-stopped

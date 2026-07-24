@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.github
+data
+.e2e-data
+test-results
+playwright-report
+coverage
+design
+*.md
+!README.md
+.env*
+src/generated
