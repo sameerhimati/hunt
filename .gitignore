@@ -49,5 +49,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# session handoff (local work log — never commit to the public repo)
+# local session scaffolding (work logs, planning prompts) — never commit to the public repo
 /session-handoff.md
+/NEXT-SESSION-FABLE-PROMPT.md
+/PHASE-PLAN.md
