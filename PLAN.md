@@ -3,6 +3,12 @@
 Open-source, local-first job-hunt platform. Bring your own keys. One app for the
 whole loop: **source → tailor → verify → find the human → outreach → track → learn.**
 
+**UI ground truth:** `DESIGN.md` (design system), `SCREENS.md` (per-screen spec),
+`TAILORING-DIFF.md`, and `design/*.dc.html` mockups. Dark theme is the shipped
+default; nav is a left rail + ⌘K command palette; the honesty patterns (no
+aggregate ATS score, qualitative fit tiers, cited-or-refused tailoring) are
+non-negotiable.
+
 ## End goal (Definition of Shipped)
 
 A stranger on Product Hunt can, on a fresh machine:
@@ -19,7 +25,7 @@ A stranger on Product Hunt can, on a fresh machine:
 ## Product principles
 
 - **Local-first.** SQLite on disk, single user, no auth, no telemetry, no hosted backend. Privacy is the headline.
-- **BYOK everywhere.** Keys entered in the Settings UI, stored in the local DB. Every integration is optional; the app degrades gracefully (no Apollo key → outreach still drafts, just no contact lookup).
+- **BYOK everywhere.** Keys entered in the Settings UI, stored in the local DB. Every integration is optional; the app degrades gracefully (no Apollo key → outreach still drafts, just no contact lookup). Each provider ships **metadata** — where to get the key (deep link), 2–4 setup steps, a free-tier note, and a degradation string — one source that drives the Settings card, the docs, and onboarding (honest onboarding, not "figure it out"). v1 wires the **bold set** live (Anthropic, OpenAI-compat, Firecrawl, Apollo, JSearch+Adzuna, SMTP/Resend); every other provider ships as an adapter-ready stub behind the same interface.
 - **Honest AI.** No fake "Workday score: 87." Checks are labeled as what they are: parse fidelity, keyword coverage, format lint, AI-tell audit. Tailoring never fabricates — every claim traces to the source resume. This honesty is a README selling point.
 - **Adapters, not hardcoded integrations.** Every external service sits behind a thin interface (`lib/adapters/*`). Stubs and fixtures swap in for tests and offline dev.
 - **The diff view is the product.** Tailoring output is always shown as a reviewed diff against the base version, never a silent rewrite.
@@ -31,11 +37,11 @@ A stranger on Product Hunt can, on a fresh machine:
 | App | Next.js (App Router) + TypeScript | Single monolith; server actions / route handlers for API |
 | UI | Tailwind + shadcn/ui | Kanban via dnd-kit |
 | DB | SQLite + Prisma | DB file in `./data/hunt.db` (volume-mounted in Docker) |
-| LLM | Anthropic SDK (native, prompt caching) + OpenAI-compatible client | Thin `lib/llm` abstraction; Claude is the tuned default. OpenAI-compatible = user-set base URL + key + model, so it covers OpenAI, OpenRouter, Fireworks, Together, Groq, DeepSeek, local Ollama/vLLM — the whole open-model ecosystem with one adapter |
+| LLM | Anthropic SDK (native, prompt caching) + OpenAI-compatible client | Thin `lib/llm` abstraction; Claude is the tuned default. OpenAI-compatible = user-set base URL + key; the **model list is discovered from the provider's `/v1/models` endpoint, never hardcoded** (Fireworks alone rotates dozens). Covers OpenAI, OpenRouter, Fireworks, Together, Groq, DeepSeek, local Ollama/vLLM — the whole open-model ecosystem with one adapter |
 | LaTeX | Tectonic | Bundled in the Docker image; auto-download for bare-metal dev |
-| Scraping | Firecrawl (BYOK) | JD + company pages |
-| People | Apollo.io (BYOK) | Contact/recruiter lookup + enrichment |
-| Job APIs | JSearch and/or Adzuna (BYOK) | Default sourcing path |
+| Scraping | Firecrawl (BYOK, default) + Bright Data (BYOK, stub in v1) | JD + company pages; Bright Data adds an unblocker fallback for hard sites and a ToS-safer LinkedIn/jobs **dataset** path |
+| People | Apollo.io (BYOK) + Bright Data LinkedIn (stub) | Contact/recruiter lookup + enrichment; Bright Data's profile dataset is the ToS-safer alternative to the cookie adapter |
+| Job APIs | JSearch + Adzuna (BYOK) + free boards | JSearch = broad US via RapidAPI/Google-for-Jobs; Adzuna = official first-party API, free tier, salary data, UK/EU. Plus **free/no-key** boards (Greenhouse/Lever/Ashby, Remotive) so Sourcing works before any key |
 | LinkedIn | Cookie-session adapter (at-own-risk, off by default) | People-graph intelligence, not listing scraping |
 | Email | SMTP/Resend (BYOK) first; Gmail OAuth (user-owned OAuth client) later | User-owned Google Cloud project sidesteps app verification entirely |
 | E2E | Playwright | Drives the launch-critical flows |
@@ -66,7 +72,7 @@ for the future "what actually converts" analytics.
 
 ## Architecture notes
 
-- `lib/adapters/` — `scrape` (Firecrawl), `people` (Apollo), `jobs` (JSearch/Adzuna), `linkedin`, `email` (SMTP/Resend/Gmail), each with a `Fake*` twin backed by fixtures for tests/offline.
+- `lib/adapters/` — `scrape` (Firecrawl; Bright Data stub), `people` (Apollo; Bright Data LinkedIn stub), `jobs` (JSearch/Adzuna; free boards + Bright Data stubs), `linkedin`, `email` (SMTP/Resend/Gmail), each with a `Fake*` twin backed by fixtures for tests/offline **and a `meta` block** (getKeyUrl, steps, freeTier, degradation). Bright Data spans scrape/jobs/people as one BYOK provider — the ToS-safer LinkedIn path — so it slots into three adapters, not one.
 - `lib/llm/` — provider abstraction (Anthropic native + OpenAI-compatible), prompt registry, **prompt caching on the base-resume prefix** (same resume resent on every tailor/score/draft call — verify `cache_read_input_tokens` in dev logs).
 - `lib/resume/` — schema (superset of JSON Resume), import (PDF → LLM → structured), LaTeX rendering (template + content → .tex → Tectonic → PDF), diffing (structured semantic diff, not text diff).
 - `lib/checks/` — the evals layer. Parse fidelity runs the *rendered PDF* back through open-source ATS-style parsers and compares to source structure.
@@ -81,7 +87,7 @@ Global verifier from Phase 0 onward: `pnpm verify` = typecheck + lint + unit/int
 E2E gates use `pnpm e2e` (Playwright, fake adapters unless noted).
 
 ### Phase 0 — Skeleton & keys
-Scaffold Next.js + Prisma + SQLite; Settings UI for keys (encrypted at rest via generated local secret file); `lib/llm` provider layer; adapter interfaces + fakes; Docker compose (app + Tectonic in image); `pnpm verify` wired.
+Scaffold Next.js + Prisma + SQLite; Settings UI for keys (encrypted at rest via generated local secret file); `lib/llm` provider layer (OpenAI-compatible model list **discovered from `/v1/models`**); adapter interfaces + fakes + `meta` blocks (getKeyUrl/steps/free-tier/degradation) driving the Settings cards; Docker compose (app + Tectonic in image); `pnpm verify` wired.
 **Exit gate:** fresh clone → `docker compose up` → Settings page saves/loads a key; `pnpm verify` green; LLM round-trip test passes against a fake provider.
 
 ### Phase 1 — Resume core (the Overleaf killer)
@@ -101,7 +107,7 @@ Apollo adapter: company → recruiters/eng managers; contact cards on the applic
 **Exit gate:** e2e with fake Apollo + local SMTP capture (mailpit) — find contact → draft sequence → send step 1 → message lands in mailpit; sequence scheduler unit-tested.
 
 ### Phase 5 — Sourcing
-Job-API adapter (JSearch/Adzuna): keyword/location/remote search → job cards; board-match rating over results (which of these fit *my* resume — batch LLM scoring); one-click "pull into pipeline"; saved searches with manual re-run (cron later).
+Job-API adapter (JSearch/Adzuna, + free/no-key boards Greenhouse/Lever/Ashby/Remotive): keyword/location/remote search → job cards; board-match rating over results (which of these fit *my* resume — batch LLM scoring); one-click "pull into pipeline"; saved searches with manual re-run (cron later).
 **Exit gate:** e2e with fixture job-API responses — search → rated results → import to pipeline; rating quality spot-checked against labeled fixtures.
 
 ### Phase 6 — LinkedIn adapter (at-own-risk, off by default)
@@ -129,6 +135,6 @@ Onboarding (first-run wizard: keys → import resume → first job); empty state
 
 1. **Name.** "hunt" is the working name; check npm/domain/PH availability before Phase 8.
 2. **License.** MIT (max adoption) vs AGPL (blocks closed SaaS clones). Leaning MIT for a PH launch; decide by Phase 8.
-3. **Job API pick.** JSearch (RapidAPI, broad) vs Adzuna (free tier, official) — research task at Phase 5 kickoff; possibly both, it's an adapter.
+3. ~~**Job API pick.**~~ **Resolved:** ship both (it's an adapter) — JSearch (broad US) + Adzuna (official, free tier, salary, UK/EU) — plus free/no-key boards for a works-before-any-key tier. Bright Data job datasets as a later stub-upgrade.
 4. **ATS parser(s) for parse-fidelity.** Candidate libs to evaluate at Phase 3 kickoff (open-source resume parsers; possibly a second LLM-as-parser baseline).
 5. **PDF export without LaTeX** (HTML→PDF fallback for users allergic to Tectonic)? Default no; revisit if Phase 1 friction says otherwise.
