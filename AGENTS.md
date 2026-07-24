@@ -10,13 +10,26 @@ This version has breaking changes — APIs, conventions, and file structure may 
 stack, data model, and Phases 0–8 each with a verifiable exit gate.
 
 ## Current state
-- Phase 0 (skeleton & keys) is next. Task breakdown exists in the session task
-  list (scaffold ✅ partial → encrypted settings → Settings UI → lib/llm →
-  adapter fakes → Docker/Tectonic → exit gate).
-- `DESIGN.md` + HTML mockups are being produced in a separate design session
-  and will be committed as ground truth for all UI work. Phase 0 is plumbing
-  (no UI beyond a functional Settings page) — don't invest in visual polish
-  until DESIGN.md lands.
+- **Phase 0 is done** (branch `feature/phase-0-skeleton`): encrypted settings,
+  `lib/llm`, adapter interfaces + fakes + `meta`, design tokens + AppShell +
+  Settings UI, Docker with Tectonic. Exit gate verified from a fresh clone.
+- **Phase 1 (résumé core) is next.** `DESIGN.md` / `SCREENS.md` /
+  `TAILORING-DIFF.md` + `design/*.dc.html` are committed ground truth — build
+  UI against them, don't invent layout.
+
+## What Phase 0 established (don't relearn these)
+- The DB **migrates itself on first query** (`src/lib/db/migrate.ts`). There is
+  no migrate step to run, in Docker or locally. Adding a migration = run
+  `pnpm db:migrate` in dev and commit `prisma/migrations/`.
+- The Prisma client is **lazy behind a proxy** — constructing it at module scope
+  segfaults `next build` workers. Don't "simplify" that away.
+- `better-sqlite3` must stay on the version `@prisma/adapter-better-sqlite3`
+  depends on. Two native builds of it in one process segfault the server.
+- Providers are declared once in `src/lib/providers/registry.ts` from each
+  adapter's `meta`. Settings, onboarding, and the docs all read from it — a test
+  fails the build if a provider ships without its onboarding copy.
+- `output: standalone` is opt-in via `HUNT_STANDALONE=1` because it disables
+  `next start`, which dev and e2e need.
 
 ## Conventions
 - pnpm 10 (via corepack; pnpm 11 breaks on Node 20). `pnpm verify` =

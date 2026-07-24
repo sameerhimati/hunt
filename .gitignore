@@ -12,6 +12,12 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
+/.e2e-data
+
+# generated Prisma client — rebuilt by `pnpm db:generate` (runs on postinstall)
+/src/generated
 
 # next.js
 /.next/

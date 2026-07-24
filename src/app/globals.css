@@ -1,26 +1,202 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
+/*
+ * hunt design system — see DESIGN.md for the reasoning behind every value here.
+ * Direction: Signal x Dossier x Steel. Cool graphite ground, one mint signal,
+ * serif document voice, mono for data. Dark is the shipped default: the app runs
+ * locally as a private workspace and should read as a command center, not a
+ * marketing surface.
+ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Light (:root) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: oklch(0.98 0.004 95); /* #f7f6f2 warm off-white */
+  --foreground: oklch(0.24 0.01 240); /* #1b1e22 */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.24 0.01 240);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.24 0.01 240);
+  --surface-2: oklch(0.96 0.005 95); /* #efede6 */
+  --muted: oklch(0.96 0.005 95);
+  --muted-foreground: oklch(0.5 0.01 240); /* #6b7075 */
+  --faint: oklch(0.68 0.01 240);
+  --border: oklch(0.9 0.006 95); /* #e4e0d6 */
+  --input: oklch(0.9 0.006 95);
+  --ring: oklch(0.62 0.12 168);
+
+  --primary: oklch(0.62 0.12 168); /* #2f9e77 darker mint for AA on light */
+  --primary-foreground: oklch(0.99 0.01 165);
+
+  --secondary: oklch(0.96 0.005 95);
+  --secondary-foreground: oklch(0.24 0.01 240);
+  --accent: oklch(0.96 0.005 95);
+  --accent-foreground: oklch(0.24 0.01 240);
+
+  --destructive: oklch(0.58 0.2 25);
+  --destructive-foreground: oklch(0.99 0.01 20);
+
+  --diff-add: oklch(0.52 0.12 165); /* #1f8a63 */
+  --diff-add-bg: oklch(0.93 0.06 165); /* #d9f2e6 */
+  --diff-del: oklch(0.55 0.18 25); /* #c0453f */
+  --diff-del-bg: oklch(0.93 0.05 25); /* #f7dedb */
+  --warn: oklch(0.62 0.12 75); /* #b57e1e */
+  --warn-bg: oklch(0.95 0.05 85);
+
+  --radius: 0.5rem;
+}
+
+/* Dark (.dark) — the shipped default */
+.dark {
+  --background: oklch(0.16 0.008 220); /* #0a0d0f app ground */
+  --foreground: oklch(0.93 0.006 220); /* #e6edf0 */
+  --card: oklch(0.21 0.01 220); /* #11161a panels, sidebar */
+  --card-foreground: oklch(0.93 0.006 220);
+  --popover: oklch(0.21 0.01 220);
+  --popover-foreground: oklch(0.93 0.006 220);
+  --surface-2: oklch(0.25 0.012 220); /* #161d22 raised rows, chips */
+  --muted: oklch(0.25 0.012 220);
+  --muted-foreground: oklch(0.66 0.012 220); /* #8b969d */
+  --faint: oklch(0.48 0.012 220); /* #5a666d */
+  --border: oklch(0.32 0.012 220); /* #232c31 */
+  --input: oklch(0.32 0.012 220);
+  --ring: oklch(0.79 0.14 168);
+
+  --primary: oklch(0.79 0.14 168); /* #3ad6a5 mint signal */
+  --primary-foreground: oklch(0.16 0.03 165); /* #04120c ink on mint */
+
+  --secondary: oklch(0.25 0.012 220);
+  --secondary-foreground: oklch(0.93 0.006 220);
+  --accent: oklch(0.25 0.012 220);
+  --accent-foreground: oklch(0.93 0.006 220);
+
+  --destructive: oklch(0.63 0.2 22); /* #e5484d */
+  --destructive-foreground: oklch(0.98 0.01 20);
+
+  --diff-add: oklch(0.83 0.11 165); /* #6fdcb5 */
+  --diff-add-bg: oklch(0.24 0.05 165); /* #0f261e */
+  --diff-del: oklch(0.72 0.11 20); /* #e88a8f */
+  --diff-del-bg: oklch(0.24 0.05 20); /* #2a1618 */
+  --warn: oklch(0.79 0.13 85); /* #e0b13a */
+  --warn-bg: oklch(0.22 0.03 85);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-surface-2: var(--surface-2);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint: var(--faint);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  /* diff + honesty semantics */
+  --color-diff-add: var(--diff-add);
+  --color-diff-add-bg: var(--diff-add-bg);
+  --color-diff-del: var(--diff-del);
+  --color-diff-del-bg: var(--diff-del-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  /* check verdicts read as what they measured, never an aggregate score */
+  --color-pass: var(--diff-add);
+  --color-fail: var(--destructive);
+
+  --font-serif: var(--font-newsreader), Georgia, serif;
+  --font-sans: var(--font-public-sans), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  /* App base size is 14px for density — the whole scale shifts down. */
+  --text-xs: 0.6875rem; /* 11px  mono labels, meta, kbd hints */
+  --text-sm: 0.78rem; /* 12.5px secondary UI text */
+  --text-base: 0.875rem; /* 14px  body, table cells, inputs */
+  --text-md: 0.9375rem; /* 15px  résumé bullets, emphasis */
+  --text-lg: 1.0625rem; /* 17px  card titles */
+  --text-xl: 1.3125rem; /* 21px  screen headings (serif) */
+  --text-2xl: 1.625rem; /* 26px  page titles (serif) */
+  --text-3xl: 2rem; /* 32px  onboarding / marquee (serif) */
+
+  --radius-sm: 0.25rem;
+  --radius-md: var(--radius);
+  --radius-lg: 0.75rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-wrap: pretty;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  /* Focus is a mint ring, never a browser default outline. */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 22%, transparent);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 6px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Uppercase mono label — the "honest instrument" voice. */
+  .label-mono {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+}
+
+/* Restrained motion: cross-fades only when the user asks for less. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
