@@ -1,5 +1,6 @@
 import { resolveSecret } from '@/lib/providers/status'
 import { readSetting } from '@/lib/settings/store'
+import { isTestMode, testLlm } from '@/lib/testmode'
 
 import { anthropicMeta, DEFAULT_ANTHROPIC_MODEL, openAiCompatMeta } from './meta'
 import { AnthropicProvider } from './providers/anthropic'
@@ -18,6 +19,10 @@ export interface ResolvedLlm {
  * configured — callers surface a DegradedBanner rather than throwing.
  */
 export async function resolveLlm(): Promise<ResolvedLlm | null> {
+  // Test mode answers from recorded fixtures keyed by promptKind — same call
+  // sites, no key, no network. See src/lib/testmode/llm.ts.
+  if (isTestMode()) return testLlm()
+
   const preferred = await readSetting('llm.active')
 
   const candidates = preferred === 'openai_compat' ? ['openai_compat', 'anthropic'] : ['anthropic', 'openai_compat']
