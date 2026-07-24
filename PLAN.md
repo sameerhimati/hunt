@@ -41,7 +41,7 @@ A stranger on Product Hunt can, on a fresh machine:
 | LaTeX | Tectonic | Bundled in the Docker image; auto-download for bare-metal dev |
 | Scraping | Firecrawl (BYOK, default) + Bright Data (BYOK, stub in v1) | JD + company pages; Bright Data adds an unblocker fallback for hard sites and a ToS-safer LinkedIn/jobs **dataset** path |
 | People | Apollo.io (BYOK) + Bright Data LinkedIn (stub) | Contact/recruiter lookup + enrichment; Bright Data's profile dataset is the ToS-safer alternative to the cookie adapter |
-| Job APIs | JSearch + Adzuna (BYOK) + free boards | JSearch = broad US via RapidAPI/Google-for-Jobs; Adzuna = official first-party API, free tier, salary data, UK/EU. Plus **free/no-key** boards (Greenhouse/Lever/Ashby, Remotive) so Sourcing works before any key |
+| Job APIs | JSearch + Adzuna (BYOK) + free boards | **US-first, keep it simple.** JSearch = broad US via RapidAPI/Google-for-Jobs; Adzuna = official first-party API, free tier. Plus **free/no-key** boards (Greenhouse/Lever/Ashby, Remotive). Other countries + salary data are a later, not-v1 concern |
 | LinkedIn | Cookie-session adapter (at-own-risk, off by default) | People-graph intelligence, not listing scraping |
 | Email | SMTP/Resend (BYOK) first; Gmail OAuth (user-owned OAuth client) later | User-owned Google Cloud project sidesteps app verification entirely |
 | E2E | Playwright | Drives the launch-critical flows |
@@ -135,6 +135,6 @@ Onboarding (first-run wizard: keys → import resume → first job); empty state
 
 1. **Name.** "hunt" is the working name; check npm/domain/PH availability before Phase 8.
 2. **License.** MIT (max adoption) vs AGPL (blocks closed SaaS clones). Leaning MIT for a PH launch; decide by Phase 8.
-3. ~~**Job API pick.**~~ **Resolved:** ship both (it's an adapter) — JSearch (broad US) + Adzuna (official, free tier, salary, UK/EU) — plus free/no-key boards for a works-before-any-key tier. Bright Data job datasets as a later stub-upgrade.
+3. ~~**Job API pick.**~~ **Resolved:** ship both (it's an adapter) — JSearch (broad US) + Adzuna (official, free tier) — plus free/no-key boards for a works-before-any-key tier. **US-only for v1**; other countries + salary data + Bright Data job datasets are later stub-upgrades.
 4. **ATS parser(s) for parse-fidelity.** Candidate libs to evaluate at Phase 3 kickoff (open-source resume parsers; possibly a second LLM-as-parser baseline).
 5. **PDF export without LaTeX** (HTML→PDF fallback for users allergic to Tectonic)? Default no; revisit if Phase 1 friction says otherwise.
