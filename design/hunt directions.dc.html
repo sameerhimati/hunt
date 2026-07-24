@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0d0e10;color:#e6e7ea;font-family:'Public Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  a:hover{opacity:.8}
+  .del{text-decoration:line-through;text-decoration-thickness:1px}
+</style>
+</helmet>
+
+<section style="padding:56px 56px 44px;border-bottom:1px solid #1c1e22">
+  <div style="max-width:1280px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#6f7378">Turn 3 · Overleaf-style</div>
+    <h1 style="font-family:'Newsreader',serif;font-weight:600;font-size:34px;letter-spacing:-.01em;margin-top:12px;color:#f4f5f7">Edit on the left, the real PDF on the right — <span style="font-style:italic">3a</span></h1>
+    <p style="max-width:740px;margin-top:14px;font-size:15px;line-height:1.6;color:#a3a7ad">The reassurance Overleaf gives you: you always see the actual rendered document. Left pane is the review/edit surface (tabs for <b style="color:#c9cdd2">Review changes · Structured · raw LaTeX</b>); right pane is the live PDF on paper, with tailored lines marked in the output. Accept a change on the left, the page on the right re-renders. Same merged look — cool graphite, serif, honest copy.</p>
+  </div>
+
+  <div id="3a" style="--bg:#0a0d0f;--panel:#11161a;--panel2:#161d22;--line:#232c31;--fg:#e6edf0;--muted:#8b969d;--faint:#5a666d;--accent:#3ad6a5;--accentInk:#04120c;--addbg:#0f261e;--addfg:#6fdcb5;--delbg:#2a1618;--delfg:#e88a8f;--warn:#e0b13a;--radius:8px;--serif:'Newsreader',serif;--body:'Public Sans',sans-serif;--mono:'JetBrains Mono',monospace;width:1280px;margin-top:36px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:14px;overflow:hidden;font-family:var(--body);box-shadow:0 24px 60px rgba(0,0,0,.45)">
+
+    <!-- app top bar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel)">
+      <div style="display:flex;align-items:center;gap:22px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.7"><path d="M4 8 V4 H8"/><path d="M20 8 V4 H16"/><path d="M4 16 V20 H8"/><path d="M20 16 V20 H16"/><circle cx="12" cy="12" r="2.4" fill="var(--accent)" stroke="none"/></svg>
+          <span style="font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:-.01em">hunt</span>
+        </div>
+        <div style="font-family:var(--mono);font-size:11.5px;color:var(--muted)">Stripe — Senior Backend Engineer <span style="color:var(--faint)">/</span> <span style="color:var(--fg)">Tailor</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-family:var(--mono);font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:4px 8px">⌘K</span>
+        <span style="font-size:12px;font-weight:600;color:var(--accentInk);background:var(--accent);border-radius:var(--radius);padding:7px 14px">Accept all & save v4</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:stretch;height:640px">
+      <!-- LEFT: review / edit -->
+      <div style="width:47%;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;background:var(--bg)">
+        <!-- tabs -->
+        <div style="display:flex;align-items:center;gap:2px;padding:0 14px;border-bottom:1px solid var(--line);background:var(--panel)">
+          <span style="font-size:12px;font-weight:600;color:var(--fg);padding:12px 12px;box-shadow:inset 0 -2px 0 var(--accent)">Review changes <span style="font-family:var(--mono);color:var(--muted);font-weight:400">7</span></span>
+          <span style="font-size:12px;color:var(--muted);padding:12px 12px">Structured</span>
+          <span style="font-size:12px;color:var(--muted);padding:12px 12px">raw LaTeX <span style="font-family:var(--mono);font-size:9px;color:var(--warn);border:1px solid var(--warn);border-radius:3px;padding:0 4px;vertical-align:middle">advanced</span></span>
+        </div>
+
+        <div style="flex:1;overflow:hidden;padding:20px 22px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
+            <div style="font-family:var(--serif);font-size:15px;font-weight:600;letter-spacing:.02em">Experience · Ramp</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--muted)"><span style="color:var(--addfg)">5 accepted</span> · 1 pending · <span style="color:var(--warn)">1 flagged</span></div>
+          </div>
+
+          <ul style="list-style:none;display:flex;flex-direction:column;gap:12px">
+            <!-- change 1 accepted -->
+            <li style="display:flex;gap:10px;align-items:flex-start">
+              <span style="width:18px;height:18px;flex-shrink:0;border-radius:50%;background:var(--addbg);color:var(--addfg);font-family:var(--mono);font-size:10px;display:flex;align-items:center;justify-content:center;margin-top:2px">1</span>
+              <span style="flex:1;font-family:var(--serif);font-size:14px;line-height:1.5">Built internal REST APIs <span class="del" style="background:var(--delbg);color:var(--delfg);padding:0 2px;border-radius:3px">used across the org.</span> <span style="background:var(--addbg);color:var(--addfg);padding:0 2px;border-radius:3px">powering the billing platform at scale.</span></span>
+              <span style="font-family:var(--mono);font-size:9px;color:var(--addfg);border:1px solid var(--addfg);border-radius:4px;padding:2px 6px;flex-shrink:0;margin-top:1px">✓ kept</span>
+            </li>
+
+            <!-- change 2 selected + expanded -->
+            <li style="background:var(--panel2);border:1px solid var(--accent);border-radius:var(--radius);padding:11px 12px;box-shadow:0 0 0 3px rgba(58,214,165,.1)">
+              <div style="display:flex;gap:10px;align-items:flex-start">
+                <span style="width:18px;height:18px;flex-shrink:0;border-radius:50%;background:var(--accent);color:var(--accentInk);font-family:var(--mono);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;margin-top:2px">2</span>
+                <span style="flex:1;font-family:var(--serif);font-size:14px;line-height:1.5"><span style="background:var(--addbg);color:var(--addfg);padding:0 2px;border-radius:3px">Cut p99 latency 38%</span> <span class="del" style="background:var(--delbg);color:var(--delfg);padding:0 2px;border-radius:3px">Improved database performance</span> by sharding the ledger service.</span>
+              </div>
+              <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:9px">
+                <p style="font-size:12px;line-height:1.5;color:var(--fg)"><span style="font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-right:6px">Why</span>JD leads with reliability &amp; latency SLOs; your original buried the metric.</p>
+                <div style="display:flex;align-items:center;gap:7px">
+                  <span style="font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Traces to</span>
+                  <span style="font-family:var(--mono);font-size:10px;color:var(--accent);border:1px solid var(--line);border-radius:4px;padding:1px 6px">experience[0].bullets[3]</span>
+                </div>
+                <div style="font-family:var(--serif);font-style:italic;font-size:12px;line-height:1.45;color:var(--muted)">"reduced p99 from 210ms to 130ms after sharding"</div>
+                <div style="display:flex;gap:7px;margin-top:2px">
+                  <span style="flex:1;text-align:center;font-size:11.5px;font-weight:600;color:var(--accentInk);background:var(--accent);border-radius:var(--radius);padding:7px 0">Accept</span>
+                  <span style="text-align:center;font-size:11.5px;color:var(--muted);border:1px solid var(--line);border-radius:var(--radius);padding:7px 18px">Reject</span>
+                </div>
+              </div>
+            </li>
+
+            <!-- change 3 accepted -->
+            <li style="display:flex;gap:10px;align-items:flex-start">
+              <span style="width:18px;height:18px;flex-shrink:0;border-radius:50%;background:var(--addbg);color:var(--addfg);font-family:var(--mono);font-size:10px;display:flex;align-items:center;justify-content:center;margin-top:2px">3</span>
+              <span style="flex:1;font-family:var(--serif);font-size:14px;line-height:1.5">Added <span style="background:var(--addbg);color:var(--addfg);padding:0 2px;border-radius:3px">Payments</span> and <span style="background:var(--addbg);color:var(--addfg);padding:0 2px;border-radius:3px">Distributed systems</span> to Skills.</span>
+              <span style="font-family:var(--mono);font-size:9px;color:var(--addfg);border:1px solid var(--addfg);border-radius:4px;padding:2px 6px;flex-shrink:0;margin-top:1px">✓ kept</span>
+            </li>
+
+            <!-- fabrication flagged -->
+            <li style="display:flex;gap:10px;align-items:flex-start;background:rgba(224,177,58,.06);border:1px solid rgba(224,177,58,.35);border-radius:var(--radius);padding:11px 12px">
+              <span style="width:18px;height:18px;flex-shrink:0;border-radius:50%;background:rgba(224,177,58,.14);color:var(--warn);font-family:var(--mono);font-size:11px;display:flex;align-items:center;justify-content:center;margin-top:1px">!</span>
+              <div style="flex:1">
+                <div style="font-family:var(--serif);font-size:14px;line-height:1.5;color:var(--faint);text-decoration:line-through;text-decoration-color:var(--warn)">Led a team of 8 engineers across two orgs.</div>
+                <p style="margin-top:6px;font-size:11px;line-height:1.5;color:var(--warn)"><b>Not added — no source.</b> The model proposed this; nothing in your resume supports it. hunt won't invent experience.</p>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- drag handle -->
+      <div style="width:1px;background:var(--line);position:relative;flex-shrink:0"><div style="position:absolute;top:50%;left:-2px;width:5px;height:34px;transform:translateY(-50%);border-radius:3px;background:var(--line)"></div></div>
+
+      <!-- RIGHT: live PDF -->
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#07090b">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-bottom:1px solid var(--line);background:var(--panel)">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-size:11.5px;color:var(--fg)">Jake's Resume <span style="color:var(--muted)">▾</span></span>
+            <span style="font-family:var(--mono);font-size:10.5px;color:var(--accent);display:flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block"></span>Diff overlay on</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:10.5px;color:var(--muted)">
+            <span>− 100% +</span>
+            <span>1 / 1</span>
+            <span style="color:var(--accent)">Live</span>
+          </div>
+        </div>
+
+        <div style="flex:1;overflow:hidden;padding:26px;display:flex;justify-content:center">
+          <!-- paper -->
+          <div style="width:100%;max-width:460px;background:#f6f4ee;color:#1b1b1a;border-radius:3px;box-shadow:0 12px 40px rgba(0,0,0,.5);padding:34px 40px;font-family:var(--serif)">
+            <div style="text-align:center;border-bottom:1.5px solid #1b1b1a;padding-bottom:12px">
+              <div style="font-size:23px;font-weight:600;letter-spacing:.02em">Alex Chen</div>
+              <div style="font-family:var(--mono);font-size:9.5px;color:#4a4a48;margin-top:6px">alex@chen.dev · San Francisco · github.com/alexchen</div>
+            </div>
+
+            <div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-top:18px;border-bottom:1px solid #999;padding-bottom:3px">Experience</div>
+
+            <div style="display:flex;justify-content:space-between;margin-top:11px">
+              <div style="font-size:13px;font-weight:600">Senior Software Engineer, Ramp</div>
+              <div style="font-family:var(--mono);font-size:9.5px;color:#4a4a48">2021 – Present</div>
+            </div>
+
+            <ul style="list-style:none;margin-top:7px;display:flex;flex-direction:column;gap:5px">
+              <li style="font-size:11.5px;line-height:1.45;padding-left:12px;position:relative"><span style="position:absolute;left:0;color:#777">•</span>Designed and shipped the ledger service backing all card transactions.</li>
+              <li style="font-size:11.5px;line-height:1.45;padding-left:12px;position:relative;border-left:2px solid #2f9e77;margin-left:-2px;background:rgba(58,214,165,.14)"><span style="position:absolute;left:6px;color:#777">•</span><span style="padding-left:6px">Built internal REST APIs powering the billing platform at scale.</span></li>
+              <li style="font-size:11.5px;line-height:1.45;padding-left:12px;position:relative;border-left:2px solid #2f9e77;margin-left:-2px;background:rgba(58,214,165,.14)"><span style="position:absolute;left:6px;color:#777">•</span><span style="padding-left:6px">Cut p99 latency 38% by sharding the ledger service.</span></li>
+              <li style="font-size:11.5px;line-height:1.45;padding-left:12px;position:relative"><span style="position:absolute;left:0;color:#777">•</span>Mentored two junior engineers through onboarding and code review.</li>
+            </ul>
+
+            <div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-top:16px;border-bottom:1px solid #999;padding-bottom:3px">Skills</div>
+            <p style="font-size:11px;line-height:1.5;margin-top:8px">Go · <span style="border-bottom:2px solid #2f9e77">Distributed systems</span> · PostgreSQL · <span style="border-bottom:2px solid #2f9e77">Payments</span> · gRPC · Kafka</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1280px;margin-top:26px;font-size:13px;line-height:1.6;color:#a3a7ad">
+    <b style="color:#c9cdd2">3a vs 2a:</b> the real rendered PDF is always on screen (Overleaf's reassurance), tailored lines are marked in the output with a green gutter, and the refused fabrication simply never appears in the document. The <b style="color:#c9cdd2">Structured</b> tab is the everyday editor; <b style="color:#c9cdd2">raw LaTeX</b> is the flagged escape hatch. This is the layout I'd carry into the resume editor and the version-vs-version diff too. If 3a is right, I lock it and start the deliverables.
+  </div>
+</section>
+
+<section style="padding:56px 56px 44px;border-bottom:1px solid #1c1e22">
+  <div style="max-width:1200px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#6f7378">Turn 2 · Merged direction</div>
+    <h1 style="font-family:'Newsreader',serif;font-weight:600;font-size:34px;letter-spacing:-.01em;margin-top:12px;color:#f4f5f7">The surface IS your resume — <span style="font-style:italic">2a</span></h1>
+    <p style="max-width:720px;margin-top:14px;font-size:15px;line-height:1.6;color:#a3a7ad">You liked 1c's cool palette, 1b's serif, and the honest copy — but the change-list didn't feel like editing your resume. So this reframes it: your resume is the working surface, proposed changes live <b style="color:#c9cdd2">in place</b> in the document, and one focused inspector handles the selected change. Serif (Newsreader) sets the document + headings; the app chrome stays quiet sans + mono.</p>
+  </div>
+
+  <div id="2a" style="--bg:#0a0d0f;--panel:#11161a;--panel2:#161d22;--line:#232c31;--fg:#e6edf0;--muted:#8b969d;--faint:#5a666d;--accent:#3ad6a5;--accentInk:#04120c;--addbg:#0f261e;--addfg:#6fdcb5;--delbg:#2a1618;--delfg:#e88a8f;--warn:#e0b13a;--radius:8px;--serif:'Newsreader',serif;--body:'Public Sans',sans-serif;--mono:'JetBrains Mono',monospace;width:1200px;margin-top:36px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:14px;overflow:hidden;font-family:var(--body);box-shadow:0 24px 60px rgba(0,0,0,.45)">
+
+    <!-- app top bar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel)">
+      <div style="display:flex;align-items:center;gap:22px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.7"><path d="M4 8 V4 H8"/><path d="M20 8 V4 H16"/><path d="M4 16 V20 H8"/><path d="M20 16 V20 H16"/><circle cx="12" cy="12" r="2.4" fill="var(--accent)" stroke="none"/></svg>
+          <span style="font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:-.01em">hunt</span>
+        </div>
+        <div style="font-family:var(--mono);font-size:11.5px;color:var(--muted)">Applications <span style="color:var(--faint)">/</span> Stripe — Senior Backend Engineer <span style="color:var(--faint)">/</span> <span style="color:var(--fg)">Tailor</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-family:var(--mono);font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:4px 8px">⌘K</span>
+        <span style="font-size:12px;font-weight:600;color:var(--accentInk);background:var(--accent);border-radius:var(--radius);padding:7px 14px">Accept all & save v4</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:stretch">
+      <!-- icon nav rail -->
+      <div style="width:54px;flex-shrink:0;border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0">
+        <div style="width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--muted)">◫</div>
+        <div style="width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--muted)">▤</div>
+        <div style="width:32px;height:32px;border-radius:7px;background:var(--panel2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--accent);box-shadow:inset 2px 0 0 var(--accent)">✎</div>
+        <div style="width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--muted)">◎</div>
+        <div style="width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--muted)">✉</div>
+        <div style="flex:1"></div>
+        <div style="width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;color:var(--faint)">⚙</div>
+      </div>
+
+      <!-- resume document surface -->
+      <div style="flex:1;min-width:0;padding:26px 30px;background:var(--bg)">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px">
+          <div style="font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)">Your resume · reviewing 7 proposed changes</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted)"><span style="color:var(--addfg)">5 accepted</span> · 1 pending · <span style="color:var(--warn)">1 flagged</span></div>
+        </div>
+
+        <!-- section -->
+        <div style="font-family:var(--serif);font-size:15px;font-weight:600;letter-spacing:.02em;color:var(--fg);border-bottom:1px solid var(--line);padding-bottom:7px;margin-bottom:16px">Experience</div>
+
+        <div style="margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <div style="font-family:var(--serif);font-size:15.5px;font-weight:600">Senior Software Engineer · Ramp</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--muted)">2021 — present</div>
+          </div>
+        </div>
+
+        <!-- bullets -->
+        <ul style="list-style:none;display:flex;flex-direction:column;gap:11px;margin-top:12px">
+          <li style="display:flex;gap:11px;font-family:var(--serif);font-size:14.5px;line-height:1.55;color:var(--fg)"><span style="color:var(--faint)">—</span><span>Designed and shipped the ledger service backing all card transactions.</span></li>
+
+          <li style="display:flex;gap:11px">
+            <span style="width:19px;height:19px;flex-shrink:0;border-radius:50%;background:var(--addbg);color:var(--addfg);font-family:var(--mono);font-size:10px;display:flex;align-items:center;justify-content:center;margin-top:2px">1</span>
+            <span style="font-family:var(--serif);font-size:14.5px;line-height:1.55">Built and maintained internal REST APIs <span class="del" style="background:var(--delbg);color:var(--delfg);padding:0 3px;border-radius:3px">used across the org.</span> <span style="background:var(--addbg);color:var(--addfg);padding:0 3px;border-radius:3px">powering the billing platform at scale.</span></span>
+          </li>
+
+          <!-- selected change -->
+          <li style="display:flex;gap:11px;background:var(--panel2);border:1px solid var(--accent);border-radius:var(--radius);padding:10px 12px;margin:-2px 0;box-shadow:0 0 0 3px rgba(58,214,165,.1)">
+            <span style="width:19px;height:19px;flex-shrink:0;border-radius:50%;background:var(--accent);color:var(--accentInk);font-family:var(--mono);font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;margin-top:2px">2</span>
+            <span style="font-family:var(--serif);font-size:14.5px;line-height:1.55"><span style="background:var(--addbg);color:var(--addfg);padding:0 3px;border-radius:3px">Cut p99 latency 38%</span> <span class="del" style="background:var(--delbg);color:var(--delfg);padding:0 3px;border-radius:3px">Improved database performance</span> by sharding the ledger service.</span>
+          </li>
+
+          <li style="display:flex;gap:11px;font-family:var(--serif);font-size:14.5px;line-height:1.55;color:var(--fg)"><span style="color:var(--faint)">—</span><span>Mentored two junior engineers through onboarding and code review.</span></li>
+
+          <!-- fabrication ghost -->
+          <li style="display:flex;gap:11px;align-items:flex-start">
+            <span style="width:19px;height:19px;flex-shrink:0;border-radius:50%;background:rgba(224,177,58,.14);color:var(--warn);font-family:var(--mono);font-size:11px;display:flex;align-items:center;justify-content:center;margin-top:2px">!</span>
+            <span style="font-family:var(--serif);font-size:14.5px;line-height:1.55;color:var(--faint);text-decoration:line-through;text-decoration-color:var(--warn)">Led a team of 8 engineers across two orgs.</span>
+          </li>
+        </ul>
+
+        <div style="font-family:var(--serif);font-size:15px;font-weight:600;letter-spacing:.02em;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:7px;margin-top:26px">Skills</div>
+        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:12px">
+          <span style="font-family:var(--mono);font-size:11.5px;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 9px">Go</span>
+          <span style="font-family:var(--mono);font-size:11.5px;color:var(--accentInk);background:var(--accent);border-radius:5px;padding:3px 9px">Distributed systems</span>
+          <span style="font-family:var(--mono);font-size:11.5px;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 9px">PostgreSQL</span>
+          <span style="font-family:var(--mono);font-size:11.5px;color:var(--accentInk);background:var(--accent);border-radius:5px;padding:3px 9px">Payments</span>
+          <span style="font-family:var(--mono);font-size:11.5px;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:3px 9px">gRPC</span>
+        </div>
+      </div>
+
+      <!-- change inspector -->
+      <div style="width:388px;flex-shrink:0;border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)">
+          <span style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">Change 2 of 7</span>
+          <div style="display:flex;gap:6px">
+            <span style="font-family:var(--mono);font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:6px;width:26px;height:24px;display:flex;align-items:center;justify-content:center">↑</span>
+            <span style="font-family:var(--mono);font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:6px;width:26px;height:24px;display:flex;align-items:center;justify-content:center">↓</span>
+          </div>
+        </div>
+
+        <div style="padding:18px;display:flex;flex-direction:column;gap:16px">
+          <div>
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--delfg);margin-bottom:5px">Was</div>
+            <div style="font-family:var(--serif);font-size:13.5px;line-height:1.5;color:var(--muted);border-left:2px solid var(--delfg);padding-left:10px">Improved database performance by sharding the ledger service.</div>
+          </div>
+          <div>
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--addfg);margin-bottom:5px">Now</div>
+            <div style="font-family:var(--serif);font-size:13.5px;line-height:1.5;color:var(--fg);border-left:2px solid var(--addfg);padding-left:10px">Cut p99 latency 38% by sharding the ledger service.</div>
+          </div>
+
+          <div style="background:var(--panel2);border:1px solid var(--line);border-radius:var(--radius);padding:12px 13px">
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:6px">Why this change</div>
+            <p style="font-size:12.5px;line-height:1.55;color:var(--fg)">The JD leads with reliability and latency SLOs. Your original buried the number — this surfaces the metric in the first clause.</p>
+          </div>
+
+          <div>
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Traces to your resume</div>
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px"><span style="font-family:var(--mono);font-size:10.5px;color:var(--accent);border:1px solid var(--line);border-radius:5px;padding:2px 7px">experience[0].bullets[3]</span></div>
+            <div style="font-family:var(--serif);font-style:italic;font-size:12.5px;line-height:1.5;color:var(--muted)">"reduced p99 from 210ms to 130ms after sharding"</div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:2px">
+            <span style="flex:1;text-align:center;font-size:12.5px;font-weight:600;color:var(--accentInk);background:var(--accent);border-radius:var(--radius);padding:9px 0">Accept change</span>
+            <span style="text-align:center;font-size:12.5px;color:var(--muted);border:1px solid var(--line);border-radius:var(--radius);padding:9px 16px">Reject</span>
+          </div>
+        </div>
+
+        <div style="margin-top:auto;padding:14px 18px;border-top:1px solid var(--line);background:rgba(224,177,58,.06)">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px"><span style="font-family:var(--mono);font-size:11px;color:var(--warn);font-weight:600">⚠ FLAGGED — no source</span></div>
+          <div style="font-family:var(--serif);font-size:13px;line-height:1.45;color:var(--muted);text-decoration:line-through;margin-bottom:6px">Led a team of 8 engineers across two orgs.</div>
+          <p style="font-size:11.5px;line-height:1.5;color:var(--warn)">The model tried to add this. Nothing in your resume supports it, so hunt did <b>not</b> apply it. Add it yourself only if it's true.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1200px;margin-top:26px;font-size:13px;line-height:1.6;color:#a3a7ad">
+    <b style="color:#c9cdd2">What changed from turn 1:</b> the diff isn't a separate list anymore — it's your resume with changes shown where they live, numbered pins tie each edit to the inspector on the right, and the flagged fabrication is pinned to a ghost line so you see exactly what was refused. Same idea powers the standalone version-vs-version diff and the resume editor's live view. If this reads right, I'll lock it and start the full deliverables.
+  </div>
+</section>
+
+<section style="padding:56px 56px 40px">
+  <div style="max-width:1180px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#6f7378">Turn 1 · Visual directions</div>
+    <h1 style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:34px;letter-spacing:-.02em;margin-top:12px;color:#f4f5f7">Three ways hunt could look and feel</h1>
+    <p style="max-width:680px;margin-top:14px;font-size:15px;line-height:1.6;color:#a3a7ad">Each direction shows the brand (wordmark, mark, palette, type) and the same hero screen — the tailoring diff — rendered in that world. All three are dark-default. Reference them in chat as <span style="font-family:'JetBrains Mono',monospace;color:#c9cdd2">1a</span>, <span style="font-family:'JetBrains Mono',monospace;color:#c9cdd2">1b</span>, <span style="font-family:'JetBrains Mono',monospace;color:#c9cdd2">1c</span>. They also carry three different levels of the "hunt" metaphor so you can react to that too.</p>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:28px;margin-top:44px;align-items:flex-start">
+
+    <!-- ============ 1a — SIGNAL ============ -->
+    <div id="1a" style="--bg:#0c0d0c;--panel:#14160f;--panel2:#191c14;--line:#2a2e22;--fg:#ece9df;--muted:#8f9482;--faint:#5f6455;--accent:#e2a336;--accentInk:#1a1205;--addbg:#152318;--addfg:#84d09b;--delbg:#2a1613;--delfg:#e78d83;--warn:#e0673a;--radius:4px;--display:'Space Grotesk',sans-serif;--body:'Space Grotesk',sans-serif;--mono:'JetBrains Mono',monospace;width:624px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:16px;overflow:hidden;font-family:var(--body)">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--panel)">
+        <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent);letter-spacing:.02em">1a</span>
+        <span style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)">Signal · precision optics</span>
+      </div>
+
+      <!-- brand block -->
+      <div style="padding:30px 30px 26px;border-bottom:1px solid var(--line)">
+        <div style="display:flex;align-items:center;gap:14px">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.6"><circle cx="12" cy="12" r="7.5"/><line x1="12" y1="0.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="23.5"/><line x1="0.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="23.5" y2="12"/><circle cx="12" cy="12" r="1.6" fill="var(--accent)" stroke="none"/></svg>
+          <span style="font-family:var(--display);font-weight:700;font-size:34px;letter-spacing:-.03em;color:var(--fg)">hunt</span>
+        </div>
+        <div style="font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:16px">the whole hunt, one machine.</div>
+        <div style="display:flex;gap:8px;margin-top:22px">
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--bg);border:1px solid var(--line)"></div>
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--panel2)"></div>
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--accent)"></div>
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--addfg)"></div>
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--warn)"></div>
+          <div style="flex:1"></div>
+          <div style="text-align:right;font-family:var(--mono);font-size:10.5px;line-height:1.7;color:var(--faint)">Space Grotesk<br>JetBrains Mono</div>
+        </div>
+      </div>
+
+      <!-- hero: tailoring diff -->
+      <div style="background:var(--bg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line)">
+          <div>
+            <div style="font-size:14px;font-weight:600">Tailoring — Senior Backend Engineer</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px">Stripe · base v3 → tailored</div>
+          </div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right">7 changes<br><span style="color:var(--addfg)">5 accepted</span> · <span style="color:var(--warn)">1 flagged</span></div>
+        </div>
+
+        <!-- row 1 accepted -->
+        <div style="display:flex;gap:12px;padding:15px 18px;border-bottom:1px solid var(--line)">
+          <div style="font-family:var(--mono);font-size:13px;color:var(--accent);padding-top:1px">~</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;line-height:1.55">Built and maintained internal REST APIs <span class="del" style="background:var(--delbg);color:var(--delfg);padding:0 3px;border-radius:2px">used across the org.</span> <span style="background:var(--addbg);color:var(--addfg);padding:0 3px;border-radius:2px">powering the billing platform at scale.</span></div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap">
+              <span style="font-size:11.5px;color:var(--muted)">Surfaces payments-domain relevance the JD asks for.</span>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--accent);border:1px solid var(--line);border-radius:3px;padding:1px 6px">↩ experience[1].summary</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--accentInk);background:var(--accent);border-radius:var(--radius);padding:4px 9px;font-weight:600;text-align:center">✓ kept</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:var(--radius);padding:4px 9px;text-align:center">undo</span>
+          </div>
+        </div>
+
+        <!-- row 2 pending -->
+        <div style="display:flex;gap:12px;padding:15px 18px;border-bottom:1px solid var(--line)">
+          <div style="font-family:var(--mono);font-size:13px;color:var(--accent);padding-top:1px">+</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;line-height:1.55"><span style="background:var(--addbg);color:var(--addfg);padding:0 3px;border-radius:2px">Cut p99 latency 38% by sharding the ledger service.</span></div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap">
+              <span style="font-size:11.5px;color:var(--muted)">Promotes a buried metric — JD leads with reliability.</span>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--accent);border:1px solid var(--line);border-radius:3px;padding:1px 6px">↩ experience[1].bullets[3]</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--accentInk);background:var(--accent);border-radius:var(--radius);padding:4px 9px;font-weight:600;text-align:center">accept</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:var(--radius);padding:4px 9px;text-align:center">reject</span>
+          </div>
+        </div>
+
+        <!-- fabrication warning -->
+        <div style="display:flex;gap:12px;padding:15px 18px;background:linear-gradient(0deg,rgba(224,103,58,.06),rgba(224,103,58,.06))">
+          <div style="font-family:var(--mono);font-size:13px;color:var(--warn);padding-top:1px">!</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;line-height:1.55;color:var(--muted)"><span style="text-decoration:line-through">Led a team of 8 engineers across two orgs.</span></div>
+            <div style="margin-top:9px;font-size:11.5px;color:var(--warn);font-weight:600">No source in your resume — not added. hunt won't invent experience.</div>
+          </div>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--warn);border:1px solid var(--warn);border-radius:var(--radius);padding:4px 9px;height:fit-content;flex-shrink:0">dismiss</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 1b — DOSSIER ============ -->
+    <div id="1b" style="--bg:#100d0c;--panel:#191312;--panel2:#211917;--line:#2f2523;--fg:#ece3d9;--muted:#a3908400;--muted:#a1897d;--faint:#6e5a51;--accent:#c2453f;--accentInk:#fbeeea;--addbg:#17251b;--addfg:#83cf98;--delbg:#2c1614;--delfg:#e59289;--warn:#d9873f;--radius:3px;--display:'Newsreader',serif;--body:'Public Sans',sans-serif;--mono:'JetBrains Mono',monospace;width:624px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:16px;overflow:hidden;font-family:var(--body)">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--panel)">
+        <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent);letter-spacing:.02em">1b</span>
+        <span style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)">Dossier · the case file</span>
+      </div>
+
+      <div style="padding:30px 30px 26px;border-bottom:1px solid var(--line)">
+        <div style="display:flex;align-items:center;gap:14px">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.4"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="var(--accent)" stroke="none"/></svg>
+          <span style="font-family:var(--display);font-weight:600;font-size:38px;letter-spacing:-.01em;color:var(--fg)">hunt</span>
+        </div>
+        <div style="font-family:var(--display);font-style:italic;font-size:16px;color:var(--muted);margin-top:16px">Your career, on the record.</div>
+        <div style="display:flex;gap:8px;margin-top:22px">
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--bg);border:1px solid var(--line)"></div>
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--panel2)"></div>
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--accent)"></div>
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--addfg)"></div>
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--warn)"></div>
+          <div style="flex:1"></div>
+          <div style="text-align:right;font-family:var(--mono);font-size:10.5px;line-height:1.7;color:var(--faint)">Newsreader<br>Public Sans</div>
+        </div>
+      </div>
+
+      <div style="background:var(--bg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line)">
+          <div>
+            <div style="font-family:var(--display);font-size:17px;font-weight:600">Tailoring — Senior Backend Engineer</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px">Stripe · base v3 → tailored</div>
+          </div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right">7 changes<br><span style="color:var(--addfg)">5 accepted</span> · <span style="color:var(--warn)">1 flagged</span></div>
+        </div>
+
+        <div style="display:flex;gap:12px;padding:15px 18px;border-bottom:1px solid var(--line)">
+          <div style="font-family:var(--mono);font-size:13px;color:var(--accent);padding-top:1px">~</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;line-height:1.55">Built and maintained internal REST APIs <span class="del" style="background:var(--delbg);color:var(--delfg);padding:0 3px;border-radius:2px">used across the org.</span> <span style="background:var(--addbg);color:var(--addfg);padding:0 3px;border-radius:2px">powering the billing platform at scale.</span></div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap">
+              <span style="font-size:11.5px;color:var(--muted)">Surfaces payments-domain relevance the JD asks for.</span>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--accent);border:1px solid var(--line);border-radius:3px;padding:1px 6px">↩ experience[1].summary</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--accentInk);background:var(--accent);border-radius:var(--radius);padding:4px 9px;font-weight:600;text-align:center">✓ kept</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:var(--radius);padding:4px 9px;text-align:center">undo</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;padding:15px 18px;border-bottom:1px solid var(--line)">
+          <div style="font-family:var(--mono);font-size:13px;color:var(--accent);padding-top:1px">+</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;line-height:1.55"><span style="background:var(--addbg);color:var(--addfg);padding:0 3px;border-radius:2px">Cut p99 latency 38% by sharding the ledger service.</span></div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap">
+              <span style="font-size:11.5px;color:var(--muted)">Promotes a buried metric — JD leads with reliability.</span>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--accent);border:1px solid var(--line);border-radius:3px;padding:1px 6px">↩ experience[1].bullets[3]</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--accentInk);background:var(--accent);border-radius:var(--radius);padding:4px 9px;font-weight:600;text-align:center">accept</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:var(--radius);padding:4px 9px;text-align:center">reject</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;padding:15px 18px;background:rgba(217,135,63,.06)">
+          <div style="font-family:var(--mono);font-size:13px;color:var(--warn);padding-top:1px">!</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;line-height:1.55;color:var(--muted)"><span style="text-decoration:line-through">Led a team of 8 engineers across two orgs.</span></div>
+            <div style="margin-top:9px;font-size:11.5px;color:var(--warn);font-weight:600">No source in your resume — not added. hunt won't invent experience.</div>
+          </div>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--warn);border:1px solid var(--warn);border-radius:var(--radius);padding:4px 9px;height:fit-content;flex-shrink:0">dismiss</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 1c — STEEL ============ -->
+    <div id="1c" style="--bg:#0a0d0f;--panel:#12171a;--panel2:#171e22;--line:#232c31;--fg:#e4ebee;--muted:#8090970;--muted:#8b969d;--faint:#5a666d;--accent:#3ad6a5;--accentInk:#04120c;--addbg:#0f261e;--addfg:#5fd6ad;--delbg:#2a1618;--delfg:#e88a8f;--warn:#e0b13a;--radius:8px;--display:'Archivo',sans-serif;--body:'Public Sans',sans-serif;--mono:'JetBrains Mono',monospace;width:624px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:16px;overflow:hidden;font-family:var(--body)">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--panel)">
+        <span style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent);letter-spacing:.02em">1c</span>
+        <span style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)">Steel · tactical HUD</span>
+      </div>
+
+      <div style="padding:30px 30px 26px;border-bottom:1px solid var(--line)">
+        <div style="display:flex;align-items:center;gap:14px">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.7"><path d="M4 8 V4 H8"/><path d="M20 8 V4 H16"/><path d="M4 16 V20 H8"/><path d="M20 16 V20 H16"/><circle cx="12" cy="12" r="2.4" fill="var(--accent)" stroke="none"/></svg>
+          <span style="font-family:var(--display);font-weight:800;font-size:34px;letter-spacing:-.03em;color:var(--fg)">hunt</span>
+        </div>
+        <div style="font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:16px;letter-spacing:.02em">track. tailor. close.</div>
+        <div style="display:flex;gap:8px;margin-top:22px">
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--bg);border:1px solid var(--line)"></div>
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--panel2)"></div>
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--accent)"></div>
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--delfg)"></div>
+          <div style="width:34px;height:34px;border-radius:6px;background:var(--warn)"></div>
+          <div style="flex:1"></div>
+          <div style="text-align:right;font-family:var(--mono);font-size:10.5px;line-height:1.7;color:var(--faint)">Archivo<br>Public Sans</div>
+        </div>
+      </div>
+
+      <div style="background:var(--bg)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line)">
+          <div>
+            <div style="font-size:14px;font-weight:600">Tailoring — Senior Backend Engineer</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px">Stripe · base v3 → tailored</div>
+          </div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right">7 changes<br><span style="color:var(--addfg)">5 accepted</span> · <span style="color:var(--warn)">1 flagged</span></div>
+        </div>
+
+        <div style="display:flex;gap:12px;padding:15px 18px;border-bottom:1px solid var(--line)">
+          <div style="font-family:var(--mono);font-size:13px;color:var(--accent);padding-top:1px">~</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;line-height:1.55">Built and maintained internal REST APIs <span class="del" style="background:var(--delbg);color:var(--delfg);padding:0 3px;border-radius:3px">used across the org.</span> <span style="background:var(--addbg);color:var(--addfg);padding:0 3px;border-radius:3px">powering the billing platform at scale.</span></div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap">
+              <span style="font-size:11.5px;color:var(--muted)">Surfaces payments-domain relevance the JD asks for.</span>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--accent);border:1px solid var(--line);border-radius:5px;padding:1px 6px">↩ experience[1].summary</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--accentInk);background:var(--accent);border-radius:var(--radius);padding:4px 9px;font-weight:600;text-align:center">✓ kept</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:var(--radius);padding:4px 9px;text-align:center">undo</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;padding:15px 18px;border-bottom:1px solid var(--line)">
+          <div style="font-family:var(--mono);font-size:13px;color:var(--accent);padding-top:1px">+</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;line-height:1.55"><span style="background:var(--addbg);color:var(--addfg);padding:0 3px;border-radius:3px">Cut p99 latency 38% by sharding the ledger service.</span></div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:9px;flex-wrap:wrap">
+              <span style="font-size:11.5px;color:var(--muted)">Promotes a buried metric — JD leads with reliability.</span>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--accent);border:1px solid var(--line);border-radius:5px;padding:1px 6px">↩ experience[1].bullets[3]</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--accentInk);background:var(--accent);border-radius:var(--radius);padding:4px 9px;font-weight:600;text-align:center">accept</span>
+            <span style="font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:var(--radius);padding:4px 9px;text-align:center">reject</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;padding:15px 18px;background:rgba(224,177,58,.06)">
+          <div style="font-family:var(--mono);font-size:13px;color:var(--warn);padding-top:1px">!</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;line-height:1.55;color:var(--muted)"><span style="text-decoration:line-through">Led a team of 8 engineers across two orgs.</span></div>
+            <div style="margin-top:9px;font-size:11.5px;color:var(--warn);font-weight:600">No source in your resume — not added. hunt won't invent experience.</div>
+          </div>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--warn);border:1px solid var(--warn);border-radius:var(--radius);padding:4px 9px;height:fit-content;flex-shrink:0">dismiss</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="max-width:1180px;margin-top:40px;display:flex;flex-wrap:wrap;gap:24px">
+    <div style="flex:1;min-width:300px;border-top:2px solid #e2a336;padding-top:14px">
+      <div style="font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;color:#f4f5f7">1a · Signal</div>
+      <p style="font-size:13px;line-height:1.6;color:#a3a7ad;margin-top:8px">Warm charcoal + a single amber signal, mono-inflected. A precision instrument — the crosshair mark, terminal cadence. <b style="color:#c9cdd2">Metaphor: subtle</b> (optics, not gore). Most "technical launch" and most distinctive against Linear.</p>
+    </div>
+    <div style="flex:1;min-width:300px;border-top:2px solid #c2453f;padding-top:14px">
+      <div style="font-family:'Newsreader',serif;font-weight:600;font-size:16px;color:#f4f5f7">1b · Dossier</div>
+      <p style="font-size:13px;line-height:1.6;color:#a3a7ad;margin-top:8px">Ink-and-paper warmth, a serif wordmark, oxblood accent. Feels like a career strategist's case file — trustworthy, considered. <b style="color:#c9cdd2">Metaphor: medium</b> ("on the record", the target mark). Best for the non-technical trust angle.</p>
+    </div>
+    <div style="flex:1;min-width:300px;border-top:2px solid #3ad6a5;padding-top:14px">
+      <div style="font-family:'Archivo',sans-serif;font-weight:700;font-size:15px;color:#f4f5f7">1c · Steel</div>
+      <p style="font-size:13px;line-height:1.6;color:#a3a7ad;margin-top:8px">Cool graphite + sharp mint, rounded geometry, HUD lock-brackets. Modern, calm, capable. <b style="color:#c9cdd2">Metaphor: heavy</b> ("track. tailor. close.", the reticle). Closest to a polished dev tool; risks reading a touch familiar.</p>
+    </div>
+  </div>
+</section>
+</x-dc>
+</body>
+</html>

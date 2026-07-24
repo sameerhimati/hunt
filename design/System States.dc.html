@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#07090b;font-family:'Public Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}a:hover{opacity:.85}
+</style>
+</helmet>
+
+<div style="--bg:#0a0d0f;--card:#11161a;--s2:#161d22;--line:#232c31;--fg:#e6edf0;--muted:#8b969d;--faint:#5a666d;--accent:#3ad6a5;--accentInk:#04120c;--add:#6fdcb5;--del:#e88a8f;--warn:#e0b13a;--serif:'Newsreader',serif;--body:'Public Sans',sans-serif;--mono:'JetBrains Mono',monospace;width:1200px;margin:0 auto;padding:40px 32px 60px;background:#07090b;color:var(--fg);font-family:var(--body)">
+
+  <h1 style="font-family:var(--serif);font-size:26px;font-weight:600;letter-spacing:-.01em">System states</h1>
+  <p style="font-size:14px;color:var(--muted);margin-top:8px;max-width:640px;line-height:1.6">Every screen designs for four states. Populated is shown in the individual mockups; here are the other three patterns — <b style="color:var(--fg)">empty</b>, <b style="color:var(--fg)">key-missing / degraded</b>, and <b style="color:var(--fg)">error</b>. Rule: never hide a gated feature, always name the exact fix, never show a raw stack.</p>
+
+  <!-- EMPTY -->
+  <div style="margin-top:32px">
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:12px">01 · Empty / first-run</div>
+    <div style="background:var(--bg);border:1px solid var(--line);border-radius:14px;overflow:hidden">
+      <div style="height:46px;border-bottom:1px solid var(--line);background:var(--card);display:flex;align-items:center;padding:0 18px;gap:12px"><span style="font-family:var(--serif);font-size:16px;font-weight:600">Pipeline</span><span style="font-family:var(--mono);font-size:11px;color:var(--faint)">0 applications</span></div>
+      <div style="height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" stroke-width="1.4"><path d="M4 8 V4 H8"/><path d="M20 8 V4 H16"/><path d="M4 16 V20 H8"/><path d="M20 16 V20 H16"/><circle cx="12" cy="12" r="2.4" fill="var(--faint)" stroke="none"/></svg>
+        <div style="font-family:var(--serif);font-size:19px;font-weight:600;margin-top:16px">Nothing in your sights yet</div>
+        <p style="font-size:13px;color:var(--muted);margin-top:7px;max-width:360px;line-height:1.55">Paste a job URL or search the boards to add your first application. Everything after that — tailoring, checks, outreach — flows from here.</p>
+        <div style="display:flex;gap:10px;margin-top:18px"><span style="font-size:13px;font-weight:600;color:var(--accentInk);background:var(--accent);border-radius:9px;padding:10px 18px">Paste a job URL</span><span style="font-size:13px;color:var(--fg);border:1px solid var(--line);border-radius:9px;padding:10px 18px">Search jobs</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEGRADED -->
+  <div style="margin-top:32px">
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--warn);margin-bottom:12px">02 · Key-missing / degraded</div>
+    <div style="background:var(--bg);border:1px solid var(--line);border-radius:14px;overflow:hidden">
+      <div style="height:46px;border-bottom:1px solid var(--line);background:var(--card);display:flex;align-items:center;padding:0 18px"><span style="font-family:var(--serif);font-size:16px;font-weight:600">Sourcing</span></div>
+      <div style="padding:18px">
+        <div style="background:rgba(224,177,58,.07);border:1px solid rgba(224,177,58,.3);border-radius:11px;padding:15px 17px;display:flex;align-items:center;gap:14px">
+          <span style="color:var(--warn);font-size:16px">⚠</span>
+          <div style="flex:1"><div style="font-size:13.5px;font-weight:600">Sourcing needs a job-search API key</div><p style="font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.5">Add <b style="color:var(--fg)">JSearch</b> or <b style="color:var(--fg)">Adzuna</b> in Settings to search the boards. You can still add jobs any time by pasting a URL.</p></div>
+          <div style="display:flex;gap:9px;flex-shrink:0"><span style="font-size:12px;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 13px">Paste a URL</span><span style="font-size:12px;font-weight:600;color:var(--accentInk);background:var(--warn);border-radius:8px;padding:8px 13px">Open Settings →</span></div>
+        </div>
+        <!-- dimmed search UI -->
+        <div style="margin-top:16px;opacity:.4;pointer-events:none;filter:grayscale(.3)">
+          <div style="display:flex;gap:9px"><div style="flex:2;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:11px 13px;font-size:13px;color:var(--faint)">keyword…</div><div style="flex:1;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:11px 13px;font-size:13px;color:var(--faint)">location…</div><span style="font-size:13px;color:var(--faint);background:var(--s2);border-radius:9px;padding:11px 20px">Search</span></div>
+          <div style="height:60px;background:var(--card);border:1px solid var(--line);border-radius:11px;margin-top:12px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ERROR -->
+  <div style="margin-top:32px">
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--del);margin-bottom:12px">03 · Error (specific &amp; recoverable)</div>
+    <div style="background:var(--bg);border:1px solid var(--line);border-radius:14px;overflow:hidden">
+      <div style="height:46px;border-bottom:1px solid var(--line);background:var(--card);display:flex;align-items:center;padding:0 18px"><span style="font-family:var(--mono);font-size:11.5px;color:var(--muted)">Pipeline / <span style="color:var(--fg)">New application</span></span></div>
+      <div style="padding:22px;display:flex;justify-content:center">
+        <div style="width:560px">
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:11px;padding:16px;display:flex;align-items:center;gap:10px"><span style="font-family:var(--mono);color:var(--muted)">⌕</span><span style="font-size:13px;color:var(--fg)">https://boards.greenhouse.io/acme/jobs/5521</span></div>
+          <div style="background:rgba(232,138,143,.07);border:1px solid rgba(232,138,143,.3);border-radius:11px;padding:15px 17px;margin-top:12px;display:flex;gap:13px">
+            <span style="color:var(--del);font-size:15px">✕</span>
+            <div style="flex:1"><div style="font-size:13.5px;font-weight:600;color:var(--fg)">Couldn't scrape that URL</div><p style="font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.55">Firecrawl returned <span style="font-family:var(--mono);color:var(--del)">402 — over plan limit</span>. Your key works; you've hit this month's page quota. Check your Firecrawl plan, or enter the job by hand.</p>
+              <div style="display:flex;gap:9px;margin-top:12px"><span style="font-size:12px;font-weight:600;color:var(--accentInk);background:var(--accent);border-radius:8px;padding:7px 13px">Retry</span><span style="font-size:12px;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:7px 13px">Enter manually</span><span style="font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:7px 13px">Firecrawl settings</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

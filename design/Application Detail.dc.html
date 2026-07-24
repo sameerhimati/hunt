@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#05070a;font-family:'Public Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}a:hover{opacity:.85}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#232c31;border-radius:6px;border:2px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+
+<div style="--bg:#0a0d0f;--card:#11161a;--s2:#161d22;--line:#232c31;--fg:#e6edf0;--muted:#8b969d;--faint:#5a666d;--accent:#3ad6a5;--accentInk:#04120c;--add:#6fdcb5;--del:#e88a8f;--warn:#e0b13a;--serif:'Newsreader',serif;--body:'Public Sans',sans-serif;--mono:'JetBrains Mono',monospace;width:1440px;height:920px;display:flex;background:var(--bg);color:var(--fg);font-family:var(--body);overflow:hidden;border:1px solid var(--line)">
+
+  <!-- rail -->
+  <aside style="width:54px;flex-shrink:0;background:var(--card);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 0">
+    <div style="margin-bottom:10px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.7"><path d="M4 8 V4 H8"/><path d="M20 8 V4 H16"/><path d="M4 16 V20 H8"/><path d="M20 16 V20 H16"/><circle cx="12" cy="12" r="2.4" fill="var(--accent)" stroke="none"/></svg></div>
+    <div style="width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;color:var(--muted)">◫</div>
+    <div style="width:34px;height:34px;border-radius:8px;background:var(--s2);box-shadow:inset 2px 0 0 var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;color:var(--accent)">▦</div>
+    <div style="width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;color:var(--muted)">◎</div>
+    <div style="width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;color:var(--muted)">▤</div>
+    <div style="width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;color:var(--muted)">✉</div>
+    <div style="flex:1"></div>
+    <div style="width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;color:var(--faint)">⚙</div>
+  </aside>
+
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">
+    <div style="height:56px;flex-shrink:0;border-bottom:1px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:space-between;padding:0 24px">
+      <span style="font-family:var(--mono);font-size:11.5px;color:var(--muted)">Pipeline <span style="color:var(--faint)">/</span> <span style="color:var(--fg)">Stripe — Senior Backend Engineer</span></span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:7px;padding:6px 9px">⌘K</span>
+        <span style="font-size:12px;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:7px 13px">Find contacts</span>
+        <span style="font-size:12.5px;font-weight:600;color:var(--accentInk);background:var(--accent);border-radius:8px;padding:8px 15px">Tailor résumé</span>
+      </div>
+    </div>
+
+    <div style="flex:1;overflow-y:auto;padding:24px">
+      <!-- header -->
+      <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:22px">
+        <div style="width:52px;height:52px;border-radius:12px;background:var(--s2);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:24px;flex-shrink:0">S</div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:10px"><h1 style="font-family:var(--serif);font-size:24px;font-weight:600;letter-spacing:-.01em">Senior Backend Engineer</h1><span style="font-size:11px;font-weight:600;color:#a9bfe0;background:rgba(124,140,201,.15);border-radius:6px;padding:3px 9px">Applied</span></div>
+          <div style="font-size:13px;color:var(--muted);margin-top:5px">Stripe · San Francisco / Remote · <span style="font-family:var(--mono);font-size:11.5px">$220k–260k</span> · <span style="color:var(--faint)">from paste · scraped 4d ago</span></div>
+        </div>
+        <span style="font-size:11px;font-weight:600;color:var(--add);background:rgba(111,220,181,.12);border-radius:6px;padding:5px 11px">Strong fit</span>
+      </div>
+
+      <!-- two col -->
+      <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:20px;align-items:start">
+        <!-- LEFT -->
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <!-- checks -->
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)">
+              <div style="display:flex;align-items:center;gap:9px"><span style="font-family:var(--serif);font-size:16px;font-weight:600">Checks</span><span style="font-family:var(--mono);font-size:10px;color:var(--faint)">on résumé v4</span></div>
+              <span style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">no fake ATS score — by design</span>
+            </div>
+
+            <!-- parse fidelity expanded -->
+            <div style="padding:14px 18px;border-bottom:1px solid var(--line)">
+              <div style="display:flex;align-items:center;gap:11px">
+                <span style="width:9px;height:9px;border-radius:50%;background:var(--warn);flex-shrink:0"></span>
+                <span style="flex:1;font-size:13.5px;font-weight:600">Parse fidelity</span>
+                <span style="font-family:var(--mono);font-size:12px;color:var(--warn)">2 of 14 fields dropped</span>
+                <span style="color:var(--faint);font-size:12px">▲</span>
+              </div>
+              <div style="margin-top:11px;padding-left:20px;display:flex;flex-direction:column;gap:8px">
+                <p style="font-size:12px;line-height:1.5;color:var(--muted)">We rendered your PDF, ran it back through an open-source ATS parser, and compared to your data. Two fields didn't survive:</p>
+                <div style="display:flex;align-items:center;gap:9px;font-size:12px"><span style="width:5px;height:5px;border-radius:50%;background:var(--warn)"></span><span>Dates on the <b>Ramp</b> role parsed as one blob — split lines or use an en-dash.</span></div>
+                <div style="display:flex;align-items:center;gap:9px;font-size:12px"><span style="width:5px;height:5px;border-radius:50%;background:var(--warn)"></span><span>The <b>GitHub</b> link parsed as plain text — the template isn't exporting it as a URL.</span></div>
+                <span style="font-size:11.5px;color:var(--accent);margin-top:2px">Open the two flagged fields →</span>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:11px;padding:13px 18px;border-bottom:1px solid var(--line)">
+              <span style="width:9px;height:9px;border-radius:50%;background:var(--add);flex-shrink:0"></span>
+              <span style="flex:1;font-size:13.5px;font-weight:600">Keyword coverage <span style="font-weight:400;color:var(--muted);font-size:12px">vs JD</span></span>
+              <span style="font-family:var(--mono);font-size:12px;color:var(--add)">18 / 22 terms</span>
+              <span style="color:var(--faint);font-size:12px">▾</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:11px;padding:13px 18px;border-bottom:1px solid var(--line)">
+              <span style="width:9px;height:9px;border-radius:50%;background:var(--add);flex-shrink:0"></span>
+              <span style="flex:1;font-size:13.5px;font-weight:600">Format lint</span>
+              <span style="font-family:var(--mono);font-size:12px;color:var(--muted)">clean</span>
+              <span style="color:var(--faint);font-size:12px">▾</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:11px;padding:13px 18px">
+              <span style="width:9px;height:9px;border-radius:50%;background:var(--warn);flex-shrink:0"></span>
+              <span style="flex:1;font-size:13.5px;font-weight:600">AI-tell audit</span>
+              <span style="font-family:var(--mono);font-size:12px;color:var(--warn)">1 phrase flagged</span>
+              <span style="color:var(--faint);font-size:12px">▾</span>
+            </div>
+          </div>
+
+          <!-- JD -->
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px"><span style="font-family:var(--serif);font-size:16px;font-weight:600">Job description</span><span style="font-family:var(--mono);font-size:10.5px;color:var(--muted)">stripe.com/jobs · full ↗</span></div>
+            <p style="font-size:12.5px;line-height:1.65;color:var(--muted)">We're looking for a senior backend engineer to own the reliability and latency of our payments ledger. You'll design distributed services in Go, drive down p99 across the critical path, and mentor a growing team. Experience with high-throughput <span style="color:var(--fg);background:var(--s2);border-radius:3px;padding:0 3px">payment systems</span>, <span style="color:var(--fg);background:var(--s2);border-radius:3px;padding:0 3px">PostgreSQL</span> at scale, and <span style="color:var(--fg);background:var(--s2);border-radius:3px;padding:0 3px">gRPC</span> strongly preferred…</p>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)"><b style="color:var(--fg)">About Stripe</b> — Payments infrastructure for the internet. 8,000+ employees, Series I.</div>
+          </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <!-- pinned resume -->
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px">
+            <div style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:11px">Pinned résumé</div>
+            <div style="display:flex;align-items:center;gap:11px">
+              <div style="width:38px;height:48px;border-radius:4px;background:#f6f4ee;flex-shrink:0"></div>
+              <div style="flex:1"><div style="font-size:13.5px;font-weight:600">Alex Chen — Stripe</div><div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-top:2px">v4 · tailored from base</div></div>
+            </div>
+            <div style="display:flex;gap:7px;margin-top:13px"><span style="flex:1;text-align:center;font-size:12px;font-weight:600;color:var(--accentInk);background:var(--accent);border-radius:8px;padding:7px 0">Open</span><span style="flex:1;text-align:center;font-size:12px;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:7px 0">Re-tailor</span></div>
+          </div>
+
+          <!-- contacts -->
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)"><span style="font-family:var(--serif);font-size:15px;font-weight:600">Contacts</span><span style="font-family:var(--mono);font-size:10px;color:var(--faint)">via Apollo</span></div>
+            <div style="display:flex;align-items:center;gap:11px;padding:12px 18px;border-bottom:1px solid var(--line)">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">DR</div>
+              <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">Dana Reyes</div><div style="font-size:11.5px;color:var(--muted)">Technical Recruiter</div></div>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--add)">✉ found</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:11px;padding:12px 18px">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0">MK</div>
+              <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">Marcus Koh</div><div style="font-size:11.5px;color:var(--muted)">Eng Manager, Payments</div></div>
+              <span style="font-family:var(--mono);font-size:10px;color:var(--faint)">no email</span>
+            </div>
+          </div>
+
+          <!-- outreach timeline -->
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px">
+            <div style="font-family:var(--serif);font-size:15px;font-weight:600;margin-bottom:13px">Outreach</div>
+            <div style="display:flex;gap:12px;padding-bottom:12px">
+              <div style="display:flex;flex-direction:column;align-items:center"><span style="width:9px;height:9px;border-radius:50%;background:var(--add)"></span><span style="width:1px;flex:1;background:var(--line)"></span></div>
+              <div style="flex:1"><div style="font-size:12.5px;font-weight:600">Step 1 · Intro to Dana</div><div style="font-family:var(--mono);font-size:10.5px;color:var(--add);margin-top:2px">sent · 4d ago</div></div>
+            </div>
+            <div style="display:flex;gap:12px"><div style="display:flex;flex-direction:column;align-items:center"><span style="width:9px;height:9px;border-radius:50%;background:var(--warn)"></span></div>
+              <div style="flex:1"><div style="font-size:12.5px;font-weight:600">Step 2 · Follow-up</div><div style="font-family:var(--mono);font-size:10.5px;color:var(--warn);margin-top:2px">due today</div></div>
+              <span style="font-size:11px;font-weight:600;color:var(--accentInk);background:var(--accent);border-radius:7px;padding:5px 11px;height:fit-content">Send</span>
+            </div>
+          </div>
+
+          <!-- status history -->
+          <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px">
+            <div style="font-family:var(--serif);font-size:15px;font-weight:600;margin-bottom:11px">History</div>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:11.5px;color:var(--muted)">
+              <div style="display:flex;justify-content:space-between"><span>Applied</span><span style="font-family:var(--mono);color:var(--faint)">4d ago</span></div>
+              <div style="display:flex;justify-content:space-between"><span>Tailored v4</span><span style="font-family:var(--mono);color:var(--faint)">4d ago</span></div>
+              <div style="display:flex;justify-content:space-between"><span>Sourced from paste</span><span style="font-family:var(--mono);color:var(--faint)">5d ago</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+</body>
+</html>
