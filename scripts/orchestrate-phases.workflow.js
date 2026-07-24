@@ -21,10 +21,20 @@ const MAX_FIX = (args && args.maxFixAttempts) || 8
 const ROOT = '/Users/sameer/Code/hunt'
 const BRANCH = `wave-${WAVE}`
 
+// Matches .nvmrc (22) and package.json engines (>=22). Update if the installed
+// v22 patch changes; `nvm which 22` prints the current path.
+const NODE_BIN = '/Users/sameer/.nvm/versions/node/v22.16.0/bin'
+
 const RULES = [
   `Repo root: ${ROOT}. PHASE-PLAN.md is the execution contract; AGENTS.md guardrails apply verbatim.`,
   'Gate files under gates/ are read-only everywhere. Never merge to main. Never push. Never touch ./data.',
   'pnpm 10 via corepack on Node 22. Lockfile conflicts are resolved by re-running "pnpm install", never hand-merged.',
+  // Non-interactive tool shells do not source nvm and land on whatever node the
+  // parent process PATH froze in (v20 as of this writing). better-sqlite3 has no
+  // prebuild for the Node 20 ABI, so it silently falls back to a ~2min source
+  // build and then mismatches at runtime. Pin the interpreter per command.
+  `EVERY shell command MUST start with 'export PATH="${NODE_BIN}:$PATH"' so node resolves to 22.`,
+  `Non-interactive shells do NOT source nvm and default to Node 20, which breaks better-sqlite3. Verify with "node -v" (expect v22.x) before the first "pnpm install" in any new worktree; if it reports v20, fix PATH before continuing rather than proceeding.`,
 ].join(' ')
 
 const OK_SCHEMA = {

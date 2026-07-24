@@ -27,6 +27,9 @@ const CTX = [
   'and the specific *.dc.html mockups for the screens this phase touches (design is GROUND TRUTH).',
   'This is a MODIFIED Next.js — read node_modules/next/dist/docs/ before using any Next API; heed deprecations.',
   'Conventions: pnpm 10; "pnpm verify" = typecheck+lint+test+build and MUST stay green (it is the verifier).',
+  // Non-interactive shells skip nvm and land on Node 20, which has no
+  // better-sqlite3 prebuild — a silent 2min source build that then ABI-mismatches.
+  'EVERY shell command MUST start with \'export PATH="/Users/sameer/.nvm/versions/node/v22.16.0/bin:$PATH"\' so node resolves to 22; non-interactive shells otherwise default to Node 20 and break better-sqlite3. Check "node -v" (expect v22.x) before any pnpm command.',
   'Every adapter (lib/adapters/*) ships a fixture-backed Fake* twin; tests/e2e run on fakes, live APIs behind env flags.',
   'Honest-AI invariant: no fake ATS scores; tailoring edits must cite source-resume paths (validator-enforced, not prompt-vibes).',
   'Keys are encrypted at rest in ./data and NEVER logged or committed; /data and .env* are gitignored.',
