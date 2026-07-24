@@ -103,9 +103,11 @@ describe('provider status', () => {
 
   it('summarises configured vs missing for the topbar', () => {
     const summary = summarise([
-      { id: 'a', status: 'configured', fields: [] },
-      { id: 'b', status: 'missing', fields: [] },
-      { id: 'c', status: 'not-set', fields: [] },
+      { id: 'a', ship: 'live', status: 'configured', fields: [] },
+      { id: 'b', ship: 'live', status: 'missing', fields: [] },
+      { id: 'c', ship: 'live', status: 'not-set', fields: [] },
+      // Stubs are not work the user can do, so they don't appear in either count.
+      { id: 'd', ship: 'stub', status: 'not-set', fields: [] },
     ])
     expect(summary).toEqual({ configured: 1, missing: 2 })
   })

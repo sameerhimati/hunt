@@ -7,7 +7,7 @@ import type { ConnectionTestResult } from '@/lib/adapters/types'
 import { AnthropicProvider } from '@/lib/llm/providers/anthropic'
 import { OpenAiCompatProvider } from '@/lib/llm/providers/openai-compat'
 import type { ModelInfo } from '@/lib/llm/types'
-import { getProvider, settingKey } from '@/lib/providers/registry'
+import { errorKey, getProvider, settingKey } from '@/lib/providers/registry'
 import { resolveSecret } from '@/lib/providers/status'
 import { deleteSetting, readSetting, writeSetting } from '@/lib/settings/store'
 
@@ -46,7 +46,7 @@ export async function saveProvider(providerId: string, formData: FormData): Prom
   }
 
   // A successful save invalidates any recorded failure.
-  await deleteSetting(`provider.${providerId}.lastError`)
+  await deleteSetting(errorKey(providerId))
   revalidatePath('/settings')
 
   return {
@@ -63,7 +63,7 @@ export async function clearProvider(providerId: string): Promise<SaveResult> {
   for (const field of meta.fields) {
     await deleteSetting(settingKey(providerId, field.key))
   }
-  await deleteSetting(`provider.${providerId}.lastError`)
+  await deleteSetting(errorKey(providerId))
   revalidatePath('/settings')
 
   return { ok: true, message: `${meta.name} key removed.` }
@@ -85,9 +85,9 @@ export async function testProviderConnection(providerId: string): Promise<Connec
 
   // Remember failures so the card can show an error state on next page load.
   if (result.ok) {
-    await deleteSetting(`provider.${providerId}.lastError`)
+    await deleteSetting(errorKey(providerId))
   } else {
-    await writeSetting({ key: `provider.${providerId}.lastError`, value: result.detail })
+    await writeSetting({ key: errorKey(providerId), value: result.detail })
   }
   revalidatePath('/settings')
 

@@ -10,7 +10,7 @@ import { BrightDataScrapeAdapter } from './scrape/brightdata'
 import { FirecrawlAdapter } from './scrape/firecrawl'
 import type { Adapter } from './types'
 
-import { getProvider } from '@/lib/providers/registry'
+import { getProvider, settingKey } from '@/lib/providers/registry'
 import { resolveSecret } from '@/lib/providers/status'
 import { readSetting } from '@/lib/settings/store'
 
@@ -24,7 +24,7 @@ export async function createAdapter(providerId: string): Promise<Adapter | null>
   if (!meta) return null
 
   const secret = (field: string) => resolveSecret(meta, field)
-  const plain = (field: string) => readSetting(`provider.${providerId}.${field}`)
+  const plain = (field: string) => readSetting(settingKey(providerId, field))
 
   switch (providerId) {
     case 'firecrawl': {

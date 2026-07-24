@@ -21,11 +21,27 @@ Job hunting today means Overleaf for the resume, a spreadsheet for tracking, Lin
 
 ## Status
 
-Pre-alpha, building in public. The full plan — architecture, data model, phased milestones — is in [PLAN.md](PLAN.md). Nothing is usable yet; watch the repo if you want to follow along.
+Pre-alpha, building in public. The full plan — architecture, data model, phased milestones — is in [PLAN.md](PLAN.md).
+
+**Phase 0 is done:** the app runs, and Settings stores your API keys encrypted on disk. The features above land in Phases 1–8, so there is nothing to job-hunt with yet — watch the repo if you want to follow along.
 
 ## Stack
 
 Next.js / TypeScript / Tailwind / SQLite + Prisma / Tectonic (LaTeX → PDF). Ships as Docker compose or a local dev server.
+
+## Running it
+
+```sh
+docker compose up
+```
+
+Then open <http://localhost:3000> and add your keys under Settings. The image
+bundles Tectonic, so there is no TeX install to do, and the database builds
+itself on first boot — there is no migrate step.
+
+Everything hunt stores lives in `./data`: the SQLite database and the secret
+that encrypts your API keys. Back up that directory and you have backed up
+hunt. Delete it and you are back to a clean install.
 
 ## Development
 
@@ -34,7 +50,12 @@ pnpm install
 pnpm dev
 ```
 
-Docker setup and a real getting-started guide land with Phase 0.
+`pnpm verify` (typecheck + lint + tests + build) is the gate every change has to
+pass; `pnpm e2e` drives the Playwright suite against a production build. Tests
+run entirely on fixture-backed fake adapters — no keys, no network.
+
+Keys can also come from the environment (`ANTHROPIC_API_KEY`, `FIRECRAWL_API_KEY`,
+and friends) during development; anything saved in Settings takes precedence.
 
 ## License
 

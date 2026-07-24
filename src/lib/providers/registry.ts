@@ -54,6 +54,14 @@ export function settingKey(providerId: string, fieldKey: string): string {
   return `provider.${providerId}.${fieldKey}`
 }
 
+/**
+ * Where a failed connection test is remembered. Namespaced alongside the
+ * provider's fields, but not one of them — it's recorded by hunt, not entered.
+ */
+export function errorKey(providerId: string): string {
+  return `provider.${providerId}.lastError`
+}
+
 /** The fields that must be filled for a provider to count as configured. */
 export function requiredFields(meta: ProviderMeta): ProviderField[] {
   return meta.fields.filter((field) => !field.optional)

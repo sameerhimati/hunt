@@ -1,7 +1,7 @@
-import { readMasked, readSetting } from '@/lib/settings/store'
+import { readAllMasked, readSetting } from '@/lib/settings/store'
 
-import { getProvider, PROVIDERS, requiredFields, settingKey } from './registry'
-import type { ProviderMeta, ProviderStatus } from './types'
+import { errorKey, PROVIDERS, requiredFields, settingKey } from './registry'
+import type { ProviderMeta, ProviderShipStatus, ProviderStatus } from './types'
 
 /** Where a configured value came from — surfaced so dev keys aren't mistaken for saved ones. */
 export type ValueSource = 'stored' | 'env' | null
@@ -15,6 +15,7 @@ export interface ProviderFieldState {
 
 export interface ProviderState {
   id: string
+  ship: ProviderShipStatus
   status: ProviderStatus
   fields: ProviderFieldState[]
   /** Set when the last connection test failed. */
@@ -35,25 +36,23 @@ function envValue(meta: ProviderMeta, fieldKey: string): string | null {
   return process.env[meta.envFallback] ?? null
 }
 
-export async function readProviderState(meta: ProviderMeta): Promise<ProviderState> {
-  const fields: ProviderFieldState[] = []
+/**
+ * Pure: derives a provider's state from an already-loaded settings map. Keeping
+ * the I/O out means the Settings page reads the settings table once instead of
+ * issuing a query per field per provider.
+ */
+export function computeProviderState(
+  meta: ProviderMeta,
+  settings: Record<string, string>,
+): ProviderState {
+  const fields: ProviderFieldState[] = meta.fields.map((field) => {
+    const stored = settings[settingKey(meta.id, field.key)]
+    if (stored) return { key: field.key, display: stored, source: 'stored' }
 
-  for (const field of meta.fields) {
-    const key = settingKey(meta.id, field.key)
-    const stored = await readMasked(key)
-
-    if (stored !== null && stored !== '') {
-      fields.push({ key: field.key, display: stored, source: 'stored' })
-      continue
-    }
-
-    const fromEnv = envValue(meta, field.key)
-    fields.push(
-      fromEnv
-        ? { key: field.key, display: 'set from environment', source: 'env' }
-        : { key: field.key, display: null, source: null },
-    )
-  }
+    return envValue(meta, field.key)
+      ? { key: field.key, display: 'set from environment', source: 'env' }
+      : { key: field.key, display: null, source: null }
+  })
 
   const required = requiredFields(meta).map((field) => field.key)
   const filled = fields.filter((field) => required.includes(field.key) && field.source !== null)
@@ -73,14 +72,19 @@ export async function readProviderState(meta: ProviderMeta): Promise<ProviderSta
     status = 'not-set'
   }
 
-  const errorDetail = (await readSetting(`provider.${meta.id}.lastError`)) ?? undefined
+  const errorDetail = settings[errorKey(meta.id)] || undefined
   if (errorDetail && status === 'configured') status = 'error'
 
-  return { id: meta.id, status, fields, errorDetail }
+  return { id: meta.id, ship: meta.ship, status, fields, errorDetail }
+}
+
+export async function readProviderState(meta: ProviderMeta): Promise<ProviderState> {
+  return computeProviderState(meta, await readAllMasked())
 }
 
 export async function readAllProviderStates(): Promise<ProviderState[]> {
-  return Promise.all(PROVIDERS.map(readProviderState))
+  const settings = await readAllMasked()
+  return PROVIDERS.map((meta) => computeProviderState(meta, settings))
 }
 
 /**
@@ -88,7 +92,7 @@ export async function readAllProviderStates(): Promise<ProviderState[]> {
  * listing them as "missing" would invent work that doesn't exist.
  */
 export function summarise(states: ProviderState[]): { configured: number; missing: number } {
-  const actionable = states.filter((state) => getProvider(state.id)?.ship !== 'stub')
+  const actionable = states.filter((state) => state.ship !== 'stub')
   return {
     configured: actionable.filter((state) => state.status === 'configured').length,
     missing: actionable.filter((state) => state.status !== 'configured').length,
