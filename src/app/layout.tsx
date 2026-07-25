@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ThemeProvider } from 'next-themes'
 import { JetBrains_Mono, Newsreader, Public_Sans } from 'next/font/google'
 
 import './globals.css'
@@ -30,12 +31,19 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     // Dark is the shipped default — hunt is a private local workspace, not a
-    // marketing surface. The theme toggle (Phase 8) flips this class.
+    // marketing surface. ThemeProvider writes the class before paint (so no
+    // flash) and persists the ⌘K toggle; `system` is not offered, because the
+    // light palette is a deliberate second theme, not an OS mirror.
     <html
       lang="en"
-      className={`dark ${newsreader.variable} ${publicSans.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+      className={`${newsreader.variable} ${publicSans.variable} ${jetbrainsMono.variable}`}
     >
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   )
 }

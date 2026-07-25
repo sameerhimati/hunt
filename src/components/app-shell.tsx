@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 
+import { CommandPalette } from '@/components/command-palette'
 import { NavRail } from '@/components/nav-rail'
+import { Toaster } from '@/components/ui/sonner'
 
 interface AppShellProps {
   title: string
@@ -20,11 +22,16 @@ export function AppShell({ title, action, aside, children }: AppShellProps) {
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex h-[52px] shrink-0 items-center justify-between border-b border-border bg-card px-6">
           <h1 className="text-xl font-semibold">{title}</h1>
-          {action}
+          <div className="flex items-center gap-3">
+            <CommandPalette />
+            {action}
+          </div>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </main>
+
+      <Toaster position="bottom-right" />
     </div>
   )
 }
