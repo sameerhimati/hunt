@@ -23,6 +23,8 @@ import { parseResumeContent, type ResumeContent } from '@/lib/resume/schema'
 interface ImportResponse {
   content: ResumeContent
   fieldConfidence: Record<string, number>
+  /** The PDF's own text layer, so the review can be checked against something. */
+  text: string
   fileName: string
 }
 
@@ -34,6 +36,7 @@ export function ImportReview() {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [showSource, setShowSource] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const flagged = new Set(
@@ -93,7 +96,12 @@ export function ImportReview() {
         </div>
 
         {uploading ? (
-          <p className="mt-3 font-mono text-xs text-muted-foreground">reading your PDF…</p>
+          // Reading the PDF takes milliseconds; the model reading it back into
+          // fields is the ~30s the user is actually waiting on. Saying "reading
+          // your PDF" for all of it reads as a hang.
+          <p className="mt-3 font-mono text-xs text-muted-foreground">
+            reading your PDF, then asking the model to lay it out as fields — around half a minute…
+          </p>
         ) : null}
 
         {error ? (
@@ -133,6 +141,16 @@ export function ImportReview() {
 
           <Button
             type="button"
+            variant="ghost"
+            data-testid="toggle-source"
+            onClick={() => setShowSource((open) => !open)}
+            aria-pressed={showSource}
+          >
+            {showSource ? 'Hide the PDF text' : 'Compare with the PDF text'}
+          </Button>
+
+          <Button
+            type="button"
             data-testid="confirm-import"
             disabled={pending}
             onClick={() =>
@@ -146,12 +164,30 @@ export function ImportReview() {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <StructuredEditor
-          content={content}
-          onChange={setContent}
-          lowConfidencePaths={flagged}
-        />
+      <div className="flex min-h-0 flex-1">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <StructuredEditor
+            content={content}
+            onChange={setContent}
+            lowConfidencePaths={flagged}
+          />
+        </div>
+
+        {/*
+          The source, side by side rather than behind a link: the amber flags
+          say which fields to check, and this is the only thing they can be
+          checked against. Reading it is the whole job of this screen.
+        */}
+        {showSource ? (
+          <aside className="min-h-0 w-[38%] shrink-0 overflow-y-auto border-l border-border bg-card">
+            <p className="label-mono sticky top-0 border-b border-border bg-card px-4 py-3">
+              Text read from {parsed.fileName}
+            </p>
+            <pre className="whitespace-pre-wrap px-4 py-3 font-mono text-xs leading-relaxed text-muted-foreground">
+              {parsed.text}
+            </pre>
+          </aside>
+        ) : null}
       </div>
     </div>
   )

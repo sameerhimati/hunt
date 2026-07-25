@@ -73,11 +73,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { content, fieldConfidence } = await importResumePdf(
+    const { content, fieldConfidence, text } = await importResumePdf(
       Buffer.from(await file.arrayBuffer()),
       llm,
     )
-    return NextResponse.json({ content, fieldConfidence, fileName: file.name })
+    // `text` ships too: the review screen asks the user to check a parse, and
+    // checking it against nothing is not a review. It never leaves this machine.
+    return NextResponse.json({ content, fieldConfidence, text, fileName: file.name })
   } catch (error) {
     if (error instanceof ResumeImportError) {
       return NextResponse.json({ error: error.message }, { status: 422 })
