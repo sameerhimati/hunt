@@ -128,8 +128,13 @@ export async function ingestJobUrl(url: string, deps: IngestDeps = {}) {
   }
 
   // Re-pasting a URL refreshes the posting rather than erroring on the unique
-  // index — people paste the same link twice all the time.
-  return prisma.job.upsert({ where: { url }, create: data, update: data })
+  // index — people paste the same link twice all the time. The refresh is
+  // deliberately partial: `title` and `company` are the two fields the user is
+  // invited to correct on the application page, so a re-scrape must not replace
+  // a correction they made with the model's second guess at the same page.
+  const { title: _title, company: _company, ...refreshable } = data
+
+  return prisma.job.upsert({ where: { url }, create: data, update: refreshable })
 }
 
 export interface ManualJobInput {
