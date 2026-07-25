@@ -1,0 +1,30 @@
+{
+  "_recorded": "GET https://boards-api.greenhouse.io/v1/boards/northwind/jobs?content=true",
+  "jobs": [
+    {
+      "id": 4012345,
+      "internal_job_id": 3012345,
+      "title": "Senior Backend Engineer",
+      "updated_at": "2026-07-02T14:21:09-04:00",
+      "absolute_url": "https://job-boards.greenhouse.io/northwind/jobs/4012345",
+      "location": { "name": "Austin, TX" },
+      "content": "Northwind Robotics is hiring a senior backend engineer to own our fleet-coordination services. Python, Go, distributed systems.",
+      "metadata": [],
+      "departments": [{ "id": 1, "name": "Engineering" }],
+      "offices": [{ "id": 9, "name": "Austin" }]
+    },
+    {
+      "id": 4012999,
+      "internal_job_id": 3012999,
+      "title": "Product Designer",
+      "updated_at": "2026-06-28T09:00:00-04:00",
+      "absolute_url": "https://job-boards.greenhouse.io/northwind/jobs/4012999",
+      "location": { "name": "Remote - US" },
+      "content": "Design the operator console our field technicians live in.",
+      "metadata": [],
+      "departments": [{ "id": 2, "name": "Design" }],
+      "offices": []
+    }
+  ],
+  "meta": { "total": 2 }
+}
