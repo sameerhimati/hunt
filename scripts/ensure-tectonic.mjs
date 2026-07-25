@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -39,6 +40,24 @@ function onPath() {
   return probe.status === 0 ? 'tectonic' : null
 }
 
+/**
+ * SHA-256 of each release tarball, taken from GitHub's own per-asset digests for
+ * `tectonic@0.16.9`. We download something, mark it executable and then run it —
+ * so the bytes get checked first. A mismatch means a re-uploaded asset, a
+ * tampered mirror or a truncated transfer, and any of those should fail loudly
+ * rather than silently install an unknown binary.
+ *
+ * Bumping TECTONIC_VERSION means refreshing these:
+ *   gh api repos/tectonic-typesetting/tectonic/releases/tags/tectonic@<version> \
+ *     --jq '.assets[] | "\(.name) \(.digest)"'
+ */
+const CHECKSUMS = {
+  'aarch64-apple-darwin': 'edb67c61aba768289f6da441c9e6f523cfaff4f8b2a5708523ef29c543f8e88e',
+  'x86_64-apple-darwin': '79d8839fa3594bfea9b2bf2ac0a0455bcc4d0de956a5e5c403107e9a72f79e86',
+  'x86_64-unknown-linux-musl': '60b13a0826ae7ad9ce34b4a2df06bff2cfcfa6dda8a915477c0cbb84e1a4a902',
+  'aarch64-unknown-linux-musl': 'f9aa39017dbd51f111fdb93dda222178cbe51c8193508fc567b523cc74fff9c1',
+}
+
 async function download(target, destination) {
   const url =
     `https://github.com/tectonic-typesetting/tectonic/releases/download/` +
@@ -49,18 +68,43 @@ async function download(target, destination) {
     throw new Error(`ensure-tectonic: ${response.status} fetching ${url}`)
   }
 
-  fs.mkdirSync(path.dirname(destination), { recursive: true })
-  const archive = `${destination}.tar.gz`
-  fs.writeFileSync(archive, Buffer.from(await response.arrayBuffer()))
+  const bytes = Buffer.from(await response.arrayBuffer())
+  const digest = crypto.createHash('sha256').update(bytes).digest('hex')
+  const expected = CHECKSUMS[target]
+  if (digest !== expected) {
+    throw new Error(
+      `ensure-tectonic: checksum mismatch for ${target}\n` +
+        `  expected ${expected}\n  received ${digest}\n` +
+        'Refusing to install. Delete the cache and retry; if it persists, the release has changed.',
+    )
+  }
 
-  // The release tarball holds exactly one file: the binary.
-  const untar = spawnSync('tar', ['-xzf', archive, '-C', path.dirname(destination), 'tectonic'], {
-    stdio: 'inherit',
-  })
-  fs.rmSync(archive, { force: true })
-  if (untar.status !== 0) throw new Error('ensure-tectonic: tar failed')
+  // Staged inside the cache directory, not os.tmpdir(), so the final rename is
+  // guaranteed to be same-filesystem (a cross-device rename throws EXDEV).
+  const cacheHome = path.dirname(destination)
+  fs.mkdirSync(cacheHome, { recursive: true })
+  const staging = fs.mkdtempSync(path.join(cacheHome, '.staging-'))
 
-  fs.chmodSync(destination, 0o755)
+  try {
+    const archive = path.join(staging, 'tectonic.tar.gz')
+    fs.writeFileSync(archive, bytes)
+
+    // The release tarball holds exactly one file: the binary.
+    const untar = spawnSync('tar', ['-xzf', archive, '-C', staging, 'tectonic'], {
+      stdio: 'inherit',
+    })
+    if (untar.status !== 0) throw new Error('ensure-tectonic: tar failed')
+
+    const extracted = path.join(staging, 'tectonic')
+    fs.chmodSync(extracted, 0o755)
+
+    // Renamed into place last, and only once complete: `ensureTectonic()` treats
+    // the mere existence of this path as "ready to execute", so a concurrent
+    // caller must never be able to observe a half-extracted file there.
+    fs.renameSync(extracted, destination)
+  } finally {
+    fs.rmSync(staging, { recursive: true, force: true })
+  }
 }
 
 let pending = null
