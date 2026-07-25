@@ -58,3 +58,57 @@ describe('core commands', () => {
     expect(toggleTheme).toHaveBeenCalledOnce()
   })
 })
+
+describe('outreach commands', () => {
+  it('registers both outreach commands with correct IDs and labels', () => {
+    const outreach = allCommands().find((group) => group.area === 'Outreach')
+    expect(outreach).toBeDefined()
+
+    const ids = outreach!.commands.map((cmd) => cmd.id)
+    expect(ids).toContain('outreach.open')
+    expect(ids).toContain('outreach.due-today')
+    expect(outreach!.commands).toHaveLength(2)
+  })
+
+  it('labels are in user vocabulary, not build language', () => {
+    const outreach = allCommands().find((group) => group.area === 'Outreach')!
+    const labels = outreach.commands.map((cmd) => cmd.label)
+
+    expect(labels).toContain('Go to Outreach')
+    expect(labels).toContain('Follow-ups due today')
+  })
+
+  it('includes searchable keywords for discovery', () => {
+    const outreach = allCommands().find((group) => group.area === 'Outreach')!
+
+    const openCmd = outreach.commands.find((cmd) => cmd.id === 'outreach.open')!
+    expect(openCmd.keywords).toContain('email')
+    expect(openCmd.keywords).toContain('follow-up')
+    expect(openCmd.keywords).toContain('sequence')
+    expect(openCmd.keywords).toContain('contacts')
+
+    const dueCmd = outreach.commands.find((cmd) => cmd.id === 'outreach.due-today')!
+    expect(dueCmd.keywords).toContain('due')
+    expect(dueCmd.keywords).toContain('nudge')
+    expect(dueCmd.keywords).toContain('queue')
+  })
+
+  it('both commands navigate to the outreach screen', () => {
+    const outreach = allCommands().find((group) => group.area === 'Outreach')!
+
+    for (const command of outreach.commands) {
+      const { ctx, navigate: spy } = context()
+      command.run(ctx)
+      expect(spy).toHaveBeenCalledWith('/outreach')
+    }
+  })
+
+  it('command IDs are properly namespaced', () => {
+    const outreach = allCommands().find((group) => group.area === 'Outreach')!
+    const ids = outreach.commands.map((cmd) => cmd.id)
+
+    for (const id of ids) {
+      expect(id).toMatch(/^outreach\./)
+    }
+  })
+})
