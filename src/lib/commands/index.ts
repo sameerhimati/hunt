@@ -4,5 +4,7 @@
  * nothing else in the palette.
  */
 import './core'
+import './pipeline'
+import './resumes'
 
 export * from './registry'
