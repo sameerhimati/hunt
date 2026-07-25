@@ -11,6 +11,7 @@ import {
   versionTree,
   type VersionNode,
 } from '@/lib/resume/store'
+import { isTestMode } from '@/lib/testmode/env'
 
 /**
  * Server actions for the résumé editor. Mutations only — reads happen in the
@@ -22,7 +23,14 @@ export async function createResumeAction(formData: FormData) {
 
   // Seeding the name into `basics` means the first render is a real document
   // with the user's name on it, not an empty page they have to prime.
-  const resume = await createResume(name, emptyResume(name))
+  // In test mode the seed is a full fixture résumé instead, so gates can
+  // arrange through the product and still have something to tailor. Dynamic
+  // import so the fixture reader (and `fs`) never enters the production bundle.
+  const content = isTestMode()
+    ? (await import('@/lib/testmode/seed')).seededResumeContent(name)
+    : emptyResume(name)
+
+  const resume = await createResume(name, content)
 
   revalidatePath('/resumes')
   redirect(`/resumes/${resume.id}`)
