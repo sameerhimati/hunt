@@ -31,6 +31,13 @@ describe('extractJsonObject', () => {
   })
 })
 
+// These two build their input by actually compiling a PDF, so they inherit
+// Tectonic's cold-start cost: the first compile on a machine downloads the
+// binary and fetches TeX packages. `vitest.gates.config.mts` already allows
+// 120s for the render gates for exactly this reason; the default 5s here made
+// `pnpm verify` fail on any cold cache (fresh clone, CI) and pass on a warm one.
+const TECTONIC_COLD_START_MS = 120_000
+
 describe('importResumePdf', () => {
   it('tags the call so the scripted fake can dispatch on it', async () => {
     const { pdf } = await renderToPdf({ content: SOURCE })
@@ -38,7 +45,7 @@ describe('importResumePdf', () => {
 
     await importResumePdf(pdf, llm)
     expect(promptKindOf(llm.requests[0])).toBe('parse_resume')
-  })
+  }, TECTONIC_COLD_START_MS)
 
   it('scores confidence against the PDF text, not the model’s self-report', async () => {
     const { pdf } = await renderToPdf({ content: SOURCE })
@@ -56,7 +63,7 @@ describe('importResumePdf', () => {
     expect(fieldConfidence['basics.name']).toBe(1)
     // …invented by the model, so it gets flagged for review.
     expect(fieldConfidence['basics.phone']).toBeLessThan(1)
-  })
+  }, TECTONIC_COLD_START_MS)
 
   it('refuses a PDF with no text layer rather than importing nothing', async () => {
     const llm = new FakeLlmProvider({ reply: '{}' })
