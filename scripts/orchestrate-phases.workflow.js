@@ -102,7 +102,10 @@ const results = await parallel(
       { phase: 'Phases', label: `worktree:p${n}`, model: 'haiku' }
     )
 
-    const built = await workflow('.claude/workflows/hunt-phase-build.js', { phase: n, dir })
+    // Registered workflow NAME, not a path — a path string resolves against the
+    // workflow registry and throws "no workflow with that name", which silently
+    // skips the entire phase build (the thunk dies, the phase branch stays empty).
+    const built = await workflow('hunt-phase-build', { phase: n, dir })
 
     await agent(
       `${RULES}\n\nFinalize phase ${n} in ${dir}: ensure everything is committed on feature/phase-${n} ` +

@@ -1,0 +1,84 @@
+{
+  "_comment": "Hand-labeled ground truth for sample-3.pdf (fictional candidate, Deedy two-column template, year-only dates, custom 'Speaking' section). The two-column layout scrambles reading order in the text layer, which is exactly what the import pipeline has to survive.",
+  "basics": {
+    "name": "Nina Ostrowski",
+    "label": "Frontend Engineer",
+    "email": "nina.ostrowski@example.com",
+    "phone": "+1 (312) 555-0177",
+    "location": "Chicago, IL",
+    "url": "https://github.com/ninaost",
+    "summary": ""
+  },
+  "experience": [
+    {
+      "company": "Grubhub",
+      "title": "Senior Frontend Engineer",
+      "location": "Chicago, IL",
+      "start": "2021",
+      "end": null,
+      "bullets": [
+        "Led the design-system migration that moved 140 screens onto shared React components",
+        "Cut largest contentful paint on the diner web app from 4.1s to 1.6s",
+        "Added keyboard and screen-reader support to the checkout flow, closing 31 accessibility defects"
+      ]
+    },
+    {
+      "company": "Sprout Social",
+      "title": "Frontend Engineer",
+      "location": "Chicago, IL",
+      "start": "2018",
+      "end": "2021",
+      "bullets": [
+        "Built the publishing calendar used by 30000 daily active accounts",
+        "Wrote the visual regression harness that runs on every pull request"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "institution": "University of Illinois at Chicago",
+      "degree": "B.A. Computer Science",
+      "start": "2014",
+      "end": "2018",
+      "bullets": []
+    }
+  ],
+  "skills": [
+    {
+      "category": "Languages",
+      "items": [
+        "TypeScript",
+        "JavaScript",
+        "CSS"
+      ]
+    },
+    {
+      "category": "Frameworks",
+      "items": [
+        "React",
+        "Next.js",
+        "Vitest",
+        "Playwright"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "focus-ring",
+      "description": "Accessible focus outlines that survive design-system theming",
+      "url": "https://github.com/ninaost/focus-ring",
+      "bullets": [
+        "Used in three open-source component libraries"
+      ]
+    }
+  ],
+  "custom": [
+    {
+      "title": "Speaking",
+      "bullets": [
+        "React Chicago 2024 — Rebuilding checkout without breaking checkout",
+        "CSS Cafe 2023 — Container queries in a legacy codebase"
+      ]
+    }
+  ]
+}

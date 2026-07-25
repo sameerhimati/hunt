@@ -1,4 +1,7 @@
 @import 'tailwindcss';
+/* Enter/exit utilities the shadcn overlays (dialog, menu, tooltip) are written
+   against. Cross-fades only — the reduced-motion block at the bottom still wins. */
+@import 'tw-animate-css';
 
 /*
  * hunt design system — see DESIGN.md for the reasoning behind every value here.

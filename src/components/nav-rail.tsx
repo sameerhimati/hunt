@@ -24,9 +24,9 @@ interface NavItem {
 
 const ITEMS: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/pipeline', label: 'Pipeline', icon: Columns3, comingIn: 'Phase 2' },
+  { href: '/pipeline', label: 'Pipeline', icon: Columns3 },
   { href: '/sourcing', label: 'Sourcing', icon: Search, comingIn: 'Phase 5' },
-  { href: '/resumes', label: 'Résumés', icon: FileText, comingIn: 'Phase 1' },
+  { href: '/resumes', label: 'Résumés', icon: FileText },
   { href: '/outreach', label: 'Outreach', icon: Mail, comingIn: 'Phase 4' },
 ]
 

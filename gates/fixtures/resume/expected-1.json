@@ -1,0 +1,78 @@
+{
+  "_comment": "Hand-labeled ground truth for sample-1.pdf (fictional candidate, Jake's template, dates already YYYY-MM). parse-response-1.txt is the recorded reply of a real model (Fireworks deepseek-v4-pro) run through the production import prompt; the gate replays it so the measurement is deterministic and keyless.",
+  "basics": {
+    "name": "Priya Raghavan",
+    "label": "Data Engineer",
+    "email": "priya.raghavan@example.com",
+    "phone": "+1 (206) 555-0148",
+    "url": "https://github.com/praghavan",
+    "location": "Seattle, WA",
+    "summary": "Data engineer with seven years building batch and streaming pipelines for retail and logistics teams."
+  },
+  "experience": [
+    {
+      "company": "Convoy",
+      "title": "Senior Data Engineer",
+      "location": "Seattle, WA",
+      "start": "2022-01",
+      "end": null,
+      "bullets": [
+        "Rebuilt the freight pricing feature store on Iceberg, cutting model training time from 6 hours to 40 minutes",
+        "Own the Airflow platform running 900 daily tasks across 40 teams",
+        "Introduced column-level lineage so analysts can trace any dashboard number back to its source table"
+      ]
+    },
+    {
+      "company": "Zulily",
+      "title": "Data Engineer",
+      "location": "Seattle, WA",
+      "start": "2018-08",
+      "end": "2021-12",
+      "bullets": [
+        "Migrated 200 nightly Hive jobs to Spark on Kubernetes, halving warehouse spend",
+        "Built the clickstream sessionization job that powers merchandising reports"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "institution": "Purdue University",
+      "degree": "B.S. Computer Engineering",
+      "start": "2011",
+      "end": "2015",
+      "bullets": []
+    }
+  ],
+  "skills": [
+    {
+      "category": "Languages",
+      "items": [
+        "Python",
+        "Scala",
+        "SQL",
+        "Go"
+      ]
+    },
+    {
+      "category": "Data",
+      "items": [
+        "Spark",
+        "Airflow",
+        "Iceberg",
+        "Kafka",
+        "dbt"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "slowquery",
+      "description": "CLI that explains Postgres query plans in plain English",
+      "url": "https://github.com/praghavan/slowquery",
+      "bullets": [
+        "600 GitHub stars; packaged for Homebrew and apt"
+      ]
+    }
+  ],
+  "custom": []
+}

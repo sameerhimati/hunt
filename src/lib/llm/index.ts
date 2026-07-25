@@ -1,5 +1,6 @@
 import { resolveSecret } from '@/lib/providers/status'
 import { readSetting } from '@/lib/settings/store'
+import { isTestMode, TEST_MODEL } from '@/lib/testmode/env'
 
 import { anthropicMeta, DEFAULT_ANTHROPIC_MODEL, openAiCompatMeta } from './meta'
 import { AnthropicProvider } from './providers/anthropic'
@@ -13,11 +14,33 @@ export interface ResolvedLlm {
 }
 
 /**
+ * Feature code takes either form: a `ResolvedLlm` in production, or a bare
+ * provider when a test injects one. Injection is how gates run the real code
+ * path with a scripted fake, so it is a first-class shape, not a shortcut.
+ */
+export type LlmLike = LlmProvider | ResolvedLlm
+
+export function asResolvedLlm(llm: LlmLike): ResolvedLlm {
+  if ('provider' in llm) return llm
+  // A bare provider carries no model choice. Fakes ignore the field entirely;
+  // a real provider passed this way gets the tuned default.
+  return { provider: llm, model: llm.id === 'fake' ? TEST_MODEL : DEFAULT_ANTHROPIC_MODEL }
+}
+
+/**
  * Picks the active LLM: whichever the user selected, else Anthropic if it has a
  * key, else the OpenAI-compatible provider. Returns null when neither is
  * configured — callers surface a DegradedBanner rather than throwing.
  */
 export async function resolveLlm(): Promise<ResolvedLlm | null> {
+  // Test mode answers from recorded fixtures keyed by promptKind — same call
+  // sites, no key, no network. Lazily imported: the fixture reader touches the
+  // filesystem and has no business in the production bundle.
+  if (isTestMode()) {
+    const { testLlm } = await import('@/lib/testmode/llm')
+    return testLlm()
+  }
+
   const preferred = await readSetting('llm.active')
 
   const candidates = preferred === 'openai_compat' ? ['openai_compat', 'anthropic'] : ['anthropic', 'openai_compat']
