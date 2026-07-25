@@ -1,0 +1,39 @@
+{
+  "_comment": "Hand-labeled (Phase 3 foundation, 2026-07-25) against resume/alex-chen.json, BEFORE scoreCoverage existed — the labels are read off the résumé text, not off an implementation. Same matching rule as keyword-coverage-1.json: case-insensitive, word-boundary match over the flattened résumé text, singular/plural treated as equivalent, NO synonym or stem inference. This fixture pushes on two properties -1 only grazed. (1) Singular/plural equivalence in BOTH directions: 'processor'→'processors', 'transaction'→'transactions', 'baseline'→'baselines', 'threshold'→'thresholds' are matched from the singular; 'webhooks' is matched from the plural against 'webhook ingestion'. (2) Multi-word terms match as a contiguous phrase, never word-by-word: 'event bus', 'incident response', 'design review', 'API design' and 'double-entry ledger' all appear verbatim, while 'payment orchestration' is MISSING even though 'payment' (basics.summary) and 'orchestration' (experience[1].bullets[0]) each appear — a scorer that ORs the words would wrongly claim it. 'idempotency' is the deliberate near-miss: the résumé says 'idempotent', which is a different word, not a plural — plural equivalence is the ONLY morphology the scorer may apply. 'microservices' is missing although 'services' is present (word boundary, not substring), and 'distributed tracing' is missing although 'Observability' is a skill — reporting it covered would be synonym inference, which is exactly the dishonesty this check exists to refuse.",
+  "jdTerms": [
+    "event bus",
+    "incident response",
+    "processor",
+    "transaction",
+    "webhooks",
+    "baseline",
+    "threshold",
+    "design review",
+    "API design",
+    "double-entry ledger",
+    "idempotency",
+    "microservices",
+    "distributed tracing",
+    "payment orchestration",
+    "unit tests"
+  ],
+  "expectedMatched": [
+    "event bus",
+    "incident response",
+    "processor",
+    "transaction",
+    "webhooks",
+    "baseline",
+    "threshold",
+    "design review",
+    "API design",
+    "double-entry ledger"
+  ],
+  "expectedMissing": [
+    "idempotency",
+    "microservices",
+    "distributed tracing",
+    "payment orchestration",
+    "unit tests"
+  ]
+}

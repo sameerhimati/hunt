@@ -1,0 +1,20 @@
+{
+  "_comment": "Scripted FakeLlmProvider output for the cover-letter half of a tailor run (alex-chen against stripe-sbe). Pins the shape the drafter parses: { paragraphs: [ { text, citations[] } ] } — generative prose, but under the SAME citation guard as the résumé diff (TAILORING-DIFF.md §6). Paragraph [1] is deliberately uncited and claims team leadership the résumé cannot back, so the fabrication guard has something to flag inline; paragraphs [0] and [2] cite real paths into resume/alex-chen.json and must survive. No `match` key on purpose — this is the only cover_letter fixture, so it answers the kind unguarded (see pickScript in src/lib/testmode/llm.ts).",
+  "promptKind": "cover_letter",
+  "response": {
+    "paragraphs": [
+      {
+        "text": "I have spent the last six years building payment infrastructure in Go, and at Ramp I own the ledger service that settles roughly $40M a month in card transactions across three processors. Reliability on the charge path is not an adjacent interest for me — it is the work I already do every day.",
+        "citations": ["basics.summary", "experience[0].bullets[0]"]
+      },
+      {
+        "text": "I hired and led a team of eight engineers through a full replatforming, and I would bring that same management experience to the Payments Reliability group.",
+        "citations": []
+      },
+      {
+        "text": "Your posting leads with on-call and incident response. At Plaid I was the on-call owner for the transactions sync pipeline against a 99.95% SLO, which taught me that latency targets are kept by the people who get paged, not by the dashboard.",
+        "citations": ["experience[1].bullets[2]"]
+      }
+    ]
+  }
+}

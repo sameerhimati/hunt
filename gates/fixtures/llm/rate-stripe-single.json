@@ -1,0 +1,25 @@
+{
+  "_comment": "Scripted FakeLlmProvider output for the SINGLE-job fit rating (src/lib/fit/rate.ts) of alex-chen against stripe-sbe — the match_rating check on the application page. The `match` key is load-bearing, not decoration: llm/rate-batch.json is already an unguarded 'rate' fixture, and pickScript (src/lib/testmode/llm.ts) throws when two unguarded fixtures claim one promptKind. The string is the literal first line of rateFitMessage() in src/lib/llm/prompts/fit.ts for this job, so it appears in the batch prompt's text only when this exact job is the one being rated. Honest-AI invariant, enforced by reading this file: a tier and reasons, and not one number, percentage, score or grade anywhere. The third reason is a gap — it cites nothing, because the evidence for an absence is an absence.",
+  "promptKind": "rate",
+  "match": "Job: Senior Backend Engineer at Stripe",
+  "response": {
+    "tier": "strong",
+    "reasons": [
+      {
+        "text": "The posting is about keeping the charge path up; Alex already owns a production ledger that settles card transactions across three processors, which is that job under a different company's name.",
+        "citations": ["experience[0].bullets[0]"],
+        "gap": false
+      },
+      {
+        "text": "Stripe asks for idempotent, exactly-once processing over Kafka. Alex designed idempotent retry semantics for webhook ingestion and moved six services onto a Kafka event bus.",
+        "citations": ["experience[0].bullets[1]", "experience[0].bullets[2]"],
+        "gap": false
+      },
+      {
+        "text": "Nothing in the résumé mentions gRPC or service meshes, which the posting lists under what it is looking for. That is a real gap to be ready to talk about.",
+        "citations": [],
+        "gap": true
+      }
+    ]
+  }
+}
