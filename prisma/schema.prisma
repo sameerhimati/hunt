@@ -135,7 +135,9 @@ model Outreach {
   dayOffset     Int       @default(0)
   subject       String
   body          String
-  /// draft | scheduled | sent | replied | bounced
+  /// draft | scheduled | sent | replied | bounced | halted
+  /// `halted` = a reply landed on an earlier step, so this one never sends.
+  /// The row survives so the sequence's history stays readable.
   status        String    @default("draft")
   sentAt        DateTime?
   threadRef     String?
