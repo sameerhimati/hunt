@@ -46,8 +46,46 @@ export function joinDefined(parts: (string | undefined | null)[], separator: str
   return parts.filter((part) => part && part.trim()).join(separator)
 }
 
-/** `2023-03 — Present`. Dates stay strings; résumés don't have real timestamps. */
+const MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+]
+
+/**
+ * `2026-01` → `Jan 2026`, on the way onto the paper and nowhere else.
+ *
+ * The schema stores dates ISO-style on purpose: they sort, they diff, and the
+ * import prompt can normalise every résumé's idiosyncratic format into one
+ * shape. But nobody writes "2026-01" on a résumé, and until now that stored
+ * form went straight into the PDF — so the document you send an employer read
+ * like a database row.
+ *
+ * Anything that is not exactly YYYY-MM passes through untouched. A bare year,
+ * "Summer 2019", "Present" — résumé dates are free text, and re-formatting what
+ * we cannot confidently parse would be worse than echoing what the user wrote.
+ */
+export function humanDate(value: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(value.trim())
+  if (!match) return value
+
+  const month = Number(match[2])
+  if (month < 1 || month > 12) return value
+
+  return `${MONTHS[month - 1]} ${match[1]}`
+}
+
+/** `Mar 2023 -- Present`. Dates stay strings; résumés don't have real timestamps. */
 export function dateRange(start?: string | null, end?: string | null): string {
   if (!start && !end) return ''
-  return `${tex(start ?? '')} -- ${end ? tex(end) : 'Present'}`
+  return `${tex(humanDate(start ?? ''))} -- ${end ? tex(humanDate(end)) : 'Present'}`
 }
