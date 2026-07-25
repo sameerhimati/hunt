@@ -1,0 +1,75 @@
+{
+  "_comment": "Hand-labeled ground truth for sample-2.pdf (fictional candidate, moderncv template). The PDF prints human dates ('Jun 2021'); the expected values are normalised to YYYY-MM, so this sample measures the prompt's date normalisation as well as recall.",
+  "basics": {
+    "name": "Marcus Webb",
+    "label": "Site Reliability Engineer",
+    "email": "marcus.webb@example.com",
+    "phone": "+1 (512) 555-0119",
+    "location": "Austin, TX",
+    "url": "https://marcuswebb.example.com",
+    "summary": "SRE focused on incident response and capacity planning for high-traffic consumer platforms."
+  },
+  "experience": [
+    {
+      "company": "Bazaarvoice",
+      "title": "Staff Site Reliability Engineer",
+      "location": "Austin, TX",
+      "start": "2021-06",
+      "end": null,
+      "bullets": [
+        "Cut mean time to recovery from 48 minutes to 11 minutes by rewriting the on-call runbooks around service ownership",
+        "Designed the multi-region failover drill that the platform team now runs quarterly",
+        "Reduced Kubernetes node spend 34 percent with vertical pod autoscaling and right-sized instance families"
+      ]
+    },
+    {
+      "company": "RetailMeNot",
+      "title": "Site Reliability Engineer",
+      "location": "Austin, TX",
+      "start": "2018-02",
+      "end": "2021-05",
+      "bullets": [
+        "Ran the migration of 60 services from EC2 to EKS with no customer-visible downtime",
+        "Built the error-budget dashboard that product teams use to gate releases"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "institution": "University of Texas at Austin",
+      "degree": "B.S. Electrical and Computer Engineering",
+      "start": "2013-08",
+      "end": "2017-05",
+      "bullets": []
+    }
+  ],
+  "skills": [
+    {
+      "category": "Infrastructure",
+      "items": [
+        "Kubernetes",
+        "Terraform",
+        "AWS",
+        "Envoy"
+      ]
+    },
+    {
+      "category": "Observability",
+      "items": [
+        "Prometheus",
+        "Grafana",
+        "OpenTelemetry"
+      ]
+    },
+    {
+      "category": "Languages",
+      "items": [
+        "Go",
+        "Python",
+        "Bash"
+      ]
+    }
+  ],
+  "projects": [],
+  "custom": []
+}
