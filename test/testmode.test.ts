@@ -65,6 +65,41 @@ describe('HUNT_TEST_MODE', () => {
     ).rejects.toThrow(/no scripted response for promptKind 'cover_letter'/)
   })
 
+  it('dispatches a shared promptKind by its match discriminator', async () => {
+    const { pickScript } = await import('@/lib/testmode/llm')
+    const single = { file: 'rate-single.json', match: 'Rate this one job', reply: '{"tier":"strong"}' }
+    const batch = { file: 'rate-batch.json', match: 'Rate each listing', reply: '{"ratings":[]}' }
+    const request = {
+      model: 'fake',
+      maxTokens: 10,
+      messages: [{ role: 'user' as const, content: 'Rate each listing below.' }],
+    }
+
+    expect(pickScript('rate', [single, batch], request)).toBe(batch.reply)
+  })
+
+  it('refuses to guess when two fixtures claim one promptKind', async () => {
+    const { pickScript } = await import('@/lib/testmode/llm')
+    const request = {
+      model: 'fake',
+      maxTokens: 10,
+      messages: [{ role: 'user' as const, content: 'anything' }],
+    }
+
+    // Silently letting filename order decide is how a phase inherits another
+    // phase's fixture and debugs a parse error for an hour.
+    expect(() =>
+      pickScript(
+        'rate',
+        [
+          { file: 'rate-a.json', reply: '{}' },
+          { file: 'rate-b.json', reply: '{}' },
+        ],
+        request,
+      ),
+    ).toThrow(/rate-a\.json, rate-b\.json/)
+  })
+
   it('reads the committed fixture set, ignoring any ambient override', () => {
     // The app-side loader is deliberately pinned to gates/fixtures — see the
     // build-tracer note in src/lib/testmode/fixtures.ts.
