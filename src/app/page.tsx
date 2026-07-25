@@ -2,6 +2,7 @@ import Link from 'next/link'
 
 import { AppShell } from '@/components/app-shell'
 import { EmptyState } from '@/components/empty-state'
+import { FollowUpsPanel } from '@/components/dashboard/follow-ups'
 import { FunnelRow } from '@/components/dashboard/funnel-row'
 import { NewApplicationDialog } from '@/components/pipeline/new-application-dialog'
 import { StatusBadge } from '@/components/pipeline/status-badge'
@@ -77,17 +78,7 @@ export default async function Home() {
 
         <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
           <div className="space-y-4">
-            <section className="rounded-lg border border-border bg-card p-4">
-              <div className="flex items-baseline justify-between gap-3">
-                <h3 className="text-sm font-medium">Follow-ups due today</h3>
-                <span className="font-mono text-xs text-faint">0</span>
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Nothing to nudge. Once outreach sequences exist, everything due lands here with a
-                Send button beside it.
-              </p>
-              <p className="mt-2 font-mono text-xs text-faint">Outreach lands in Phase 4.</p>
-            </section>
+            <FollowUpsPanel />
 
             <section className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-baseline justify-between gap-3">
