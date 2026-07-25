@@ -1,6 +1,6 @@
 import { resolveSecret } from '@/lib/providers/status'
 import { readSetting } from '@/lib/settings/store'
-import { isTestMode, testLlm } from '@/lib/testmode'
+import { isTestMode } from '@/lib/testmode/env'
 
 import { anthropicMeta, DEFAULT_ANTHROPIC_MODEL, openAiCompatMeta } from './meta'
 import { AnthropicProvider } from './providers/anthropic'
@@ -20,8 +20,12 @@ export interface ResolvedLlm {
  */
 export async function resolveLlm(): Promise<ResolvedLlm | null> {
   // Test mode answers from recorded fixtures keyed by promptKind — same call
-  // sites, no key, no network. See src/lib/testmode/llm.ts.
-  if (isTestMode()) return testLlm()
+  // sites, no key, no network. Lazily imported: the fixture reader touches the
+  // filesystem and has no business in the production bundle.
+  if (isTestMode()) {
+    const { testLlm } = await import('@/lib/testmode/llm')
+    return testLlm()
+  }
 
   const preferred = await readSetting('llm.active')
 

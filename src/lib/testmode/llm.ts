@@ -2,10 +2,8 @@ import { promptKindOf } from '@/lib/llm/prompts'
 import { FakeLlmProvider } from '@/lib/llm/providers/fake'
 import type { LlmRequest } from '@/lib/llm/types'
 
+import { TEST_MODEL } from './env'
 import { listFixtures, readJsonFixture } from './fixtures'
-
-/** The model id the scripted provider reports — recorded on rows, so keep it obvious. */
-export const TEST_MODEL = 'fake-1'
 
 interface LlmScript {
   promptKind: string
@@ -69,5 +67,3 @@ export function scriptedLlm(): FakeLlmProvider {
 export function testLlm(): { provider: FakeLlmProvider; model: string } {
   return { provider: scriptedLlm(), model: TEST_MODEL }
 }
-
-export type { PromptKind }

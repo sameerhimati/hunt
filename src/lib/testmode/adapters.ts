@@ -1,5 +1,3 @@
-import fs from 'node:fs'
-
 import { FakeEmailAdapter } from '@/lib/adapters/email/fake'
 import { FakeJobsAdapter } from '@/lib/adapters/jobs/fake'
 import { FakePeopleAdapter } from '@/lib/adapters/people/fake'
@@ -8,7 +6,7 @@ import type { ScrapedPage } from '@/lib/adapters/scrape/types'
 import type { Adapter } from '@/lib/adapters/types'
 import type { ProviderMeta } from '@/lib/providers/types'
 
-import { fixturePath, listFixtures, readJsonFixture } from './fixtures'
+import { fixtureExists, listFixtures, readJsonFixture, readTextFixture } from './fixtures'
 
 interface JobFixture {
   url?: string
@@ -28,14 +26,14 @@ function scrapeFixtures(): Record<string, Omit<ScrapedPage, 'fetchedAt'>> {
     const fixture = readJsonFixture<JobFixture>('jobs', file)
     if (!fixture?.url) continue
 
-    const markdownPath = fixturePath('jobs', file.replace(/\.json$/, '.md'))
-    if (!fs.existsSync(markdownPath)) continue
+    const markdown = file.replace(/\.json$/, '.md')
+    if (!fixtureExists('jobs', markdown)) continue
 
     const { title, company } = fixture.expected ?? {}
     pages[fixture.url] = {
       url: fixture.url,
       title: title && company ? `${title} — ${company}` : title,
-      markdown: fs.readFileSync(markdownPath, 'utf8'),
+      markdown: readTextFixture('jobs', markdown),
     }
   }
 

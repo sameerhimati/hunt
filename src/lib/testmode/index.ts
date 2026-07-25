@@ -1,3 +1,16 @@
-export { fixturePath, fixturesDir, isTestMode, listFixtures, readJsonFixture } from './fixtures'
+/**
+ * Barrel for tests and gates. Application code imports `isTestMode` from
+ * `./env` and pulls the rest in with a dynamic import behind that check — this
+ * module reaches the filesystem and must stay out of the static server graph.
+ */
+export { isTestMode, TEST_MODEL } from './env'
+export {
+  fixtureExists,
+  fixturePath,
+  fixturesDir,
+  listFixtures,
+  readJsonFixture,
+  readTextFixture,
+} from './fixtures'
 export { testAdapter } from './adapters'
-export { scriptedLlm, testLlm, TEST_MODEL } from './llm'
+export { scriptedLlm, testLlm } from './llm'

@@ -13,7 +13,7 @@ import type { Adapter } from './types'
 import { getProvider, settingKey } from '@/lib/providers/registry'
 import { resolveSecret } from '@/lib/providers/status'
 import { readSetting } from '@/lib/settings/store'
-import { isTestMode, testAdapter } from '@/lib/testmode'
+import { isTestMode } from '@/lib/testmode/env'
 
 /**
  * Builds a live adapter from stored settings. Returns null when the provider
@@ -26,8 +26,12 @@ export async function createAdapter(providerId: string): Promise<Adapter | null>
 
   // One branch, at the only place adapters are constructed: under
   // HUNT_TEST_MODE every call site below gets its fixture-backed twin instead,
-  // so gates exercise production code paths with no keys and no network.
-  if (isTestMode()) return testAdapter(meta)
+  // so gates exercise production code paths with no keys and no network. The
+  // import is lazy so the fixture reader never enters the production bundle.
+  if (isTestMode()) {
+    const { testAdapter } = await import('@/lib/testmode/adapters')
+    return testAdapter(meta)
+  }
 
   const secret = (field: string) => resolveSecret(meta, field)
   const plain = (field: string) => readSetting(settingKey(providerId, field))

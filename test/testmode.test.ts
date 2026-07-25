@@ -65,10 +65,12 @@ describe('HUNT_TEST_MODE', () => {
     ).rejects.toThrow(/no scripted response for promptKind 'cover_letter'/)
   })
 
-  it('honours HUNT_FIXTURES_DIR so a gate can point at its own recordings', () => {
+  it('reads the committed fixture set, ignoring any ambient override', () => {
+    // The app-side loader is deliberately pinned to gates/fixtures — see the
+    // build-tracer note in src/lib/testmode/fixtures.ts.
     process.env.HUNT_FIXTURES_DIR = '/tmp/hunt-fixtures'
     try {
-      expect(fixturePath('llm')).toBe(path.join('/tmp/hunt-fixtures', 'llm'))
+      expect(fixturePath('llm')).toBe(path.join(process.cwd(), 'gates', 'fixtures', 'llm'))
     } finally {
       delete process.env.HUNT_FIXTURES_DIR
     }
