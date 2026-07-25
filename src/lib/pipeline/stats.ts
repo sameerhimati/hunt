@@ -39,7 +39,7 @@ const MILESTONES = [
   { label: 'Applied', where: { appliedAt: { not: null } } },
   { label: 'Replied', where: { repliedAt: { not: null } } },
   { label: 'Interview', where: { interviewAt: { not: null } } },
-  { label: 'Offer', where: { status: 'offer' } },
+  { label: 'Offer', where: { offeredAt: { not: null } } },
 ] as const
 
 export async function funnelStats(): Promise<FunnelStats> {

@@ -92,6 +92,11 @@ model Application {
   appliedAt       DateTime?
   repliedAt       DateTime?
   interviewAt     DateTime?
+  /// When an offer arrived. Separate from `decidedAt` because an offer that is
+  /// later declined or rescinded still happened — the funnel counts this column,
+  /// never the current status, or a rescinded offer would vanish from the search.
+  offeredAt       DateTime?
+  /// When the application reached a terminal answer, offer or rejection alike.
   decidedAt       DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

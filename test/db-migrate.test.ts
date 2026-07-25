@@ -84,6 +84,19 @@ describe('ensureSchema', () => {
     const dbPath = freshDbPath()
     ensureSchema(dbPath)
 
+    const countMigrations = () => {
+      const db = new Database(dbPath)
+      try {
+        return (db.prepare('SELECT COUNT(*) AS n FROM _prisma_migrations').get() as { n: number }).n
+      } finally {
+        db.close()
+      }
+    }
+
+    // Whatever is committed today — the point is that a second boot adds none.
+    const firstBoot = countMigrations()
+    expect(firstBoot).toBeGreaterThan(0)
+
     const db = new Database(dbPath)
     db.prepare('INSERT INTO Setting (key, value, encrypted, updatedAt) VALUES (?, ?, ?, ?)').run(
       'ui.theme',
@@ -101,11 +114,9 @@ describe('ensureSchema', () => {
         value: string
       }
       expect(row.value).toBe('dark')
-      expect(
-        (after.prepare('SELECT COUNT(*) AS n FROM _prisma_migrations').get() as { n: number }).n,
-      ).toBe(1)
     } finally {
       after.close()
     }
+    expect(countMigrations()).toBe(firstBoot)
   })
 })
