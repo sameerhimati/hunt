@@ -1,9 +1,12 @@
+import path from 'node:path'
+
 import { FakeEmailAdapter } from '@/lib/adapters/email/fake'
 import { FakeJobsAdapter } from '@/lib/adapters/jobs/fake'
 import { FakePeopleAdapter } from '@/lib/adapters/people/fake'
 import { FakeScrapeAdapter } from '@/lib/adapters/scrape/fake'
 import type { ScrapedPage } from '@/lib/adapters/scrape/types'
 import type { Adapter } from '@/lib/adapters/types'
+import { dataDir } from '@/lib/paths'
 import type { ProviderMeta } from '@/lib/providers/types'
 
 import { fixtureExists, listFixtures, readJsonFixture, readTextFixture } from './fixtures'
@@ -57,7 +60,8 @@ export function testAdapter(meta: ProviderMeta): Adapter | null {
     case 'people':
       return new FakePeopleAdapter()
     case 'email':
-      return new FakeEmailAdapter()
+      // Mirrored to a file because e2e observes the send from another process.
+      return new FakeEmailAdapter({ captureFile: path.join(dataDir(), 'outbox.jsonl') })
     default:
       return null
   }

@@ -4,6 +4,7 @@
  * nothing else in the palette.
  */
 import './core'
+import './outreach'
 import './pipeline'
 import './resumes'
 import './tailor'

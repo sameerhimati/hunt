@@ -1,0 +1,354 @@
+'use client'
+
+import { ChevronUp } from 'lucide-react'
+import { useEffect, useRef, useState, useTransition } from 'react'
+
+import {
+  markSentManuallyAction,
+  regenerateAction,
+  saveDraftAction,
+  sendStepAction,
+} from '@/app/outreach/actions'
+import { Button } from '@/components/ui/button'
+import type { OutreachCitation, OutreachStepView } from '@/lib/outreach/types'
+import { cn } from '@/lib/utils'
+
+/**
+ * The message editor card of `design/Outreach.dc.html`: step header, Subject,
+ * body, and the row of actions underneath.
+ *
+ * Two decisions worth naming.
+ *
+ * **Send saves first.** The row on disk is what leaves the building, so if the
+ * box is dirty we persist it and only then send. Otherwise a last-minute edit
+ * would sit on screen while the previous draft went out — the one failure mode
+ * an outreach tool must never have.
+ *
+ * **Regenerate does not write.** It asks the model and hands back a draft; the
+ * message on disk changes when the user says so (Save draft, or Send). That is
+ * also why citation chips only appear right after a regenerate: `Outreach` has
+ * no citations column and the schema is frozen this wave, so provenance for a
+ * *persisted* message is the footer line rather than per-claim underlines. A
+ * deliberate v1 gap — inventing a storage shape here would strand it.
+ */
+export function MessageEditor({
+  step,
+  contactEmail,
+  contactName,
+  emailConfigured,
+}: {
+  step: OutreachStepView
+  contactEmail: string | null
+  contactName: string | null
+  emailConfigured: boolean
+}) {
+  const [subject, setSubject] = useState(step.subject)
+  const [body, setBody] = useState(step.body)
+  const [dirty, setDirty] = useState(false)
+  const [citations, setCitations] = useState<OutreachCitation[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [pending, startTransition] = useTransition()
+  const menu = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+
+    const onDocumentClick = (event: MouseEvent) => {
+      if (!menu.current?.contains(event.target as Node)) setMenuOpen(false)
+    }
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+
+    document.addEventListener('mousedown', onDocumentClick)
+    document.addEventListener('keydown', onEscape)
+    return () => {
+      document.removeEventListener('mousedown', onDocumentClick)
+      document.removeEventListener('keydown', onEscape)
+    }
+  }, [menuOpen])
+
+  /** Every action runs the same way: clear the last answer, then report this one. */
+  const run = (work: () => Promise<string | null>) => {
+    setError(null)
+    setNote(null)
+    setMenuOpen(false)
+    startTransition(async () => {
+      const failure = await work()
+      if (failure) setError(failure)
+    })
+  }
+
+  const persist = async (): Promise<string | null> => {
+    if (!dirty) return null
+    const result = await saveDraftAction(step.id, { subject, body })
+    if (result.error) return result.error
+    setDirty(false)
+    return null
+  }
+
+  const save = () =>
+    run(async () => {
+      const failure = await persist()
+      if (!failure) setNote('Draft saved.')
+      return failure
+    })
+
+  const send = () =>
+    run(async () => {
+      const failure = await persist()
+      if (failure) return failure
+      const result = await sendStepAction(step.id)
+      return result.error ?? null
+    })
+
+  const regenerate = () =>
+    run(async () => {
+      const result = await regenerateAction(step.id)
+      if (result.error) return result.error
+      if (result.subject !== undefined) setSubject(result.subject)
+      if (result.body !== undefined) setBody(result.body)
+      setCitations(result.citations ?? [])
+      setDirty(true)
+      setNote('New draft — save it or send it.')
+      return null
+    })
+
+  const markSent = () =>
+    run(async () => {
+      const failure = await persist()
+      if (failure) return failure
+      const result = await markSentManuallyAction(step.id)
+      return result.error ?? null
+    })
+
+  const copy = () =>
+    run(async () => {
+      // Same shape as `messageText` in lib/outreach/send, built here rather than
+      // fetched: what the user copies must be what is in the box, including the
+      // edit they have not saved yet.
+      const recipient = [contactName, contactEmail && `<${contactEmail}>`].filter(Boolean).join(' ')
+      const text = [recipient ? `To: ${recipient}` : null, `Subject: ${subject}`, '', body]
+        .filter((line) => line !== null)
+        .join('\n')
+      try {
+        await navigator.clipboard.writeText(text)
+        setNote('Copied — paste it into your mail client.')
+      } catch {
+        // Clipboard access can be refused (no permission, insecure origin).
+        // Saying so beats a button that silently does nothing.
+        return 'Your browser would not let hunt reach the clipboard. Select the message and copy it by hand.'
+      }
+      return null
+    })
+
+  const sendable = step.status === 'draft' || step.status === 'scheduled'
+
+  return (
+    <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
+      <header className="flex items-center justify-between gap-4 border-b border-border px-[18px] py-3.5">
+        <h3 className="text-[13px] font-semibold">
+          Step {step.sequenceStep} · {STEP_NAMES[step.sequenceStep] ?? 'Follow-up'}
+        </h3>
+        <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">
+          drafted from role + your résumé highlights
+        </span>
+      </header>
+
+      <div className="flex items-center gap-2.5 border-b border-border px-[18px] py-4">
+        <label htmlFor="message-subject" className="w-[52px] shrink-0 font-mono text-[11px] text-faint">
+          Subject
+        </label>
+        <input
+          id="message-subject"
+          data-testid="message-subject"
+          value={subject}
+          autoComplete="off"
+          placeholder="What lands in their inbox"
+          onChange={(event) => {
+            setSubject(event.target.value)
+            setDirty(true)
+          }}
+          className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-faint"
+        />
+      </div>
+
+      <textarea
+        data-testid="message-body"
+        value={body}
+        aria-label="Message body"
+        placeholder={`Hi ${contactName?.split(' ')[0] ?? 'there'} —`}
+        onChange={(event) => {
+          setBody(event.target.value)
+          setDirty(true)
+        }}
+        className="min-h-[220px] flex-1 resize-none bg-transparent p-[18px] text-[13.5px] leading-[1.7] outline-none placeholder:text-faint"
+      />
+
+      {citations.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-border px-[18px] py-2.5">
+          <span className="font-mono text-[10.5px] text-faint">cites</span>
+          {citations.map((citation) => (
+            <span
+              key={citation.path}
+              data-testid="citation-chip"
+              title={citation.snippet ?? citation.path}
+              className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[10.5px] text-muted-foreground"
+            >
+              {citation.path}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {error ? (
+        <p
+          data-testid="composer-error"
+          className="border-t border-border bg-destructive/10 px-[18px] py-2.5 text-xs leading-relaxed text-destructive"
+        >
+          {error}
+        </p>
+      ) : note ? (
+        <p
+          data-testid="composer-note"
+          className="border-t border-border px-[18px] py-2.5 font-mono text-[10.5px] text-muted-foreground"
+        >
+          {note}
+        </p>
+      ) : null}
+
+      {!emailConfigured ? (
+        <p className="border-t border-border px-[18px] py-2.5 font-mono text-[10.5px] text-faint">
+          No email key yet — hunt drafts and tracks, you send from your own client.
+        </p>
+      ) : null}
+
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background px-[18px] py-3.5">
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            data-testid="regenerate"
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={regenerate}
+          >
+            Regenerate
+          </Button>
+          <span className="font-mono text-[10.5px] text-faint">every claim cites your résumé</span>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          {!sendable ? (
+            <span className="font-mono text-[10.5px] text-muted-foreground">
+              {step.status}
+              {step.sentAt ? ` · ${step.sentAt.toISOString().slice(0, 10)}` : ''}
+            </span>
+          ) : null}
+
+          <Button
+            type="button"
+            data-testid="save-draft"
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={save}
+          >
+            Save draft
+          </Button>
+
+          <div ref={menu} className="relative flex items-center">
+            {emailConfigured ? (
+              <>
+                <Button
+                  type="button"
+                  data-testid="send-now"
+                  size="sm"
+                  className="rounded-r-none"
+                  disabled={pending || !sendable}
+                  onClick={send}
+                >
+                  {pending ? 'Sending…' : 'Send now'}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  aria-label="Other ways to send"
+                  data-testid="send-options"
+                  className="rounded-l-none border-l border-primary-foreground/20 px-2"
+                  onClick={() => setMenuOpen((open) => !open)}
+                >
+                  <ChevronUp size={14} aria-hidden="true" />
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                data-testid="copy-message"
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={copy}
+              >
+                Copy message
+              </Button>
+            )}
+
+            {/*
+              Always in the DOM, hidden until asked for: the degraded path has to
+              be reachable in one click from the send control, and a menu that
+              only mounts on open is a menu nothing can find. When there is no
+              email key at all, "mark as sent manually" *is* the primary action.
+            */}
+            <div
+              role="menu"
+              hidden={emailConfigured && !menuOpen}
+              className={cn(
+                emailConfigured
+                  ? 'absolute bottom-full right-0 z-20 mb-1.5 w-56 rounded-md border border-border bg-popover p-1 shadow-lg'
+                  : 'ml-2.5 flex items-center',
+                emailConfigured && !menuOpen && 'hidden',
+              )}
+            >
+              {emailConfigured ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  data-testid="copy-message"
+                  disabled={pending}
+                  onClick={copy}
+                  className="w-full rounded px-2 py-1.5 text-left text-sm transition-colors duration-150 hover:bg-surface-2 disabled:opacity-50"
+                >
+                  Copy message
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                role={emailConfigured ? 'menuitem' : undefined}
+                data-testid="mark-sent-manually"
+                disabled={pending || !sendable}
+                onClick={markSent}
+                className={cn(
+                  'transition-colors duration-150 disabled:opacity-50',
+                  emailConfigured
+                    ? 'w-full rounded px-2 py-1.5 text-left text-sm hover:bg-surface-2'
+                    : 'inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90',
+                )}
+              >
+                Mark as sent manually
+              </button>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </section>
+  )
+}
+
+/** The cadence the default sequence deals: intro, nudge, last nudge. */
+const STEP_NAMES: Record<number, string> = { 1: 'Intro', 2: 'Follow-up', 3: 'Last nudge' }
