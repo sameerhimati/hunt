@@ -1,0 +1,28 @@
+{
+  "_comment": "Hand-labeled (Phase 3 foundation, 2026-07-25) against resume/alex-chen.json, BEFORE scoreCoverage existed. The trap fixture: every term here is one a sloppy scorer gets wrong. Same rule as -1 and -2 (case-insensitive, word-boundary, singular/plural equivalent, NO synonym inference), plus the one normalisation this file pins: hyphens and spaces are the same token separator, because that is punctuation, not meaning — 'on call' matches 'On-call owner' (experience[1].bullets[2]) and 'bank linking' matches 'bank-linking' (experience[1].bullets[0]). Case-only difference: 'postgres' matches 'Postgres' and 'KAFKA' matches 'Kafka'. Substring traps that must NOT match: 'Kube' occurs only inside 'Kubernetes' and 'AI' only inside 'Plaid' — a naive indexOf scan claims both; a word-boundary scan claims neither. Longer-than-the-text traps: 'Golang' and 'PostgreSQL' are missing because the résumé says 'Go' and 'Postgres' — abbreviation expansion is inference, and this check reports only what is literally covered. Synonym traps in the style of -1's 'latency': 'monitoring' (résumé says 'Observability'), 'message broker' (résumé says 'Kafka event bus') and 'uptime' (résumé says '99.95% SLO') are all MISSING. A term this check calls missing is not a judgement about the candidate — it is the honest statement that the word the JD used is not on the page, which is the only thing keyword coverage can truthfully report.",
+  "jdTerms": [
+    "Go",
+    "postgres",
+    "KAFKA",
+    "on call",
+    "bank linking",
+    "fintech",
+    "Kube",
+    "AI",
+    "Golang",
+    "PostgreSQL",
+    "monitoring",
+    "message broker",
+    "uptime"
+  ],
+  "expectedMatched": ["Go", "postgres", "KAFKA", "on call", "bank linking", "fintech"],
+  "expectedMissing": [
+    "Kube",
+    "AI",
+    "Golang",
+    "PostgreSQL",
+    "monitoring",
+    "message broker",
+    "uptime"
+  ]
+}

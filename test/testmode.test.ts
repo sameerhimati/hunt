@@ -54,15 +54,19 @@ describe('HUNT_TEST_MODE', () => {
   it('names the fixture to record when a kind has no script', async () => {
     const resolved = await resolveLlm()
 
+    // `parse_resume` is the stand-in for "not yet recorded": its fixtures are
+    // recorded model replies under resume/parse-response-*.txt, which the P1
+    // gate replays directly, so nothing scripts it through test mode. Any kind
+    // used here eventually gets a fixture — cover_letter did, in Phase 3.
     await expect(
       runPrompt({
         llm: resolved!.provider,
         model: resolved!.model,
-        kind: 'cover_letter',
+        kind: 'parse_resume',
         maxTokens: 256,
-        messages: [{ role: 'user', content: 'write one' }],
+        messages: [{ role: 'user', content: 'parse this' }],
       }),
-    ).rejects.toThrow(/no scripted response for promptKind 'cover_letter'/)
+    ).rejects.toThrow(/no scripted response for promptKind 'parse_resume'/)
   })
 
   it('dispatches a shared promptKind by its match discriminator', async () => {
