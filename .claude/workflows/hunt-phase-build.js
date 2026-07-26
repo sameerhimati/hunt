@@ -59,7 +59,8 @@ const PLAN_SCHEMA = {
           deps: { type: 'array', items: { type: 'string' } },
           detail: { type: 'string' },
           // planner marks mechanical leaves (fixtures, metadata boilerplate) cheap; builders default to opus.
-          model: { type: 'string', enum: ['opus', 'fable', 'haiku'] },
+          // fable is deliberately absent — Sameer's call, it is not to be spawned as a subagent.
+          model: { type: 'string', enum: ['opus', 'haiku'] },
           effort: { type: 'string', enum: ['low', 'medium', 'high'] },
         },
       },
@@ -107,7 +108,7 @@ const plan = await agent(
     'Produce a task DAG splitting the phase into:\n' +
     '  • FOUNDATION tasks — shared files (shared types, adapter/registry index files, screen shells). Built SERIALLY. Pre-create a slot/placeholder for every leaf that will plug in, so leaves never edit a shared file.\n' +
     '  • LEAF tasks — file-disjoint additive units (one adapter + its Fake twin + fixtures, one LaTeX template, one check, one Settings provider card). Each lists the EXACT paths it owns; no two leaves may share a path. Respect the ownership map in PHASE-PLAN.md — files owned by another phase this wave are OFF LIMITS.\n' +
-    'Mark purely mechanical leaves (fixture JSON, provider-metadata boilerplate) with model:"fable" or "haiku"; leave real logic on opus.\n' +
+    'Mark purely mechanical leaves (fixture JSON, provider-metadata boilerplate) with model:"haiku"; leave real logic on opus. Never fable.\n' +
     `If PHASE-PLAN.md lists a "verifier gap" for this phase (fixtures the gate needs that don't exist), recording those fixtures is the FIRST foundation task. Do NOT write or edit gate test files — they exist and are the contract. Return the DAG (and any fixture files you must create) now.`,
   { phase: 'Plan', model: 'opus', schema: PLAN_SCHEMA }
 )
