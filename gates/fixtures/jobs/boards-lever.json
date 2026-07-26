@@ -1,0 +1,36 @@
+[
+  {
+    "id": "7c1f0a4e-1b2c-4d3e-9f10-abcdef123456",
+    "text": "Backend Engineer, Payments",
+    "hostedUrl": "https://jobs.lever.co/halcyon/7c1f0a4e-1b2c-4d3e-9f10-abcdef123456",
+    "applyUrl": "https://jobs.lever.co/halcyon/7c1f0a4e-1b2c-4d3e-9f10-abcdef123456/apply",
+    "createdAt": 1752451200000,
+    "workplaceType": "remote",
+    "categories": {
+      "commitment": "Full-time",
+      "department": "Engineering",
+      "location": "Remote — US",
+      "team": "Payments"
+    },
+    "descriptionPlain": "Backend engineer for our payments core: Go services, ledger correctness, idempotent retries across card processors.",
+    "lists": [],
+    "country": "US"
+  },
+  {
+    "id": "9d2e1b5f-2c3d-4e4f-8a21-bcdef2345678",
+    "text": "Recruiting Coordinator",
+    "hostedUrl": "https://jobs.lever.co/halcyon/9d2e1b5f-2c3d-4e4f-8a21-bcdef2345678",
+    "applyUrl": "https://jobs.lever.co/halcyon/9d2e1b5f-2c3d-4e4f-8a21-bcdef2345678/apply",
+    "createdAt": 1751500800000,
+    "workplaceType": "onsite",
+    "categories": {
+      "commitment": "Full-time",
+      "department": "People",
+      "location": "New York, NY",
+      "team": "Talent"
+    },
+    "descriptionPlain": "Own scheduling for our engineering loops.",
+    "lists": [],
+    "country": "US"
+  }
+]

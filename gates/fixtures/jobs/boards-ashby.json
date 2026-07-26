@@ -1,0 +1,36 @@
+{
+  "_recorded": "GET https://api.ashbyhq.com/posting-api/job-board/meridian",
+  "apiVersion": "1",
+  "jobs": [
+    {
+      "id": "0a9b8c7d-6e5f-4a3b-2c1d-0e9f8a7b6c5d",
+      "title": "Platform Engineer",
+      "department": "Engineering",
+      "team": "Platform",
+      "employmentType": "FullTime",
+      "location": "Remote — US",
+      "isRemote": true,
+      "publishedAt": "2026-07-11T16:04:00.000Z",
+      "jobUrl": "https://jobs.ashbyhq.com/meridian/0a9b8c7d-6e5f-4a3b-2c1d-0e9f8a7b6c5d",
+      "applyUrl": "https://jobs.ashbyhq.com/meridian/0a9b8c7d-6e5f-4a3b-2c1d-0e9f8a7b6c5d/application",
+      "descriptionPlain": "Own the Kubernetes and CI platform that ships our clinical data pipelines. Go, Terraform, a bias for reliability.",
+      "organizationName": "Meridian Health",
+      "secondaryLocations": []
+    },
+    {
+      "id": "1b8c7d6e-5f4a-3b2c-1d0e-9f8a7b6c5d4e",
+      "title": "Clinical Data Analyst",
+      "department": "Data",
+      "team": "Clinical",
+      "employmentType": "FullTime",
+      "location": "Boston, MA",
+      "isRemote": false,
+      "publishedAt": "2026-07-05T12:00:00.000Z",
+      "jobUrl": "https://jobs.ashbyhq.com/meridian/1b8c7d6e-5f4a-3b2c-1d0e-9f8a7b6c5d4e",
+      "applyUrl": "https://jobs.ashbyhq.com/meridian/1b8c7d6e-5f4a-3b2c-1d0e-9f8a7b6c5d4e/application",
+      "descriptionPlain": "Turn trial data into decisions the care teams can act on.",
+      "organizationName": "Meridian Health",
+      "secondaryLocations": []
+    }
+  ]
+}

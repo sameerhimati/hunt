@@ -7,6 +7,7 @@ import './core'
 import './outreach'
 import './pipeline'
 import './resumes'
+import './sourcing'
 import './tailor'
 
 export * from './registry'
