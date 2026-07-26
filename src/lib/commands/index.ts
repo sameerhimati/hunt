@@ -6,5 +6,6 @@
 import './core'
 import './pipeline'
 import './resumes'
+import './sourcing'
 
 export * from './registry'

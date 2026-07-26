@@ -28,6 +28,22 @@ const DEFAULT_FIXTURES: JobListing[] = [
     remote: true,
     source: 'fake-jobs',
   },
+  // The remote backend role. Sourcing's saved-search path filters on
+  // `{keywords:'backend', remoteOnly:true}`, and fake-1 is on-site while fake-2
+  // never says "backend" — without this fixture that query is empty and no
+  // rated-results screen can be exercised on fakes.
+  {
+    externalId: 'fake-3',
+    title: 'Backend Engineer, Payments',
+    company: 'Halcyon Pay',
+    location: 'Remote — US',
+    url: 'https://jobs.example.com/halcyon/backend-engineer-payments',
+    description:
+      'Backend engineer for our payments core: Go services, distributed systems, ledger correctness and idempotent retries across card processors.',
+    postedAt: new Date('2026-07-14T00:00:00Z'),
+    remote: true,
+    source: 'fake-jobs',
+  },
 ]
 
 export class FakeJobsAdapter implements JobsAdapter {
