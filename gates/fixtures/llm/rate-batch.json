@@ -1,6 +1,7 @@
 {
-  "_comment": "Scripted FakeLlmProvider output for promptKind 'rate' in HUNT_TEST_MODE — rates the FakeJobsAdapter default fixtures (fake-1 Northwind, fake-2 Meridian). Qualitative tiers with cited reasons; no numbers, ever.",
+  "_comment": "Scripted FakeLlmProvider output for promptKind 'rate' in HUNT_TEST_MODE — the BATCH call site (the sourcing board), guarded by \"match\" so Phase 3's single-job 'rate' fixture can be the unguarded default and the two never shadow each other. The batch prompt must contain the literal \"Rate each listing\". Rates the FakeJobsAdapter default fixtures (fake-1 Northwind, fake-2 Meridian, fake-3 Halcyon). Qualitative tiers with cited reasons resolving into resume/alex-chen.json; no numbers, ever.",
   "promptKind": "rate",
+  "match": "Rate each listing",
   "response": {
     "ratings": [
       {
@@ -20,6 +21,24 @@
           {
             "text": "Kubernetes and Terraform are present, but the platform/CI focus is adjacent to Alex's payments background",
             "citations": ["skills[1].items[3]"]
+          }
+        ]
+      },
+      {
+        "externalId": "fake-3",
+        "tier": "strong",
+        "reasons": [
+          {
+            "text": "The posting is a payments core and Alex already owns a card-settlement ledger at Ramp",
+            "citations": ["experience[0].bullets[0]", "basics.summary"]
+          },
+          {
+            "text": "Idempotent retries across processors is the exact problem this résumé describes solving",
+            "citations": ["experience[0].bullets[1]", "experience[1].bullets[0]"]
+          },
+          {
+            "text": "Go is a primary language here, not a stretch",
+            "citations": ["skills[0].items[0]"]
           }
         ]
       }
