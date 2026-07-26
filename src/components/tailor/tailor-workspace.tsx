@@ -657,8 +657,9 @@ export function TailorWorkspace({
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             hunt proposes changes against{' '}
-            <span className="font-mono text-xs text-foreground">{base.label}</span> and you review
-            them one at a time. Nothing is rewritten and nothing is saved until you say so — and
+            <span className="font-mono text-xs text-foreground">{base.label}</span>{' '}
+            and you review them one at a time. Nothing is rewritten and nothing is saved until you
+            say so — and
             any claim it can&rsquo;t trace back to your own résumé is refused, not applied.
           </p>
 
