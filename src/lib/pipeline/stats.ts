@@ -90,7 +90,10 @@ export interface ActivityItem {
 /** The memory of a single-user tool: what moved, most recent first. */
 export async function recentActivity(limit = 8): Promise<ActivityItem[]> {
   const rows = await prisma.application.findMany({
-    orderBy: { updatedAt: 'desc' },
+    // `id` breaks the tie: two cards moved inside the same clock tick would
+    // otherwise come back in whatever order SQLite felt like, which makes "what
+    // did I just touch?" unstable — and made a test flake once.
+    orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
     take: limit,
     include: { job: true },
   })
