@@ -148,6 +148,7 @@ export function CoverLetterTab({
   const [error, setError] = useState<string | null>(null)
   const [keyless, setKeyless] = useState(hasLlm === false)
   const [dirty, setDirty] = useState(false)
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [saving, startSaving] = useTransition()
 
   /**
@@ -183,6 +184,7 @@ export function CoverLetterTab({
   }, [])
 
   const generate = useCallback(async () => {
+    setConfirmRegenerate(false)
     setBusy('drafting')
     const drafted = receive(await actions.draft(applicationId, baseVersionId))
     if (drafted) {
@@ -284,6 +286,10 @@ export function CoverLetterTab({
   }, [actions, adopt, applicationId, draft, job.company, job.title, receive])
 
   const flagged = draft?.paragraphs.filter((paragraph) => paragraph.flag) ?? []
+  /** Prose of the user's own that a regenerate would replace. Blank lines are nothing to lose. */
+  const handwritten =
+    draft?.paragraphs.filter((paragraph) => paragraph.origin === 'user' && paragraph.text.trim())
+      .length ?? 0
 
   return (
     <div data-testid="cover-letter-tab" className="mx-auto w-full max-w-[760px] px-8 py-7">
@@ -320,7 +326,12 @@ export function CoverLetterTab({
               size="sm"
               data-testid="regenerate-cover-letter"
               disabled={busy !== null || saving || keyless}
-              onClick={() => void generate()}
+              onClick={() => {
+                // A regenerate replaces every paragraph and there is no undo,
+                // so it asks first when there is writing of the user's to lose.
+                if (handwritten > 0) setConfirmRegenerate(true)
+                else void generate()
+              }}
             >
               {busy === 'drafting' ? 'Drafting…' : 'Regenerate'}
             </Button>
@@ -345,6 +356,41 @@ export function CoverLetterTab({
           stillWorks="The rest of this run works without one, and a letter you write here yourself saves the same way."
           settingsSection="llm"
         />
+      ) : null}
+
+      {/* Same shape as the Structured tab's hand-edit banner in the workspace:
+          state the fact, then offer the destructive move and the way out. */}
+      {confirmRegenerate ? (
+        <div
+          data-testid="regenerate-confirm"
+          className="mt-5 rounded-md border border-warn/40 bg-warn-bg px-3 py-2 text-xs leading-relaxed text-warn"
+        >
+          Regenerating replaces the whole letter, including the{' '}
+          {handwritten === 1 ? 'paragraph' : `${handwritten} paragraphs`} you wrote. There is no
+          undo.
+          <div className="mt-1 flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              data-testid="confirm-regenerate"
+              className="h-7 px-2 text-xs"
+              onClick={() => void generate()}
+            >
+              Discard my edits and regenerate
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              data-testid="cancel-regenerate"
+              className="h-7 px-2 text-xs"
+              onClick={() => setConfirmRegenerate(false)}
+            >
+              Keep my letter
+            </Button>
+          </div>
+        </div>
       ) : null}
 
       {error && !keyless ? (

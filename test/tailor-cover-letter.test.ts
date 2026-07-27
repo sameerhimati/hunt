@@ -486,6 +486,40 @@ describe('the cover letter tab', () => {
     expect(screen.getByTestId('cover-letter-flag').textContent).toMatch(/no source/i)
   })
 
+  it('asks before a regenerate throws away the paragraphs the user wrote', async () => {
+    const actions = mount()
+    await waitFor(() => expect(screen.getAllByTestId('cover-letter-paragraph')).toHaveLength(2))
+
+    const [own] = screen.getAllByTestId('cover-letter-input')
+    fireEvent.change(own, { target: { value: 'Ten minutes of my own writing.' } })
+
+    fireEvent.click(screen.getByTestId('regenerate-cover-letter'))
+    expect(actions.draft).not.toHaveBeenCalled()
+    expect(screen.getByTestId('regenerate-confirm').textContent).toMatch(/replaces the whole letter/i)
+
+    // Backing out leaves the letter exactly as it was.
+    fireEvent.click(screen.getByTestId('cancel-regenerate'))
+    expect(screen.queryByTestId('regenerate-confirm')).toBeNull()
+    expect(actions.draft).not.toHaveBeenCalled()
+    expect((screen.getAllByTestId('cover-letter-input')[0] as HTMLTextAreaElement).value).toBe(
+      'Ten minutes of my own writing.',
+    )
+
+    fireEvent.click(screen.getByTestId('regenerate-cover-letter'))
+    fireEvent.click(screen.getByTestId('confirm-regenerate'))
+    await waitFor(() => expect(actions.draft).toHaveBeenCalledTimes(1))
+    expect(screen.queryByTestId('regenerate-confirm')).toBeNull()
+  })
+
+  it('regenerates without asking when there is nothing of the user’s to lose', async () => {
+    const actions = mount()
+    await waitFor(() => expect(screen.getAllByTestId('cover-letter-paragraph')).toHaveLength(2))
+
+    fireEvent.click(screen.getByTestId('regenerate-cover-letter'))
+    await waitFor(() => expect(actions.draft).toHaveBeenCalledTimes(1))
+    expect(screen.queryByTestId('regenerate-confirm')).toBeNull()
+  })
+
   it('cuts a paragraph the user does not want', async () => {
     mount()
     await waitFor(() => expect(screen.getAllByTestId('cover-letter-paragraph')).toHaveLength(2))
