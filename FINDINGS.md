@@ -53,6 +53,38 @@ This is the differentiator inverted, and it is the class to watch hardest:
 code path that can fail. If nothing can make the label false, it isn't a claim,
 it's decoration.
 
+### 3. One `useTransition` shared across several actions
+
+Found only because a long-dismissed "flaky test" was finally root-caused instead
+of retried. **It was a real user-facing bug, twice written off as test noise.**
+
+A component runs several distinct actions through one `useTransition`, then gates
+every control on that single `pending`. React settles an async transition's
+`isPending` back to `false` a tick *after* it commits the state the transition
+awaited — so there is a genuine commit where the results are **painted on screen
+with every control disabled**. React does not dispatch handlers for a click on a
+disabled button, so a click in that window vanishes entirely: no handler, no
+error, no feedback.
+
+In `contact-card.tsx` that meant a user on a loaded page could click Save on a
+found recruiter and have nothing happen. The window is normally sub-millisecond;
+its length is however long the main thread is busy, which is why it presented as
+a ~18% test flake rather than a bug report.
+
+`src/components/sourcing/workspace.tsx:69-77` already carried a comment
+describing this precise hazard and splitting its flags. The convention existed
+and was written down; it just hadn't been applied everywhere.
+
+**Convention to adopt:** one `useTransition` per action, each gating only its own
+control. And: a control that is disabled is a control whose click is *discarded*,
+so "disabled while something unrelated is in flight" is never merely cosmetic.
+
+**Corollary worth internalising:** an intermittent test failure is a hypothesis
+about the product, not an inconvenience. Both times this repo treated one as
+flakiness — nine clean retries once, a shrug the second time — it was hiding a
+defect. Raising a timeout or swapping to `findBy*` would have buried it a third
+time. Instrument and capture the failing run.
+
 ---
 
 ## What the review confirmed is genuinely sound
@@ -297,10 +329,8 @@ own, which is what kept the parallel work conflict-free.
   already applied the pre-backfill version will report drift under
   `prisma migrate dev` and will not receive the backfill. Inherent to making the
   backfill ride with the migration.
-- **Two tests flake ~1-in-3 under full-suite load**, both on 1000ms `waitFor`
-  races: `test/contact-card.test.tsx` and `test/sourcing-workspace.test.tsx`.
-  Confirmed pre-existing by three separate agents against a stashed base. This is
-  the failure a previous session saw once and could not pin down.
+- ~~Two tests flake under full-suite load on 1000ms `waitFor` races.~~
+  **Wrong — see defect class 3 below. One was a real product bug.**
 - **Suppressing an impossible funnel rate overloads `FunnelRow`'s em-dash** —
   it already means "no data yet" and now also means "these stages don't nest".
   A `reason` discriminant on `StageConversion` would separate them.
