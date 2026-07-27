@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { FollowUpRow } from '@/lib/outreach/queue'
@@ -157,6 +157,45 @@ describe('FollowUpsPanel', () => {
 
     expect(markSentManually).toHaveBeenCalledWith('step-7')
     expect(sendStep).not.toHaveBeenCalled()
+  })
+
+  it('shuts the Send button while the send is in flight', async () => {
+    // The row's only defence against a second click used to be that nobody
+    // clicked twice. Before hydration a bare form is a native POST, so two
+    // clicks were two sends with certainty.
+    let finish = () => {}
+    sendStep.mockImplementation(() => new Promise((resolve) => (finish = () => resolve(null))))
+    followUpsDue.mockResolvedValue([row({ id: 'step-9' })])
+    await renderPanel()
+
+    const button = screen.getByTestId('follow-up-send') as HTMLButtonElement
+    fireEvent.click(button)
+
+    await waitFor(() => expect(button.disabled).toBe(true))
+    expect(button.textContent).toMatch(/sending/i)
+
+    fireEvent.click(button)
+    finish()
+    await waitFor(() => expect(button.disabled).toBe(false))
+    expect(sendStep).toHaveBeenCalledTimes(1)
+  })
+
+  it('shuts the Mark sent button while it is writing', async () => {
+    createAdapter.mockResolvedValue(null)
+    let finish = () => {}
+    markSentManually.mockImplementation(
+      () => new Promise((resolve) => (finish = () => resolve(null))),
+    )
+    followUpsDue.mockResolvedValue([row({ id: 'step-7' })])
+    await renderPanel()
+
+    const button = screen.getByTestId('follow-up-mark-sent') as HTMLButtonElement
+    fireEvent.click(button)
+
+    await waitFor(() => expect(button.disabled).toBe(true))
+    finish()
+    await waitFor(() => expect(button.disabled).toBe(false))
+    expect(markSentManually).toHaveBeenCalledTimes(1)
   })
 
   it('sends a failed send to the composer with the provider’s own words', async () => {

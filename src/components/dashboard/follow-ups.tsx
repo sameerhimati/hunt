@@ -2,6 +2,7 @@ import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
+import { SubmitButton } from '@/components/dashboard/follow-up-form'
 import { buttonVariants } from '@/components/ui/button'
 import { createAdapter } from '@/lib/adapters/factory'
 import { followUpsDue, type FollowUpRow } from '@/lib/outreach/queue'
@@ -147,13 +148,11 @@ export async function FollowUpsPanel() {
                   <form action={dispatch} className="shrink-0">
                     <input type="hidden" name="step" value={step.id} />
                     <input type="hidden" name="application" value={step.applicationId} />
-                    <button
-                      type="submit"
-                      data-testid="follow-up-send"
-                      className={cn(buttonVariants({ size: 'sm' }), 'text-xs')}
-                    >
-                      Send
-                    </button>
+                    <SubmitButton
+                      testId="follow-up-send"
+                      label="Send"
+                      pendingLabel="Sending…"
+                    />
                   </form>
                 ) : (
                   <span className="flex shrink-0 items-center gap-1">
@@ -175,13 +174,12 @@ export async function FollowUpsPanel() {
                       <input type="hidden" name="step" value={step.id} />
                       <input type="hidden" name="application" value={step.applicationId} />
                       <input type="hidden" name="mode" value="manual" />
-                      <button
-                        type="submit"
-                        data-testid="follow-up-mark-sent"
-                        className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-xs')}
-                      >
-                        Mark sent
-                      </button>
+                      <SubmitButton
+                        testId="follow-up-mark-sent"
+                        label="Mark sent"
+                        pendingLabel="Marking…"
+                        variant="ghost"
+                      />
                     </form>
                   </span>
                 )}
