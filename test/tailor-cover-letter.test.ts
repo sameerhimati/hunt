@@ -171,14 +171,76 @@ describe('drafting under the citation guard', () => {
   })
 
   it('accepts the posting as a source, but only its real fields', () => {
-    expect(resolveCoverLetterCitation('job.jdText', content, job)).toMatchObject({
+    expect(
+      resolveCoverLetterCitation('job.jdText', content, job, 'I own the charge path in Go.'),
+    ).toMatchObject({
       source: 'job',
       snippet: job.jdText,
     })
-    expect(resolveCoverLetterCitation('job.salary', content, job)).toBeNull()
-    expect(resolveCoverLetterCitation('experience[0].bullets[0]', content, job)).toMatchObject({
-      source: 'resume',
-    })
+    expect(resolveCoverLetterCitation('job.salary', content, job, 'anything')).toBeNull()
+    expect(
+      resolveCoverLetterCitation(
+        'experience[0].bullets[0]',
+        content,
+        job,
+        'I own the ledger service that settles $40M a month in card transactions.',
+      ),
+    ).toMatchObject({ source: 'resume' })
+  })
+
+  it('does not let an unrelated field stand as a source for a claim', () => {
+    const [paragraph] = parse({
+      paragraphs: [
+        {
+          text: 'I ran the SRE org of forty engineers through two Series-B scale-ups.',
+          // A real path, a real value, and nothing to do with the sentence.
+          citations: ['basics.name', 'basics.email'],
+        },
+      ],
+    }).paragraphs
+
+    expect(paragraph.citations).toEqual([])
+    expect(paragraph.flag).toMatch(/no source/i)
+  })
+
+  it('refuses a citation to a whole section — a subtree is not a source', () => {
+    expect(
+      resolveCoverLetterCitation(
+        'experience[0]',
+        content,
+        job,
+        'At Ramp I own the ledger service that settles card transactions across three processors.',
+      ),
+    ).toBeNull()
+  })
+
+  it('accepts a paraphrase that shares the cited field’s substance', () => {
+    const [paragraph] = parse({
+      paragraphs: [
+        {
+          text:
+            'At Ramp the ledger I own settles about $40M every month in card transactions, ' +
+            'spread across three processors.',
+          citations: ['experience[0].bullets[0]'],
+        },
+      ],
+    }).paragraphs
+
+    expect(paragraph.citations.map((citation) => citation.path)).toEqual([
+      'experience[0].bullets[0]',
+    ])
+    expect(paragraph.flag).toBeUndefined()
+  })
+
+  it('accepts a one-word field when the paragraph actually names it', () => {
+    expect(
+      resolveCoverLetterCitation(
+        'skills[0].items[0]',
+        content,
+        job,
+        'Six of those years were in Go, on services that could not go down.',
+      ),
+    ).toMatchObject({ source: 'resume' })
   })
 
   it('skips unreadable entries rather than losing the paragraphs beside them', () => {
