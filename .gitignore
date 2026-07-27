@@ -51,3 +51,7 @@ next-env.d.ts
 
 # local session scaffolding (work log, phase plan) — never commit to the public repo
 /session-handoff.md
+
+# scratch worktrees created by parallel agents — transient, and the wave
+# preflight refuses to build on a dirty tree
+/.claude/worktrees/
