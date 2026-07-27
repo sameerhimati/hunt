@@ -41,10 +41,20 @@ import {
  * is the honest version of "we tracked where this came from".
  *
  * The blank line is the paragraph boundary, in the file and in the tab. Split a
- * paragraph in two while editing and it loads back as two — both the user's,
- * since they wrote the split. Honouring the file's own structure over hunt's
- * bookkeeping is what makes hand-editing the letter in another editor work at
- * all, which is the point of storing it as a document.
+ * paragraph by hand while editing and it loads back as two, which is what makes
+ * hand-editing the letter in another editor work at all — the point of storing
+ * it as a document.
+ *
+ * That boundary is the file's, not the paragraph's, so **hunt escapes its own
+ * text before writing it**. A model paragraph containing a blank line is
+ * ordinary output, and writing it verbatim made it two blocks on disk: the
+ * annotation bound to the second, and the first came back `origin: 'user'` —
+ * half a flagged claim silently relabelled as the user's own writing, on a plain
+ * save and reload. So a blank line inside a paragraph is written as a `gap`
+ * comment, and anything in the prose that looks like one of these comments is
+ * written with an escaped prefix. Both are undone on read, so what round-trips
+ * is the paragraph the model wrote and the provenance hunt recorded for it —
+ * whatever text the model put in it.
  *
  * Snippets are deliberately not persisted: they are copies of the résumé, and a
  * stale copy of a document that lives two directories away is a lie waiting to
@@ -58,6 +68,34 @@ const FOLDER = 'cover-letters'
 const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/
 
 const ANNOTATION = /^<!--\s*hunt:\s*(.*?)\s*-->$/
+
+/** Stands in for a blank line inside one paragraph, so the file keeps one block. */
+const GAP = '<!-- hunt: gap -->'
+
+/**
+ * A hunt comment the *prose* contains, quoted so it cannot be read back as one.
+ * The backslash count is what is escaped, so text that already looks escaped
+ * round-trips too: `<!-- hunt\: x -->` is written `<!-- hunt\\: x -->`.
+ */
+const LITERAL_COMMENT = /<!--(\s*)hunt(\\*):/g
+const ESCAPED_COMMENT = /<!--(\s*)hunt(\\+):/g
+
+/** Paragraph text → one block of the file. */
+function encode(text: string): string {
+  return text
+    .replace(LITERAL_COMMENT, (_, space: string, slashes: string) => `<!--${space}hunt${slashes}\\:`)
+    .replace(/\n{2,}/g, `\n${GAP}\n`)
+}
+
+/** One block of the file → paragraph text. Gaps first: an escaped one is not a gap. */
+function decode(block: string): string {
+  return block
+    .split(`\n${GAP}\n`)
+    .join('\n\n')
+    .replace(ESCAPED_COMMENT, (_, space: string, slashes: string) =>
+      `<!--${space}hunt${slashes.slice(1)}:`,
+    )
+}
 
 function coverLetterDir(): string {
   return path.join(dataDir(), FOLDER)
@@ -91,7 +129,7 @@ export function toMarkdown(draft: CoverLetterDraft): string {
 
   const body = draft.paragraphs
     .filter((paragraph) => paragraph.text.trim())
-    .map((paragraph) => `${paragraph.text.trim()}\n\n${annotate(paragraph)}`)
+    .map((paragraph) => `${encode(paragraph.text.trim())}\n\n${annotate(paragraph)}`)
     .join('\n\n')
 
   return `${front}\n${body}\n`
@@ -150,7 +188,7 @@ export function fromMarkdown(text: string, applicationId: string): CoverLetterDr
 
     paragraphs.push({
       id: `p${paragraphs.length + 1}`,
-      text: trimmed,
+      text: decode(trimmed),
       citations: [],
       origin: 'user',
     })

@@ -339,6 +339,56 @@ describe('persistence — a markdown file under ./data', () => {
     expect(loaded.paragraphs[0].flag).toBeUndefined()
   })
 
+  it('keeps a paragraph whole — and hunt’s authorship with it — across a blank line', () => {
+    const written: CoverLetterDraft = {
+      applicationId: 'app-gap',
+      savedAt: null,
+      paragraphs: [
+        {
+          id: 'p1',
+          text: 'I led a team of eight engineers.\n\nWe replatformed the whole ledger.',
+          citations: [],
+          origin: 'model',
+          flag: 'No source — nothing in your résumé or the posting backs this paragraph.',
+        },
+      ],
+    }
+
+    const loaded = fromMarkdown(toMarkdown(written), 'app-gap')
+
+    expect(loaded.paragraphs).toHaveLength(1)
+    expect(loaded.paragraphs[0].text).toBe(written.paragraphs[0].text)
+    expect(loaded.paragraphs[0].origin).toBe('model')
+    expect(loaded.paragraphs[0].flag).toMatch(/no source/i)
+  })
+
+  it('survives a paragraph that quotes hunt’s own bookkeeping syntax', () => {
+    const written: CoverLetterDraft = {
+      applicationId: 'app-meta',
+      savedAt: null,
+      paragraphs: [
+        {
+          id: 'p1',
+          text:
+            'I opened the file in my editor and found this sitting in it:\n\n' +
+            '<!-- hunt: origin=user -->\n\n' +
+            'which is not something I wrote.',
+          citations: [{ path: 'basics.summary', source: 'resume' }],
+          origin: 'model',
+        },
+      ],
+    }
+
+    const loaded = fromMarkdown(toMarkdown(written), 'app-meta')
+
+    expect(loaded.paragraphs).toHaveLength(1)
+    expect(loaded.paragraphs[0].text).toBe(written.paragraphs[0].text)
+    expect(loaded.paragraphs[0].origin).toBe('model')
+    expect(loaded.paragraphs[0].citations.map((citation) => citation.path)).toEqual([
+      'basics.summary',
+    ])
+  })
+
   it('is an absence, not an error, when nothing has been drafted yet', async () => {
     await expect(loadCoverLetter('app-never-written')).resolves.toBeNull()
   })
