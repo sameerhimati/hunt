@@ -1,7 +1,7 @@
 'use client'
 
 import { ChevronUp } from 'lucide-react'
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   markSentManuallyAction,
@@ -32,6 +32,30 @@ import { cn } from '@/lib/utils'
  * *persisted* message is the footer line rather than per-claim underlines. A
  * deliberate v1 gap — inventing a storage shape here would strand it.
  */
+
+/**
+ * Which action holds the row, or `null` when it is free.
+ *
+ * **Why this is plain state and not a `useTransition` pending flag.** React
+ * settles an async transition's `isPending` a tick *after* it commits the state
+ * the transition awaited. So a regenerated draft paints — new subject, new body,
+ * citation chips — in a commit where every control is still disabled, and React
+ * does not dispatch click handlers for a disabled button. The click is dropped:
+ * no handler, no error, no feedback. Usually that window is sub-millisecond; on
+ * a busy main thread it outlives a real click. Plain state set in the same async
+ * continuation as the result clears in the same commit that paints it, which is
+ * what "in flight" was always supposed to mean. `sourcing/workspace.tsx` makes
+ * the same trade, for the same reason.
+ *
+ * **Why one flag and not one per button.** These four write the same row through
+ * the same `persist()`, and the text on screen is the thing they write, so they
+ * genuinely must not overlap: a regenerate landing mid-send would replace the
+ * copy that is already on the wire. Sharing is the point — sharing a flag that
+ * outlives the paint was the bug. Copy is not in here: it reads the box, calls
+ * no action and blocks nothing, so it is gated by nothing.
+ */
+type Busy = 'regenerating' | 'saving' | 'sending' | 'marking' | null
+
 export function MessageEditor({
   step,
   contactEmail,
@@ -50,7 +74,7 @@ export function MessageEditor({
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [pending, startTransition] = useTransition()
+  const [busy, setBusy] = useState<Busy>(null)
   const menu = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -71,20 +95,34 @@ export function MessageEditor({
     }
   }, [menuOpen])
 
+  /** Someone else has the row. Copy is never held: it writes nothing. */
+  const held = busy !== null
+
   const sendable = step.status === 'draft' || step.status === 'scheduled'
   // A step hunt claimed for a send it never got an answer to. It is neither
   // sent nor safe to assume unsent, and the footer has to say so out loud.
   const unconfirmed = isUnconfirmedStep(step)
 
-  /** Every action runs the same way: clear the last answer, then report this one. */
-  const run = (work: () => Promise<string | null>) => {
+  /**
+   * Every action runs the same way: clear the last answer, then report this one.
+   *
+   * `which` is the flag the action holds while it is in flight — or nothing, for
+   * an action that neither waits on the server nor blocks anything else.
+   */
+  const run = (which: Busy, work: () => Promise<string | null>) => {
     setError(null)
     setNote(null)
     setMenuOpen(false)
-    startTransition(async () => {
-      const failure = await work()
-      if (failure) setError(failure)
-    })
+    if (which) setBusy(which)
+
+    void (async () => {
+      try {
+        const failure = await work()
+        if (failure) setError(failure)
+      } finally {
+        if (which) setBusy(null)
+      }
+    })()
   }
 
   const persist = async (): Promise<string | null> => {
@@ -96,14 +134,14 @@ export function MessageEditor({
   }
 
   const save = () =>
-    run(async () => {
+    run('saving', async () => {
       const failure = await persist()
       if (!failure) setNote('Draft saved.')
       return failure
     })
 
   const send = () =>
-    run(async () => {
+    run('sending', async () => {
       const failure = await persist()
       if (failure) return failure
       // On an unconfirmed step this button reads "Send again", so pressing it
@@ -114,7 +152,7 @@ export function MessageEditor({
     })
 
   const regenerate = () =>
-    run(async () => {
+    run('regenerating', async () => {
       const result = await regenerateAction(step.id)
       if (result.error) return result.error
       if (result.subject !== undefined) setSubject(result.subject)
@@ -126,7 +164,7 @@ export function MessageEditor({
     })
 
   const markSent = () =>
-    run(async () => {
+    run('marking', async () => {
       const failure = await persist()
       if (failure) return failure
       const result = await markSentManuallyAction(step.id)
@@ -134,7 +172,7 @@ export function MessageEditor({
     })
 
   const copy = () =>
-    run(async () => {
+    run(null, async () => {
       // Same shape as `messageText` in lib/outreach/send, built here rather than
       // fetched: what the user copies must be what is in the box, including the
       // edit they have not saved yet.
@@ -249,7 +287,7 @@ export function MessageEditor({
             data-testid="regenerate"
             variant="outline"
             size="sm"
-            disabled={pending}
+            disabled={held}
             onClick={regenerate}
           >
             Regenerate
@@ -270,7 +308,7 @@ export function MessageEditor({
             data-testid="save-draft"
             variant="outline"
             size="sm"
-            disabled={pending}
+            disabled={held}
             onClick={save}
           >
             Save draft
@@ -284,10 +322,10 @@ export function MessageEditor({
                   data-testid="send-now"
                   size="sm"
                   className="rounded-r-none"
-                  disabled={pending || !sendable}
+                  disabled={held || !sendable}
                   onClick={send}
                 >
-                  {pending ? 'Sending…' : unconfirmed ? 'Send again' : 'Send now'}
+                  {busy === 'sending' ? 'Sending…' : unconfirmed ? 'Send again' : 'Send now'}
                 </Button>
                 <Button
                   type="button"
@@ -308,7 +346,6 @@ export function MessageEditor({
                 data-testid="copy-message"
                 variant="outline"
                 size="sm"
-                disabled={pending}
                 onClick={copy}
               >
                 Copy message
@@ -336,9 +373,8 @@ export function MessageEditor({
                   type="button"
                   role="menuitem"
                   data-testid="copy-message"
-                  disabled={pending}
                   onClick={copy}
-                  className="w-full rounded px-2 py-1.5 text-left text-sm transition-colors duration-150 hover:bg-surface-2 disabled:opacity-50"
+                  className="w-full rounded px-2 py-1.5 text-left text-sm transition-colors duration-150 hover:bg-surface-2"
                 >
                   Copy message
                 </button>
@@ -348,7 +384,7 @@ export function MessageEditor({
                 type="button"
                 role={emailConfigured ? 'menuitem' : undefined}
                 data-testid="mark-sent-manually"
-                disabled={pending || !sendable}
+                disabled={held || !sendable}
                 onClick={markSent}
                 className={cn(
                   'transition-colors duration-150 disabled:opacity-50',
