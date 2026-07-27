@@ -1,18 +1,18 @@
 import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 
+import { FollowUpForm, type FollowUpResult } from '@/components/dashboard/follow-up-form'
 import { buttonVariants } from '@/components/ui/button'
 import { createAdapter } from '@/lib/adapters/factory'
 import { followUpsDue, type FollowUpRow } from '@/lib/outreach/queue'
-import { markSentManually, sendStep } from '@/lib/outreach/send'
+import { isUnconfirmed, markSentManually, sendStep } from '@/lib/outreach/send'
 import { cn } from '@/lib/utils'
 
 /**
  * The dashboard's *Follow-ups due today* panel (`design/Dashboard.dc.html`) —
  * the action queue the closed loop pays off into.
  *
- * Three rules it lives by:
+ * Four rules it lives by:
  *
  * 1. **The count is a count.** `followUpsDue()` walks the same `dueSteps`
  *    schedule the Outreach screen's "Due today" group does, so the number in
@@ -23,6 +23,11 @@ import { cn } from '@/lib/utils'
  * 3. **No email key is a product state, not a dead button.** Without a provider
  *    the row offers Draft / Copy / Mark sent and says why (SCREENS §2), instead
  *    of a greyed-out Send with no explanation.
+ * 4. **Nothing sends from a row that is not showing the message.** Every action
+ *    lives inside the row's `<details>`, under the subject and body it would
+ *    put in someone's inbox. Collapsed, that content is `display: none` and its
+ *    submit button cannot be activated — with or without JavaScript — so the
+ *    guarantee is structural rather than a rule the markup asks nicely for.
  *
  * The mutation is an inline Server Function (Next docs,
  * `01-app/01-getting-started/07-mutating-data.md`: `'use server'` at the top of
@@ -36,35 +41,53 @@ async function emailConfigured(): Promise<boolean> {
   return Boolean(resend ?? smtp)
 }
 
+/** The three surfaces that count outreach. Leaving one stale shows two answers. */
+function revalidate(applicationId: string): void {
+  revalidatePath('/')
+  revalidatePath('/outreach')
+  if (applicationId) revalidatePath(`/applications/${applicationId}`)
+}
+
+/**
+ * `sendStep` claimed the row and never learned what the provider did with it.
+ * Saying "sent" or "not sent" would both be guesses.
+ */
+const UNCONFIRMED =
+  'hunt could not confirm this one — it may already have reached them. Check your sent mail.'
+
 export async function FollowUpsPanel() {
   const due = await followUpsDue()
 
   /**
    * Send one due step, or record one the user sent from their own client.
    *
-   * A failure is not an error page: the composer is where the message, the
-   * contact and the fix all live, so a failed send lands there carrying the
-   * provider's own words rather than a stack trace.
+   * A failure is not an error page and not a redirect: it comes back as state
+   * the row renders in place. The reason is the adapter's own message — which
+   * for an SMTP handshake carries host, port and username — so it must not
+   * travel in a query string, where browser history, the `Referer` header and
+   * every access log in the path would keep a copy.
+   *
+   * Every path revalidates, failures included: `sendStep` claims the row before
+   * it touches the network, so even a send that threw may have changed what the
+   * panel should show.
    */
-  async function dispatch(formData: FormData) {
+  async function dispatch(_state: FollowUpResult, formData: FormData): Promise<FollowUpResult> {
     'use server'
     const id = String(formData.get('step') ?? '')
     const applicationId = String(formData.get('application') ?? '')
-    if (!id) return
+    if (!id) return { error: 'That step is no longer here. Reload the page.' }
 
+    let outcome: string | undefined
     try {
       if (formData.get('mode') === 'manual') await markSentManually(id)
-      else await sendStep(id)
+      else ({ outcome } = await sendStep(id))
     } catch (error) {
-      const reason = error instanceof Error ? error.message : 'the send failed'
-      // `redirect` throws in Next; the explicit return says so out loud, so
-      // nothing below can run on a send that never happened.
-      return redirect(`/outreach?application=${applicationId}&error=${encodeURIComponent(reason)}`)
+      revalidate(applicationId)
+      return { error: error instanceof Error ? error.message : 'The send failed.' }
     }
 
-    revalidatePath('/')
-    revalidatePath('/outreach')
-    revalidatePath(`/applications/${applicationId}`)
+    revalidate(applicationId)
+    return outcome === 'unconfirmed' ? { error: UNCONFIRMED } : {}
   }
 
   // Only ask once, and only when a row would use the answer.
@@ -117,74 +140,105 @@ export async function FollowUpsPanel() {
               <li
                 key={step.id}
                 data-testid="follow-up-row"
-                className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
+                className="border-b border-border last:border-b-0"
               >
-                <Link
-                  href={`/applications/${step.applicationId}`}
-                  className="flex min-w-0 flex-1 items-center gap-3"
-                >
-                  <span
-                    aria-hidden
-                    className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-2 font-serif text-sm"
-                  >
-                    {initial(step)}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium">
-                      {step.contactName ?? 'No contact yet'}
+                <details className="group">
+                  <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 hover:bg-surface-2">
+                    <span
+                      aria-hidden
+                      className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-2 font-serif text-sm"
+                    >
+                      {initial(step)}
                     </span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {[step.company, step.title].filter(Boolean).join(' · ')}
-                      {' — '}
-                      <span className="font-mono">
-                        step {step.sequenceStep} · day +{step.dayOffset}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {step.contactName ?? 'No contact yet'}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {[step.company, step.title].filter(Boolean).join(' · ')}
+                        {' — '}
+                        <span className="font-mono">
+                          step {step.sequenceStep} · day +{step.dayOffset}
+                        </span>
                       </span>
                     </span>
-                  </span>
-                </Link>
+                    <span className="shrink-0 font-mono text-[11px] text-muted-foreground group-open:hidden">
+                      Read it →
+                    </span>
+                  </summary>
 
-                {canSend ? (
-                  <form action={dispatch} className="shrink-0">
-                    <input type="hidden" name="step" value={step.id} />
-                    <input type="hidden" name="application" value={step.applicationId} />
-                    <button
-                      type="submit"
-                      data-testid="follow-up-send"
-                      className={cn(buttonVariants({ size: 'sm' }), 'text-xs')}
-                    >
-                      Send
-                    </button>
-                  </form>
-                ) : (
-                  <span className="flex shrink-0 items-center gap-1">
-                    <Link
-                      href={`/outreach?application=${step.applicationId}`}
-                      data-testid="follow-up-draft"
-                      className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'text-xs')}
-                    >
-                      Draft
-                    </Link>
-                    <Link
-                      href={`/outreach?application=${step.applicationId}&copy=${step.id}`}
-                      data-testid="follow-up-copy"
-                      className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-xs')}
-                    >
-                      Copy
-                    </Link>
-                    <form action={dispatch}>
-                      <input type="hidden" name="step" value={step.id} />
-                      <input type="hidden" name="application" value={step.applicationId} />
-                      <input type="hidden" name="mode" value="manual" />
-                      <button
-                        type="submit"
-                        data-testid="follow-up-mark-sent"
-                        className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-xs')}
+                  <div className="space-y-3 px-4 pb-3 pl-[60px]">
+                    {isUnconfirmed(step) ? (
+                      <p
+                        data-testid="follow-up-unconfirmed"
+                        className="rounded-md bg-warn-bg px-2.5 py-2 text-xs leading-relaxed text-warn"
                       >
-                        Mark sent
-                      </button>
-                    </form>
-                  </span>
-                )}
+                        hunt tried this one and never got an answer back, so it may already have
+                        reached them. Check your sent mail before sending it again.
+                      </p>
+                    ) : null}
+
+                    <div className="rounded-md border border-border bg-surface-2 p-2.5">
+                      <p className="text-xs font-medium">{step.subject}</p>
+                      <p className="mt-1.5 max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                        {step.body}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-end gap-1">
+                      <Link
+                        href={`/applications/${step.applicationId}`}
+                        className="mr-auto font-mono text-[11px] text-muted-foreground hover:text-foreground"
+                      >
+                        Open application →
+                      </Link>
+
+                      {canSend ? (
+                        <FollowUpForm
+                          action={dispatch}
+                          stepId={step.id}
+                          applicationId={step.applicationId}
+                          testId="follow-up-send"
+                          label="Send"
+                          pendingLabel="Sending…"
+                        />
+                      ) : (
+                        <>
+                          <Link
+                            href={`/outreach?application=${step.applicationId}`}
+                            data-testid="follow-up-draft"
+                            className={cn(
+                              buttonVariants({ variant: 'outline', size: 'sm' }),
+                              'text-xs',
+                            )}
+                          >
+                            Draft
+                          </Link>
+                          <Link
+                            href={`/outreach?application=${step.applicationId}&copy=${step.id}`}
+                            data-testid="follow-up-copy"
+                            className={cn(
+                              buttonVariants({ variant: 'ghost', size: 'sm' }),
+                              'text-xs',
+                            )}
+                          >
+                            Copy
+                          </Link>
+                          <FollowUpForm
+                            action={dispatch}
+                            stepId={step.id}
+                            applicationId={step.applicationId}
+                            mode="manual"
+                            testId="follow-up-mark-sent"
+                            label="Mark sent"
+                            pendingLabel="Marking…"
+                            variant="ghost"
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </details>
               </li>
             ))}
           </ul>

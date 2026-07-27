@@ -1,9 +1,19 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { SequenceTimeline } from '@/components/outreach/sequence-timeline'
 import type { OutreachStepView } from '@/lib/outreach/types'
+
+const markRepliedAction = vi.fn(async () => ({}) as { error?: string })
+
+vi.mock('@/app/outreach/actions', () => ({
+  markRepliedAction: (...args: unknown[]) => markRepliedAction(...(args as [])),
+}))
+
+beforeEach(() => {
+  markRepliedAction.mockClear().mockResolvedValue({})
+})
 
 // Vitest runs without globals, so RTL's auto-cleanup never registers itself.
 afterEach(cleanup)
@@ -68,9 +78,46 @@ describe('SequenceTimeline', () => {
     expect(link?.getAttribute('href')).toBe('?step=s3')
   })
 
-  it('shows the add-step affordance and the halt-on-reply note', () => {
+  it('shows the add-step affordance', () => {
     render(<SequenceTimeline steps={STEPS} />)
     expect(screen.getByText('+ add step')).toBeTruthy()
-    expect(screen.getByText('Sequence halts automatically when they reply.')).toBeTruthy()
+  })
+
+  it('never claims it notices a reply on its own', () => {
+    render(<SequenceTimeline steps={STEPS} />)
+
+    // hunt does not read anyone's inbox. Inbound mail is Phase 7 and is not
+    // built, so "halts automatically" was a capability the product did not have.
+    const rail = screen.getByTestId('sequence-timeline').textContent ?? ''
+    expect(rail).not.toMatch(/automatic/i)
+    expect(rail).toMatch(/cannot see your inbox/i)
+  })
+
+  it('halts the sequence on the sent step when the user says they replied', async () => {
+    render(<SequenceTimeline steps={STEPS} />)
+
+    fireEvent.click(screen.getByTestId('mark-replied'))
+
+    // The reply lands on the message that actually went out — step 1 here.
+    await waitFor(() => expect(markRepliedAction).toHaveBeenCalledWith('s1'))
+  })
+
+  it('offers nothing to reply to before anything has been sent', () => {
+    render(<SequenceTimeline steps={[step({ id: 's1', status: 'scheduled' })]} />)
+    expect(screen.queryByTestId('mark-replied')).toBeNull()
+  })
+
+  it('says the sequence stopped once a reply is recorded, and stops offering', () => {
+    render(
+      <SequenceTimeline
+        steps={[
+          step({ id: 's1', status: 'replied', sentAt: new Date() }),
+          step({ id: 's2', sequenceStep: 2, status: 'halted' }),
+        ]}
+      />,
+    )
+
+    expect(screen.queryByTestId('mark-replied')).toBeNull()
+    expect(screen.getByTestId('sequence-timeline').textContent).toMatch(/replied on step 1/i)
   })
 })

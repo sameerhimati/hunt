@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { FollowUpRow } from '@/lib/outreach/queue'
@@ -19,7 +19,12 @@ const redirect = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/outreach/queue', () => ({ followUpsDue }))
 vi.mock('@/lib/adapters/factory', () => ({ createAdapter }))
-vi.mock('@/lib/outreach/send', () => ({ sendStep, markSentManually }))
+vi.mock('@/lib/outreach/send', () => ({
+  sendStep,
+  markSentManually,
+  isUnconfirmed: (step: { status: string; sentAt: Date | null }) =>
+    step.sentAt !== null && (step.status === 'draft' || step.status === 'scheduled'),
+}))
 vi.mock('next/cache', () => ({ revalidatePath }))
 vi.mock('next/navigation', () => ({ redirect }))
 
@@ -63,7 +68,7 @@ function submit(form: HTMLFormElement): Promise<void> {
 beforeEach(() => {
   vi.clearAllMocks()
   createAdapter.mockResolvedValue({ id: 'resend' })
-  sendStep.mockResolvedValue({ id: 'step-1' })
+  sendStep.mockResolvedValue({ outcome: 'sent', step: { id: 'step-1' } })
   markSentManually.mockResolvedValue({ id: 'step-1' })
 })
 
@@ -116,6 +121,50 @@ describe('FollowUpsPanel', () => {
     expect(text).toContain('Stripe')
   })
 
+  it('shows the message it is about to send', async () => {
+    // With no LLM key the drafter falls back to a template whose step-1 body is
+    // a literal bracketed placeholder. One click used to mail that to a
+    // recruiter, from a row that never showed a word of it.
+    const placeholder = '[Two sentences on the work of yours that lines up with this role.]'
+    followUpsDue.mockResolvedValue([row({ subject: 'Quick note', body: placeholder })])
+    await renderPanel()
+
+    const text = screen.getByTestId('follow-up-row').textContent ?? ''
+    expect(text).toContain('Quick note')
+    expect(text).toContain(placeholder)
+  })
+
+  it('keeps Send behind the disclosure that reveals the message', async () => {
+    followUpsDue.mockResolvedValue([row()])
+    await renderPanel()
+
+    // "hunt prepares, the human sends" — so the send control cannot be reachable
+    // from a row that is not showing the message.
+    const details = screen.getByTestId('follow-up-send').closest('details') as HTMLDetailsElement
+    expect(details).toBeTruthy()
+    expect(details.open).toBe(false)
+    expect(details.textContent).toContain('Hello again')
+  })
+
+  it('keeps the degraded actions behind the same disclosure', async () => {
+    createAdapter.mockResolvedValue(null)
+    followUpsDue.mockResolvedValue([row()])
+    await renderPanel()
+
+    const details = screen
+      .getByTestId('follow-up-mark-sent')
+      .closest('details') as HTMLDetailsElement
+    expect(details).toBeTruthy()
+    expect(details.textContent).toContain('Hello again')
+  })
+
+  it('warns on a row whose last attempt was never confirmed', async () => {
+    followUpsDue.mockResolvedValue([row({ sentAt: new Date('2026-03-01T10:00:00Z') })])
+    await renderPanel()
+
+    expect(screen.getByTestId('follow-up-unconfirmed').textContent).toMatch(/may already/i)
+  })
+
   it('sends inline when an email provider is configured', async () => {
     followUpsDue.mockResolvedValue([row({ id: 'step-9', applicationId: 'app-9' })])
     await renderPanel()
@@ -159,16 +208,86 @@ describe('FollowUpsPanel', () => {
     expect(sendStep).not.toHaveBeenCalled()
   })
 
-  it('sends a failed send to the composer with the provider’s own words', async () => {
-    sendStep.mockRejectedValue(new Error('Resend: no email provider is configured'))
+  it('shuts the Send button while the send is in flight', async () => {
+    // The row's only defence against a second click used to be that nobody
+    // clicked twice. Before hydration a bare form is a native POST, so two
+    // clicks were two sends with certainty.
+    let finish = () => {}
+    sendStep.mockImplementation(
+      () => new Promise((resolve) => (finish = () => resolve({ outcome: 'sent', step: {} }))),
+    )
+    followUpsDue.mockResolvedValue([row({ id: 'step-9' })])
+    await renderPanel()
+
+    const button = screen.getByTestId('follow-up-send') as HTMLButtonElement
+    fireEvent.click(button)
+
+    await waitFor(() => expect(button.disabled).toBe(true))
+    expect(button.textContent).toMatch(/sending/i)
+
+    fireEvent.click(button)
+    finish()
+    await waitFor(() => expect(button.disabled).toBe(false))
+    expect(sendStep).toHaveBeenCalledTimes(1)
+  })
+
+  it('shuts the Mark sent button while it is writing', async () => {
+    createAdapter.mockResolvedValue(null)
+    let finish = () => {}
+    markSentManually.mockImplementation(
+      () => new Promise((resolve) => (finish = () => resolve(null))),
+    )
+    followUpsDue.mockResolvedValue([row({ id: 'step-7' })])
+    await renderPanel()
+
+    const button = screen.getByTestId('follow-up-mark-sent') as HTMLButtonElement
+    fireEvent.click(button)
+
+    await waitFor(() => expect(button.disabled).toBe(true))
+    finish()
+    await waitFor(() => expect(button.disabled).toBe(false))
+    expect(markSentManually).toHaveBeenCalledTimes(1)
+  })
+
+  it('says why a send failed, on the row, and never in the URL', async () => {
+    // nodemailer puts host, port and username in its handshake errors. That
+    // belongs on the row, not in browser history, the Referer header and every
+    // access log between here and there.
+    const reason = 'SMTP: 535 auth failed for alex@chen.dev at smtp.fastmail.com:465'
+    sendStep.mockRejectedValue(new Error(reason))
     followUpsDue.mockResolvedValue([row({ id: 'step-3', applicationId: 'app-3' })])
     await renderPanel()
 
     await submit(screen.getByTestId('follow-up-send').closest('form') as HTMLFormElement)
 
-    expect(redirect).toHaveBeenCalledWith(
-      `/outreach?application=app-3&error=${encodeURIComponent('Resend: no email provider is configured')}`,
+    await waitFor(() =>
+      expect(screen.getByTestId('follow-up-error').textContent).toContain('535 auth failed'),
     )
-    expect(revalidatePath).not.toHaveBeenCalled()
+    expect(redirect).not.toHaveBeenCalled()
+  })
+
+  it('says a failed hand-mark failed too', async () => {
+    createAdapter.mockResolvedValue(null)
+    markSentManually.mockRejectedValue(new Error('That step is no longer here.'))
+    followUpsDue.mockResolvedValue([row({ id: 'step-7' })])
+    await renderPanel()
+
+    await submit(screen.getByTestId('follow-up-mark-sent').closest('form') as HTMLFormElement)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('follow-up-error').textContent).toContain('no longer here'),
+    )
+  })
+
+  it('does not claim a step went out when the send path says it did not', async () => {
+    sendStep.mockResolvedValue({ outcome: 'unconfirmed', step: { id: 'step-9' } })
+    followUpsDue.mockResolvedValue([row({ id: 'step-9' })])
+    await renderPanel()
+
+    await submit(screen.getByTestId('follow-up-send').closest('form') as HTMLFormElement)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('follow-up-error').textContent).toMatch(/sent mail/i),
+    )
   })
 })
