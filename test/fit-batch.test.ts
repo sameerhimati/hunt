@@ -177,6 +177,47 @@ describe('rateFitBatch', () => {
     expect(llm.requests.every((request) => request.system?.some((block) => block.cache))).toBe(true)
   })
 
+  it('keeps every rating already collected when a later chunk fails', async () => {
+    const listings = Array.from({ length: BATCH_SIZE + 3 }, (_, i) =>
+      listing({ externalId: `job-${i}` }),
+    )
+
+    let calls = 0
+    const llm = new FakeLlmProvider({
+      responder: (request) => {
+        if (++calls > 1) throw new Error('Fireworks returned 429 — rate limited')
+        const ids = [...request.messages[0].content.matchAll(/externalId: (\S+)/g)].map(
+          (match) => match[1],
+        )
+        return JSON.stringify({
+          ratings: ids.map((externalId) => ({
+            externalId,
+            tier: 'possible',
+            reasons: [{ text: 'Adjacent backend work' }],
+          })),
+        })
+      },
+    })
+
+    const rated = await rateFitBatch(listings, content, llm)
+
+    expect(rated.size).toBe(BATCH_SIZE)
+    expect(rated.has('job-0')).toBe(true)
+    expect(rated.has(`job-${BATCH_SIZE}`)).toBe(false)
+  })
+
+  it('surfaces the reason when every chunk fails rather than a silently unrated board', async () => {
+    const llm = new FakeLlmProvider({
+      responder: () => {
+        throw new Error('Fireworks returned 429 — rate limited')
+      },
+    })
+
+    await expect(rateFitBatch([listing({ externalId: 'a-2' })], content, llm)).rejects.toThrow(
+      /429/,
+    )
+  })
+
   it('tags the request `kind:rate` and carries the batch discriminator', async () => {
     let seen: LlmRequest | null = null
     const llm = new FakeLlmProvider({

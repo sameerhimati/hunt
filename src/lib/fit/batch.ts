@@ -104,20 +104,39 @@ export async function rateFitBatch(
   if (listings.length === 0) return rated
 
   const known = new Set(listings.map((listing) => listing.externalId))
+  const batches = chunk(listings, BATCH_SIZE)
+  const failures: unknown[] = []
 
-  for (const batch of chunk(listings, BATCH_SIZE)) {
-    const response = await runPrompt({
-      llm: resolved.provider,
-      model: resolved.model,
-      kind: 'rate',
-      // The rules and the résumé are the cached prefix; only listings change.
-      system: rateBatchSystem(content),
-      messages: [{ role: 'user', content: rateBatchMessage(batch) }],
-      maxTokens: maxTokensFor(batch.length),
-    })
+  for (const batch of batches) {
+    try {
+      const response = await runPrompt({
+        llm: resolved.provider,
+        model: resolved.model,
+        kind: 'rate',
+        // The rules and the résumé are the cached prefix; only listings change.
+        system: rateBatchSystem(content),
+        messages: [{ role: 'user', content: rateBatchMessage(batch) }],
+        maxTokens: maxTokensFor(batch.length),
+      })
 
-    mergeRatings(rated, response.text, known, content)
+      mergeRatings(rated, response.text, known, content)
+    } catch (error) {
+      // A 429 on the last chunk must not throw away the ratings the earlier
+      // ones already produced — partial results are this module's design, and
+      // an unguarded await made that a lie. The listings in this chunk stay
+      // unrated, which is a state their cards already know how to render.
+      failures.push(error)
+      const message = error instanceof Error ? error.message : String(error)
+      // A silently halved rating pass is indistinguishable from a model that
+      // just declined to rate half the page. Same rule as sourcing search.
+      console.warn(`[fit] rating chunk of ${batch.length} failed: ${message}`)
+    }
   }
+
+  // Every chunk failing is not a partial answer — it is an error, and the
+  // screen deserves the provider's reason rather than a board of unrated cards
+  // that looks like the model had no opinion.
+  if (failures.length === batches.length) throw failures[0]
 
   return rated
 }
