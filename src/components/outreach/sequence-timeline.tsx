@@ -1,16 +1,28 @@
 'use client'
 
+import { useState, useTransition } from 'react'
+
+import { markRepliedAction } from '@/app/outreach/actions'
+import { buttonVariants } from '@/components/ui/button'
 import type { OutreachStatus, OutreachStepView } from '@/lib/outreach/types'
+import { cn } from '@/lib/utils'
 
 /**
  * The Sequence rail of `design/Outreach.dc.html`: one node per step with its
  * cumulative `day +N` offset and literal Outreach status, the active step
  * highlighted with an accent ring and an `editing` marker, "+ add step", and
- * the note that the sequence halts on reply.
+ * the halt-on-reply control.
  *
- * Purely presentational — no fetching, no server actions. Selection either
- * calls `onSelect` (when the parent drives state) or falls back to a
- * `?step=<id>` link so the composer can read the choice from the URL.
+ * **The halt is manual, and the copy says so.** This rail used to promise
+ * "Sequence halts automatically when they reply." It does not. Noticing a reply
+ * needs inbound mail — Phase 7, unbuilt — so the sentence described a mechanism
+ * that did not exist, on a product whose one differentiator is refusing to
+ * claim what it cannot substantiate. The halt itself is real (`markReplied`
+ * stops every later step and moves the application to `replied`); it just needs
+ * a human to say the word, so the rail asks for it.
+ *
+ * Selection either calls `onSelect` (when the parent drives state) or falls
+ * back to a `?step=<id>` link so the composer can read the choice from the URL.
  *
  * `data-testid="sequence-timeline"` / `"sequence-step"` are asserted by the
  * Phase 4 e2e gate; the gate also asserts the first step's line matches
@@ -74,6 +86,22 @@ export function SequenceTimeline({
   activeStepId?: string
   onSelect?: (stepId: string) => void
 }) {
+  const [pending, startTransition] = useTransition()
+  const [error, setError] = useState<string | null>(null)
+
+  // The reply lands on the last message that actually went out; `markReplied`
+  // halts everything after it.
+  const replied = steps.find((step) => step.status === 'replied')
+  const lastSent = [...steps].reverse().find((step) => step.status === 'sent')
+
+  const recordReply = (stepId: string) => {
+    setError(null)
+    startTransition(async () => {
+      const result = await markRepliedAction(stepId)
+      if (result.error) setError(result.error)
+    })
+  }
+
   return (
     <div data-testid="sequence-timeline">
       <div className="flex flex-col">
@@ -126,9 +154,38 @@ export function SequenceTimeline({
       <div className="mt-4 rounded-lg border border-dashed border-border p-2 text-center text-[11.5px] text-primary">
         + add step
       </div>
-      <p className="mt-3.5 text-[11px] leading-relaxed text-faint">
-        Sequence halts automatically when they reply.
-      </p>
+      {replied ? (
+        <p className="mt-3.5 text-[11px] leading-relaxed text-faint">
+          They replied on step {replied.sequenceStep} — every step after it is halted.
+        </p>
+      ) : (
+        <>
+          <p className="mt-3.5 text-[11px] leading-relaxed text-faint">
+            hunt cannot see your inbox, so it will not notice a reply on its own. Tell it here and
+            the rest of the sequence stops.
+          </p>
+          {lastSent ? (
+            <button
+              type="button"
+              data-testid="mark-replied"
+              disabled={pending}
+              onClick={() => recordReply(lastSent.id)}
+              className={cn(
+                buttonVariants({ variant: 'outline', size: 'sm' }),
+                'mt-2 w-full text-[11.5px]',
+              )}
+            >
+              {pending ? 'Halting…' : 'They replied'}
+            </button>
+          ) : null}
+        </>
+      )}
+
+      {error ? (
+        <p data-testid="mark-replied-error" className="mt-2 text-[11px] text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }

@@ -31,6 +31,8 @@ vi.mock('@/app/outreach/actions', () => ({
   saveDraftAction: (...args: unknown[]) => saveDraftAction(...(args as [])),
   markSentManuallyAction: (...args: unknown[]) => markSentManuallyAction(...(args as [])),
   regenerateAction: (...args: unknown[]) => regenerateAction(...(args as [])),
+  // The sequence rail the composer renders reaches for this one.
+  markRepliedAction: vi.fn(async () => ({})),
 }))
 
 function step(overrides: Partial<OutreachStepView> = {}): OutreachStepView {
