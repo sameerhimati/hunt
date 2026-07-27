@@ -16,7 +16,12 @@ export interface StageConversion {
   to: string
   /** How many applications reached `to`. */
   count: number
-  /** count / (how many reached `from`). Null when nothing reached `from` yet. */
+  /**
+   * count / (how many reached `from`). Null when there is no conversion to
+   * report: nothing reached `from` yet, or more rows reached `to` than reached
+   * `from`, which means these two sets do not nest and the quotient is not a
+   * conversion rate. See the note above `conversions`.
+   */
   rate: number | null
 }
 
@@ -61,13 +66,34 @@ export async function funnelStats(): Promise<FunnelStats> {
     })
   }
 
+  /**
+   * A conversion rate is only a conversion rate when the later milestone is a
+   * subset of the earlier one — and here it need not be. Each milestone is
+   * counted independently off its own column, the board lets a card move
+   * anywhere, and `outreach` is a legitimate route to a reply that never passes
+   * through `applied`. So one card dragged straight to Replied used to print
+   * "200% → replied" on a dashboard whose whole position is that it will not
+   * show a number it cannot substantiate.
+   *
+   * The counts stay exactly as they are — every one of them is true. What goes
+   * is the quotient, in the case where it demonstrably is not a rate. Clamping
+   * it to 100% was the other option and it would have been worse: it asserts a
+   * perfect conversion, which is a different lie rather than no claim at all.
+   *
+   * The alternative fix — stamping the skipped milestones on the way past — was
+   * rejected on the same grounds. "You cannot reply to an application that was
+   * never sent" is false in this product, because a reply to cold outreach is
+   * exactly that, and there is no honest timestamp to write anyway.
+   */
   const conversions: StageConversion[] = reached.slice(1).map((stage, index) => {
     const previous = reached[index]
+    const nested = previous.count > 0 && stage.count <= previous.count
+
     return {
       from: previous.label,
       to: stage.label,
       count: stage.count,
-      rate: previous.count > 0 ? stage.count / previous.count : null,
+      rate: nested ? stage.count / previous.count : null,
     }
   })
 
