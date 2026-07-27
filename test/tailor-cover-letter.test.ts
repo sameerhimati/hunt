@@ -6,7 +6,11 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { createElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { CoverLetterTab, type CoverLetterActions } from '@/components/tailor/cover-letter-tab'
+import {
+  CoverLetterTab,
+  retainedFraction,
+  type CoverLetterActions,
+} from '@/components/tailor/cover-letter-tab'
 import { FakeLlmProvider } from '@/lib/llm'
 import { promptKindOf } from '@/lib/llm/prompts'
 import { parseResumeContent } from '@/lib/resume/schema'
@@ -297,6 +301,36 @@ describe('persistence — a markdown file under ./data', () => {
   })
 })
 
+describe('the line between rewriting a claim and touching it', () => {
+  const claim = 'I hired and led a team of eight engineers through a replatforming.'
+
+  it('reads a typo, a number or a date as leaving the claim standing', () => {
+    for (const edited of [
+      'I hired and led a team of eight enginners through a replatforming.',
+      'I hired and led a team of twelve engineers through a replatforming.',
+      'I hired and led a team of eight engineers through a replatforming in 2024.',
+      'Ihired and led a team of eight engineers through a replatforming',
+    ]) {
+      expect(retainedFraction(claim, edited)).toBeGreaterThan(0.5)
+    }
+  })
+
+  it('reads a replacement as a replacement, however much longer it is', () => {
+    for (const edited of [
+      'I shipped idempotent retry semantics that cut duplicate postings to zero.',
+      'I mentored two engineers on the team.',
+      '',
+    ]) {
+      expect(retainedFraction(claim, edited)).toBeLessThanOrEqual(0.5)
+    }
+  })
+
+  it('counts repeated words as a multiset, so deleting one of two costs one', () => {
+    // Two of the five words survive; a set-based count would score this 2/3.
+    expect(retainedFraction('a team beside a team', 'a team')).toBe(0.4)
+  })
+})
+
 describe('the cover letter tab', () => {
   const savedDraft: CoverLetterDraft = {
     applicationId: 'app1',
@@ -397,6 +431,93 @@ describe('the cover letter tab', () => {
     expect(sent.paragraphs[1].origin).toBe('user')
     expect(sent.paragraphs[1].flag).toBeUndefined()
     expect(sent.paragraphs[1].text).toBe('I mentored two engineers on the team.')
+  })
+
+  it('keeps the mark on a claim the user only touched, and on every future load', async () => {
+    const actions = mount()
+    await waitFor(() => expect(screen.getAllByTestId('cover-letter-paragraph')).toHaveLength(2))
+
+    // A typo fix on hunt's unsourced sentence. The claim is untouched, so the
+    // flag is: 99% of what hunt wrote is still in the box.
+    const [, flaggedInput] = screen.getAllByTestId('cover-letter-input')
+    fireEvent.change(flaggedInput, { target: { value: 'I led a team of eight enginners.' } })
+
+    expect(screen.getByTestId('cover-letter-flag').textContent).toMatch(/no source/i)
+    expect(screen.getByTestId('cover-letter-summary').textContent).toContain('1 unsourced')
+
+    fireEvent.click(screen.getByTestId('save-cover-letter'))
+    await waitFor(() => expect(actions.save).toHaveBeenCalledTimes(1))
+
+    // Saved as hunt's, so `fromMarkdown` re-flags it the next time it is opened.
+    const sent = vi.mocked(actions.save).mock.calls[0][1]
+    expect(sent.paragraphs[1].origin).toBe('model')
+    expect(sent.paragraphs[1].flag).toMatch(/no source/i)
+    expect(sent.paragraphs[1].text).toBe('I led a team of eight enginners.')
+  })
+
+  it('lifts the mark once a rewrite typed one word at a time has replaced the claim', async () => {
+    mount()
+    await waitFor(() => expect(screen.getAllByTestId('cover-letter-paragraph')).toHaveLength(2))
+
+    // Measured against what hunt wrote, not against the previous keystroke —
+    // otherwise a rewrite made incrementally never crosses any threshold.
+    const input = () => screen.getAllByTestId('cover-letter-input')[1]
+    for (const step of [
+      'I led a team of eight engineers',
+      'I led a team of eight',
+      'I shipped the retry',
+      'I shipped the retry semantics that cut duplicate postings to zero.',
+    ]) {
+      fireEvent.change(input(), { target: { value: step } })
+    }
+
+    expect(screen.queryByTestId('cover-letter-flag')).toBeNull()
+  })
+
+  it('does not let appending to a flagged paragraph launder it', async () => {
+    mount()
+    await waitFor(() => expect(screen.getAllByTestId('cover-letter-paragraph')).toHaveLength(2))
+
+    const [, flaggedInput] = screen.getAllByTestId('cover-letter-input')
+    fireEvent.change(flaggedInput, {
+      target: { value: 'I led a team of eight engineers. Happy to talk through any of it.' },
+    })
+
+    expect(screen.getByTestId('cover-letter-flag').textContent).toMatch(/no source/i)
+  })
+
+  it('asks before a regenerate throws away the paragraphs the user wrote', async () => {
+    const actions = mount()
+    await waitFor(() => expect(screen.getAllByTestId('cover-letter-paragraph')).toHaveLength(2))
+
+    const [own] = screen.getAllByTestId('cover-letter-input')
+    fireEvent.change(own, { target: { value: 'Ten minutes of my own writing.' } })
+
+    fireEvent.click(screen.getByTestId('regenerate-cover-letter'))
+    expect(actions.draft).not.toHaveBeenCalled()
+    expect(screen.getByTestId('regenerate-confirm').textContent).toMatch(/replaces the whole letter/i)
+
+    // Backing out leaves the letter exactly as it was.
+    fireEvent.click(screen.getByTestId('cancel-regenerate'))
+    expect(screen.queryByTestId('regenerate-confirm')).toBeNull()
+    expect(actions.draft).not.toHaveBeenCalled()
+    expect((screen.getAllByTestId('cover-letter-input')[0] as HTMLTextAreaElement).value).toBe(
+      'Ten minutes of my own writing.',
+    )
+
+    fireEvent.click(screen.getByTestId('regenerate-cover-letter'))
+    fireEvent.click(screen.getByTestId('confirm-regenerate'))
+    await waitFor(() => expect(actions.draft).toHaveBeenCalledTimes(1))
+    expect(screen.queryByTestId('regenerate-confirm')).toBeNull()
+  })
+
+  it('regenerates without asking when there is nothing of the user’s to lose', async () => {
+    const actions = mount()
+    await waitFor(() => expect(screen.getAllByTestId('cover-letter-paragraph')).toHaveLength(2))
+
+    fireEvent.click(screen.getByTestId('regenerate-cover-letter'))
+    await waitFor(() => expect(actions.draft).toHaveBeenCalledTimes(1))
+    expect(screen.queryByTestId('regenerate-confirm')).toBeNull()
   })
 
   it('cuts a paragraph the user does not want', async () => {

@@ -34,8 +34,9 @@ import { cn } from '@/lib/utils'
  *     which résumé/JD facts it draws on").
  *  3. **A flag is inline and inert.** An unsourced paragraph is marked where it
  *     sits — it is not removed from the letter, it does not block `Save`, and
- *     the copy states the fact and stops. Editing that paragraph makes it the
- *     user's, and the flag goes with hunt's authorship of it.
+ *     the copy states the fact and stops. *Rewriting* that paragraph makes it
+ *     the user's and takes the flag with hunt's authorship of it; merely
+ *     touching it does not — see `REWRITTEN_BELOW` below.
  *
  * `FabricationFlag` is deliberately not reused: its fixed copy is *"Not added —
  * no source"*, which is true of a refused résumé bullet and false here, where
@@ -80,6 +81,61 @@ function isKeyless(message: string): boolean {
   return /llm key/i.test(message)
 }
 
+/**
+ * The line between "the user rewrote this, so it's theirs" and "the user
+ * touched this, so the warning disappeared".
+ *
+ * `cover-letter.ts` rule 2 — the guard judges what hunt wrote — is right about a
+ * rewrite and wrong about a keystroke. Applied per-character it is a one-key
+ * laundry: the model claims *"I hired and led a team of eight engineers through
+ * a replatforming"*, the user fixes a typo in it, and the amber mark and the
+ * named unresolvable paths vanish from a sentence that is still 99% the model's
+ * invention — saved as the user's own authorship and never flagged again.
+ *
+ * So the threshold is a **majority of hunt's words**: the paragraph stays hunt's,
+ * and stays marked, while more than half the words hunt wrote are still in the
+ * box. Fixing a typo, a name, a number or a date leaves the claim standing, so
+ * the mark stands with it. Past that point the sentence is the user's own and
+ * hunt stops marking it — the opposite failure, flagging text the user genuinely
+ * replaced, would be just as dishonest and twice as annoying.
+ *
+ * Two properties make it hold up rather than just sound reasonable:
+ *
+ *  - It is measured against **hunt's original text**, not the previous
+ *    keystroke. Compared keystroke-to-keystroke every edit retains ~100%, so a
+ *    rewrite typed out one word at a time would never lift the mark.
+ *  - It counts **what survives of the original**, not string similarity, so
+ *    appending a paragraph of the user's own prose to hunt's claim does not
+ *    dilute it below the line. The claim is still there; so is the mark.
+ */
+const REWRITTEN_BELOW = 0.5
+
+const WORDS = /[\p{L}\p{N}'’]+/gu
+
+/**
+ * The fraction of `written`'s words still present in `edited`, counted as a
+ * multiset so deleting one of two "engineers" costs one word rather than none.
+ */
+export function retainedFraction(written: string, edited: string): number {
+  const original = written.toLowerCase().match(WORDS) ?? []
+  if (original.length === 0) return 0
+
+  const remaining = new Map<string, number>()
+  for (const word of edited.toLowerCase().match(WORDS) ?? []) {
+    remaining.set(word, (remaining.get(word) ?? 0) + 1)
+  }
+
+  let kept = 0
+  for (const word of original) {
+    const left = remaining.get(word) ?? 0
+    if (left === 0) continue
+    remaining.set(word, left - 1)
+    kept += 1
+  }
+
+  return kept / original.length
+}
+
 export function CoverLetterTab({
   applicationId,
   baseVersionId,
@@ -92,7 +148,29 @@ export function CoverLetterTab({
   const [error, setError] = useState<string | null>(null)
   const [keyless, setKeyless] = useState(hasLlm === false)
   const [dirty, setDirty] = useState(false)
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [saving, startSaving] = useTransition()
+
+  /**
+   * What hunt wrote, for every paragraph it flagged — the baseline
+   * `retainedFraction` measures against. Entries survive a save (the round trip
+   * returns the *edited* text, and re-baselining on it would let a flag be
+   * walked off in two saves), and are dropped on a regenerate, where the ids are
+   * reused for entirely different sentences.
+   */
+  const authored = useRef(new Map<string, string>())
+
+  const adopt = useCallback((next: CoverLetterDraft, { fresh = false } = {}) => {
+    const previous = fresh ? new Map<string, string>() : authored.current
+    const marks = new Map<string, string>()
+    for (const paragraph of next.paragraphs) {
+      if (paragraph.origin !== 'model' || !paragraph.flag) continue
+      marks.set(paragraph.id, previous.get(paragraph.id) ?? paragraph.text)
+    }
+
+    authored.current = marks
+    setDraft(next)
+  }, [])
 
   const receive = useCallback((result: CoverLetterResult): CoverLetterDraft | null => {
     if (result.ok) {
@@ -106,15 +184,16 @@ export function CoverLetterTab({
   }, [])
 
   const generate = useCallback(async () => {
+    setConfirmRegenerate(false)
     setBusy('drafting')
     const drafted = receive(await actions.draft(applicationId, baseVersionId))
     if (drafted) {
-      setDraft(drafted)
+      adopt(drafted, { fresh: true })
       setDirty(true)
     }
     setBusy(null)
     return drafted
-  }, [actions, applicationId, baseVersionId, receive])
+  }, [actions, adopt, applicationId, baseVersionId, receive])
 
   // The run drafts the letter, but not before the user opens the tab: this is a
   // model call, and spending it on a tab nobody looked at is spending the user's
@@ -128,7 +207,7 @@ export function CoverLetterTab({
     void (async () => {
       const existing = receive(await actions.load(applicationId))
       if (existing) {
-        setDraft(existing)
+        adopt(existing, { fresh: true })
         setBusy(null)
         return
       }
@@ -140,13 +219,15 @@ export function CoverLetterTab({
 
       await generate()
     })()
-  }, [actions, applicationId, generate, hasLlm, receive])
+  }, [actions, adopt, applicationId, generate, hasLlm, receive])
 
   /**
    * The edit rule, in the one place edits happen: the paragraph becomes the
    * user's. Its citations survive — the facts it was built from are still those
-   * facts — but the flag does not, because hunt no longer authored the claim
-   * (`src/lib/tailor/cover-letter.ts`, rule 2).
+   * facts — and so does the flag, until the rewrite has actually replaced the
+   * claim hunt was flagged for (`REWRITTEN_BELOW`). A paragraph that keeps its
+   * flag keeps `origin: 'model'` with it, or the mark would return this session
+   * and be gone from every future load of the saved file.
    */
   const edit = useCallback((id: string, text: string) => {
     setDirty(true)
@@ -154,11 +235,16 @@ export function CoverLetterTab({
       current
         ? {
             ...current,
-            paragraphs: current.paragraphs.map((paragraph) =>
-              paragraph.id === id
-                ? { id, text, citations: paragraph.citations, origin: 'user' }
-                : paragraph,
-            ),
+            paragraphs: current.paragraphs.map((paragraph) => {
+              if (paragraph.id !== id) return paragraph
+
+              const written = authored.current.get(id)
+              if (written !== undefined && retainedFraction(written, text) > REWRITTEN_BELOW) {
+                return { ...paragraph, text }
+              }
+
+              return { ...paragraph, text, origin: 'user', flag: undefined }
+            }),
           }
         : current,
     )
@@ -167,6 +253,7 @@ export function CoverLetterTab({
   /** An empty page the user owns from the first keystroke — the keyless floor. */
   const startBlank = useCallback(() => {
     setDirty(true)
+    authored.current = new Map()
     setDraft({
       applicationId,
       savedAt: null,
@@ -189,16 +276,20 @@ export function CoverLetterTab({
     startSaving(async () => {
       const saved = receive(await actions.save(applicationId, draft))
       if (saved) {
-        setDraft(saved)
+        adopt(saved)
         setDirty(false)
         toast.success('Cover letter saved', {
           description: `Pinned to ${job.company} — ${job.title}.`,
         })
       }
     })
-  }, [actions, applicationId, draft, job.company, job.title, receive])
+  }, [actions, adopt, applicationId, draft, job.company, job.title, receive])
 
   const flagged = draft?.paragraphs.filter((paragraph) => paragraph.flag) ?? []
+  /** Prose of the user's own that a regenerate would replace. Blank lines are nothing to lose. */
+  const handwritten =
+    draft?.paragraphs.filter((paragraph) => paragraph.origin === 'user' && paragraph.text.trim())
+      .length ?? 0
 
   return (
     <div data-testid="cover-letter-tab" className="mx-auto w-full max-w-[760px] px-8 py-7">
@@ -235,7 +326,12 @@ export function CoverLetterTab({
               size="sm"
               data-testid="regenerate-cover-letter"
               disabled={busy !== null || saving || keyless}
-              onClick={() => void generate()}
+              onClick={() => {
+                // A regenerate replaces every paragraph and there is no undo,
+                // so it asks first when there is writing of the user's to lose.
+                if (handwritten > 0) setConfirmRegenerate(true)
+                else void generate()
+              }}
             >
               {busy === 'drafting' ? 'Drafting…' : 'Regenerate'}
             </Button>
@@ -260,6 +356,41 @@ export function CoverLetterTab({
           stillWorks="The rest of this run works without one, and a letter you write here yourself saves the same way."
           settingsSection="llm"
         />
+      ) : null}
+
+      {/* Same shape as the Structured tab's hand-edit banner in the workspace:
+          state the fact, then offer the destructive move and the way out. */}
+      {confirmRegenerate ? (
+        <div
+          data-testid="regenerate-confirm"
+          className="mt-5 rounded-md border border-warn/40 bg-warn-bg px-3 py-2 text-xs leading-relaxed text-warn"
+        >
+          Regenerating replaces the whole letter, including the{' '}
+          {handwritten === 1 ? 'paragraph' : `${handwritten} paragraphs`} you wrote. There is no
+          undo.
+          <div className="mt-1 flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              data-testid="confirm-regenerate"
+              className="h-7 px-2 text-xs"
+              onClick={() => void generate()}
+            >
+              Discard my edits and regenerate
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              data-testid="cancel-regenerate"
+              className="h-7 px-2 text-xs"
+              onClick={() => setConfirmRegenerate(false)}
+            >
+              Keep my letter
+            </Button>
+          </div>
+        </div>
       ) : null}
 
       {error && !keyless ? (

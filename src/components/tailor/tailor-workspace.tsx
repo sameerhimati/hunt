@@ -3,7 +3,7 @@
 import { ArrowLeft, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { runTailorAction, saveTailoredVersionAction } from '@/app/applications/[id]/tailor/actions'
@@ -41,6 +41,9 @@ import { cn } from '@/lib/utils'
  *  3. **Saving does not navigate away.** The version is pinned in place beside
  *     the still-mounted document, because leaving mid-review to a different
  *     screen loses the reviewer's place and their remaining decisions.
+ *  4. **A save is a version, and the same document is never two versions.** The
+ *     commit is idempotent from the moment it fires until the decisions on
+ *     screen change again — see `commitSignature` below.
  */
 
 export type ChangeDecision = 'pending' | 'accepted' | 'rejected'
@@ -169,9 +172,18 @@ export function TailorWorkspace({
   const [dismissed, setDismissed] = useState<string[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [saved, setSaved] = useState<{ id: string; label: string; resumeId: string } | null>(null)
+  /** The `commitSignature` of the last successful save; null until one lands. */
+  const [savedSignature, setSavedSignature] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const [runTab, setRunTab] = useState('resume')
+  /**
+   * Whether the Cover letter tab has ever been opened. It is force-mounted from
+   * then on (see the TabsContent below) so that leaving the tab does not throw
+   * away an unsaved letter — but not before, because mounting it is what spends
+   * the model call, and hunt does not spend it on a tab nobody looked at.
+   */
+  const [coverOpened, setCoverOpened] = useState(false)
   const [leftTab, setLeftTab] = useState<LeftTab>('review')
   const [templateId, setTemplateId] = useState(base?.templateId ?? DEFAULT_TEMPLATE_ID)
   const [rawLatex, setRawLatex] = useState<string | null>(base?.rawLatexOverride ?? null)
@@ -211,6 +223,25 @@ export function TailorWorkspace({
     () => new Map(proposed.map((change, index) => [change.id, index + 1])),
     [proposed],
   )
+
+  /**
+   * Everything that decides what `saveTailoredVersionAction` would write. Two
+   * saves of the same signature are the same document, and `saveVersion` is an
+   * unconditional insert — so the second one is a duplicate row, not a version.
+   * Comparing it against `savedSignature` is what makes "Saved" a state rather
+   * than a label on a button that still fires.
+   */
+  const commitSignature = useMemo(
+    () =>
+      JSON.stringify([
+        committable.map((change) => change.id),
+        templateId,
+        rawLatex,
+        manual,
+      ]),
+    [committable, templateId, rawLatex, manual],
+  )
+  const committed = savedSignature !== null && savedSignature === commitSignature
 
   /**
    * The document as it currently stands. A hand-edit in the Structured tab wins
@@ -281,38 +312,65 @@ export function TailorWorkspace({
     })
   }, [applicationId, base])
 
+  /**
+   * A ref, not `pending`: the ⌘↵ handler is bound to the window and reads the
+   * `commit` it closed over, so a second press landing in the same tick as the
+   * first would see a stale `pending` and save twice.
+   */
+  const committing = useRef(false)
+
   const commit = useCallback(() => {
     if (!base || committable.length === 0) return
+    // Already in flight, or already written: either way a second insert would
+    // be a duplicate résumé version, not a second decision.
+    if (committing.current || savedSignature === commitSignature) return
 
+    const signature = commitSignature
+    committing.current = true
     setError(null)
     startTransition(async () => {
-      const result = await saveTailoredVersionAction({
-        applicationId,
-        baseVersionId: base.id,
-        accepted: committable,
-        label: defaultLabel,
-        templateId,
-        rawLatexOverride: rawLatex,
-        contentOverride: manual,
-      })
+      try {
+        const result = await saveTailoredVersionAction({
+          applicationId,
+          baseVersionId: base.id,
+          accepted: committable,
+          label: defaultLabel,
+          templateId,
+          rawLatexOverride: rawLatex,
+          contentOverride: manual,
+        })
 
-      if (!result.ok) {
-        setError(result.error)
-        return
+        if (!result.ok) {
+          setError(result.error)
+          return
+        }
+
+        // Every committable change is now part of the saved document, so the
+        // list must say so — leaving rows "pending" after they shipped would
+        // misreport what was sent.
+        setDecisions((current) => {
+          const next = { ...current }
+          for (const change of committable) next[change.id] = 'accepted'
+          return next
+        })
+        setSaved(result.version)
+        setSavedSignature(signature)
+        toast.success(`Saved “${result.version.label}” and pinned it to this application`)
+      } finally {
+        committing.current = false
       }
-
-      // Every committable change is now part of the saved document, so the list
-      // must say so — leaving rows "pending" after they shipped would misreport
-      // what was sent.
-      setDecisions((current) => {
-        const next = { ...current }
-        for (const change of committable) next[change.id] = 'accepted'
-        return next
-      })
-      setSaved(result.version)
-      toast.success(`Saved “${result.version.label}” and pinned it to this application`)
     })
-  }, [applicationId, base, committable, defaultLabel, templateId, rawLatex, manual])
+  }, [
+    applicationId,
+    base,
+    committable,
+    commitSignature,
+    savedSignature,
+    defaultLabel,
+    templateId,
+    rawLatex,
+    manual,
+  ])
 
   // TAILORING-DIFF §9. Bound to the window rather than a focused list so the
   // whole screen is keyboard-drivable; typing in a field is never intercepted.
@@ -428,10 +486,12 @@ export function TailorWorkspace({
                 type="button"
                 size="sm"
                 data-testid="save-tailored-version"
-                disabled={committable.length === 0 || pending}
+                disabled={committable.length === 0 || pending || committed}
                 onClick={commit}
               >
-                {saved ? 'Saved' : 'Accept all & save'}
+                {/* Honest about what a second press would do: not re-save this
+                    document, but branch a second version off the same base. */}
+                {saved ? (committed ? 'Saved' : 'Save a new version') : 'Accept all & save'}
               </Button>
             </>
           ) : null}
@@ -441,7 +501,10 @@ export function TailorWorkspace({
       {run ? (
         <Tabs
           value={runTab}
-          onValueChange={setRunTab}
+          onValueChange={(value) => {
+            setRunTab(value)
+            if (value === 'cover') setCoverOpened(true)
+          }}
           className="min-h-0 flex-1 gap-0 overflow-hidden"
         >
           <TabsList variant="line" className="h-10 shrink-0 border-b border-border px-4">
@@ -642,7 +705,21 @@ export function TailorWorkspace({
             </div>
           </TabsContent>
 
-          <TabsContent value="cover" className="min-h-0 flex-1 overflow-y-auto">
+          {/*
+            Force-mounted once opened, and hidden by hand rather than by Radix.
+            Every piece of letter state — the draft, the dirty flag, the
+            already-drafted latch — is local to the tab, so letting Radix
+            unmount it on a trip to Résumé changes would throw away the user's
+            prose and spend a second model call redrafting it. `forceMount`
+            makes Radix render the panel unconditionally, `hidden` is what still
+            takes it out of the layout and off the a11y tree.
+          */}
+          <TabsContent
+            value="cover"
+            forceMount={coverOpened || undefined}
+            hidden={runTab !== 'cover'}
+            className="min-h-0 flex-1 overflow-y-auto"
+          >
             <CoverLetterTab
               applicationId={applicationId}
               baseVersionId={saved?.id ?? base.id}
