@@ -22,7 +22,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { parseResumeContent, type ResumeContent } from '@/lib/resume/schema'
 import { DEFAULT_TEMPLATE_ID } from '@/lib/resume/templates'
 import { renderTex } from '@/lib/resume/tex'
-import { applyChanges } from '@/lib/tailor/apply'
+import { applyChangesWithReport, type SkippedChange } from '@/lib/tailor/apply'
 import type { TailorChange, TailorRun } from '@/lib/tailor/types'
 import { cn } from '@/lib/utils'
 
@@ -31,10 +31,12 @@ import { cn } from '@/lib/utils'
  *
  * All run state lives here, and three invariants shape it:
  *
- *  1. **The PDF is fed `applyChanges(base, accepted)`.** Not the model's text,
- *     not the raw run — the same function that writes the saved version. A
- *     refused claim therefore cannot reach the paper even if the review UI had
- *     a bug, because it is never in the accepted subset.
+ *  1. **The PDF is fed `applyChangesWithReport(base, accepted)`.** Not the
+ *     model's text, not the raw run — the same function that writes the saved
+ *     version. A refused claim therefore cannot reach the paper even if the
+ *     review UI had a bug, because it is never in the accepted subset; and a
+ *     change that could not land is demoted here rather than left reading as
+ *     accepted, because the count and the document have to agree.
  *  2. **Refusals render as `<FabricationFlag/>`, never as a `diff-row`.** They
  *     are visible — hiding them would lie about what the model attempted — but
  *     they are not decisions the user can take.
@@ -172,6 +174,8 @@ export function TailorWorkspace({
   const [dismissed, setDismissed] = useState<string[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [saved, setSaved] = useState<{ id: string; label: string; resumeId: string } | null>(null)
+  /** What the last save reported it could not write. Cleared by a fresh run. */
+  const [savedSkips, setSavedSkips] = useState<SkippedChange[]>([])
   /** The `commitSignature` of the last successful save; null until one lands. */
   const [savedSignature, setSavedSignature] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -249,18 +253,51 @@ export function TailorWorkspace({
    * change list over it would delete work they just did.
    */
   const preview = useMemo(() => {
-    if (!baseContent) return { content: null, error: null as string | null }
-    if (manual) return { content: manual, error: null as string | null }
+    const nothingSkipped: SkippedChange[] = []
+    if (!baseContent) return { content: null, error: null as string | null, skipped: nothingSkipped }
+    if (manual) return { content: manual, error: null as string | null, skipped: nothingSkipped }
 
     try {
-      return { content: applyChanges(baseContent, accepted), error: null as string | null }
+      const report = applyChangesWithReport(baseContent, accepted)
+      return { content: report.content, error: null as string | null, skipped: report.skipped }
     } catch (cause) {
       return {
         content: baseContent,
         error: cause instanceof Error ? cause.message : 'Could not apply the accepted changes.',
+        skipped: nothingSkipped,
       }
     }
   }, [baseContent, manual, accepted])
+
+  /**
+   * Changes that are on their way into the document and are not in it: what this
+   * render's apply could not place, plus whatever the last save reported (the
+   * server reads the base fresh, so it can have moved since the run). Keyed by
+   * id, in the order the user reviewed them. A rejected row is never listed —
+   * it was not going in either way, and calling that a skip would be noise.
+   */
+  const skips = useMemo(() => {
+    const reported = new Map<string, SkippedChange>()
+    for (const entry of [...preview.skipped, ...savedSkips]) reported.set(entry.id, entry)
+
+    return new Map(
+      committable.flatMap((change) => {
+        const entry = reported.get(change.id)
+        return entry ? [[change.id, entry] as const] : []
+      }),
+    )
+  }, [preview.skipped, savedSkips, committable])
+
+  /** Accepted *and* in the document. The only set the summary may call accepted. */
+  const landed = useMemo(
+    () => accepted.filter((change) => !skips.has(change.id)),
+    [accepted, skips],
+  )
+  /** Undecided and still landable — a skipped row is counted once, in its own bucket. */
+  const undecided = useMemo(
+    () => committable.filter((change) => decisions[change.id] !== 'accepted' && !skips.has(change.id)),
+    [committable, decisions, skips],
+  )
 
   // The undo stack (§9 `u`). Both halves update from render state rather than
   // from inside an updater: React double-invokes updaters in development, and a
@@ -308,6 +345,7 @@ export function TailorWorkspace({
       setDecisions({})
       setHistory([])
       setDismissed([])
+      setSavedSkips([])
       setSelectedId(result.run.changes.find((change) => change.status === 'proposed')?.id ?? null)
     })
   }, [applicationId, base])
@@ -345,17 +383,29 @@ export function TailorWorkspace({
           return
         }
 
-        // Every committable change is now part of the saved document, so the
-        // list must say so — leaving rows "pending" after they shipped would
-        // misreport what was sent.
+        // Every committable change that landed is now part of the saved
+        // document, so the list must say so — leaving rows "pending" after they
+        // shipped would misreport what was sent. The ones the server could not
+        // place are the mirror image of that, and are demoted instead: marking
+        // them accepted would claim the saved version contains text it does not.
+        const missed = new Set(result.skipped.map((entry) => entry.id))
+        setSavedSkips(result.skipped)
         setDecisions((current) => {
           const next = { ...current }
-          for (const change of committable) next[change.id] = 'accepted'
+          for (const change of committable) {
+            if (!missed.has(change.id)) next[change.id] = 'accepted'
+          }
           return next
         })
         setSaved(result.version)
         setSavedSignature(signature)
-        toast.success(`Saved “${result.version.label}” and pinned it to this application`)
+        toast.success(
+          missed.size === 0
+            ? `Saved “${result.version.label}” and pinned it to this application`
+            : `Saved “${result.version.label}” without ${missed.size} change${
+                missed.size === 1 ? '' : 's'
+              } your résumé no longer had a place for`,
+        )
       } finally {
         committing.current = false
       }
@@ -548,9 +598,10 @@ export function TailorWorkspace({
                       data-testid="tailor-summary"
                       className="shrink-0 font-mono text-[10.5px] text-muted-foreground"
                     >
-                      {run.changes.length} changes · <span className="text-diff-add">{accepted.length}</span>{' '}
-                      accepted · {committable.length - accepted.length} pending ·{' '}
+                      {run.changes.length} changes · <span className="text-diff-add">{landed.length}</span>{' '}
+                      accepted · {undecided.length} pending ·{' '}
                       <span className="text-warn">{flagged.length}</span> flagged
+                      {skips.size > 0 ? <> · {skips.size} not applied</> : null}
                     </span>
                   </div>
 
@@ -614,6 +665,20 @@ export function TailorWorkspace({
                                     setDismissed((current) => [...current, change.id])
                                   }
                                   onAddYourself={() => setLeftTab('structured')}
+                                />
+                              )
+                            }
+
+                            const missed = skips.get(change.id)
+                            if (missed) {
+                              return (
+                                <SkippedChangeNotice
+                                  key={change.id}
+                                  change={change}
+                                  index={pins.get(change.id) ?? 0}
+                                  reason={missed.reason}
+                                  onRetailor={start}
+                                  retailoring={pending}
                                 />
                               )
                             }
@@ -783,5 +848,80 @@ export function TailorWorkspace({
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * A change the user accepted that the applier had nowhere to put. It takes the
+ * place of its own `<DiffRow/>`, keeping its pin number, so the absence is legible
+ * where the decision was made — the same move `<FabricationFlag/>` makes, and for
+ * the same reason: a change the user reviewed that is not in the document has to
+ * be visible, or the count is a lie.
+ *
+ * Deliberately **not** in the flag's amber: nothing was fabricated here. The
+ * validator refuses an unlandable target before it is ever shown, so a skip that
+ * survives to this screen means the résumé moved out from under the run — a
+ * staleness fact, not a dishonesty one. Like a refusal it carries no
+ * `data-testid="diff-row"`: it is no longer a decision the user can take, and
+ * `Tailor again` is the way back — a fresh run reads the résumé as it now stands.
+ */
+function SkippedChangeNotice({
+  change,
+  index,
+  reason,
+  onRetailor,
+  retailoring,
+}: {
+  change: TailorChange
+  index: number
+  /** The applier's own sentence — what it looked for and did not find. */
+  reason: string
+  onRetailor: () => void
+  retailoring: boolean
+}) {
+  return (
+    <li
+      data-testid="skipped-change"
+      className="flex items-start gap-2.5 rounded-lg border border-border bg-surface-2 p-3"
+    >
+      <span
+        aria-hidden="true"
+        className="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border border-border font-mono text-xs text-faint"
+      >
+        {index}
+      </span>
+
+      <div className="min-w-0 flex-1">
+        {/* `was` for a removal, whose `now` is empty — the text still names the row. */}
+        <p className="font-serif text-sm leading-relaxed text-faint">{change.now || change.was}</p>
+
+        <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">
+          <b>Not applied — that spot is no longer in your résumé.</b> hunt wrote this against the
+          version it read when the run started. It was left out rather than put somewhere it might
+          fit — tailor again to review this against your résumé as it stands.
+        </p>
+
+        <p
+          data-testid="skipped-reason"
+          className="mt-1 font-mono text-[10px] leading-relaxed text-muted-foreground"
+        >
+          {reason}
+        </p>
+
+        <div className="mt-2 flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            data-testid="retailor-after-skip"
+            className="h-7 text-xs"
+            disabled={retailoring}
+            onClick={onRetailor}
+          >
+            Tailor again
+          </Button>
+        </div>
+      </div>
+    </li>
   )
 }
