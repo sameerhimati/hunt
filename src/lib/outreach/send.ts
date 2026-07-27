@@ -1,18 +1,24 @@
 /**
  * The send path — and the honest fallback when hunt cannot send at all.
  *
- * Two rules shape this file:
+ * Three rules shape this file:
  *
- * 1. **Nothing is stamped unless the mail actually left.** The row is updated
- *    from the adapter's own `SendResult` (its `sentAt`, its `messageId`), after
- *    the send resolves. A "sent" row with no provider id is a lie the queue and
- *    the reply detector would both act on.
- * 2. **A missing key is a product state, not an exception page.** No email
+ * 1. **A step is claimed before the wire, not after.** Sending is irreversible:
+ *    a duplicate lands in a recruiter's inbox and cannot be taken back. So the
+ *    row is claimed with one conditional write *before* `email.send`, and a
+ *    caller who loses that race is told so instead of sending. Client-side
+ *    button state is a courtesy; this is the guarantee.
+ * 2. **Nothing is stamped `sent` unless the mail actually left.** The row is
+ *    stamped from the adapter's own `SendResult` (its `sentAt`, its
+ *    `messageId`) after the send resolves. A "sent" row with no provider id is
+ *    a lie the queue and the reply detector would both act on.
+ * 3. **A missing key is a product state, not an exception page.** No email
  *    provider configured is the "Copy / mark as sent manually" branch SCREENS §9
  *    promises, so the error carries the provider's own `degradation` copy — the
  *    same sentence Settings shows — instead of a stack trace.
  */
 
+import type { Outreach } from '@/generated/prisma/client'
 import { createAdapter } from '@/lib/adapters/factory'
 import type { EmailAdapter } from '@/lib/adapters/email/types'
 import { prisma } from '@/lib/db/client'
@@ -64,10 +70,69 @@ function notConfigured(providerId: string, reason?: string): EmailNotConfiguredE
   return new EmailNotConfiguredError(meta?.name ?? 'Email', meta?.degradation ?? '', reason)
 }
 
+/**
+ * The provider took the message — or didn't — and we never found out which.
+ * Neither Resend nor SMTP accepts an idempotency key, so hunt cannot ask again
+ * without risking a second copy in the recipient's inbox. The row keeps its
+ * claim (see `sendStep`) and this error says the true thing rather than the
+ * comfortable one.
+ */
+export class SendUnconfirmedError extends Error {
+  constructor(cause: unknown) {
+    const detail = cause instanceof Error ? cause.message : String(cause)
+    super(
+      'hunt could not confirm this send, so it may already have reached them. ' +
+        'Check your sent mail: mark the step sent if it went out, or send it again if it did not. ' +
+        `(${detail})`,
+      { cause },
+    )
+    this.name = 'SendUnconfirmedError'
+  }
+}
+
 export interface SendDeps {
   /** Injected by tests and by the e2e gate's capture-backed fake. */
   email?: EmailAdapter
   from?: string
+  /**
+   * The user looked at their sent mail, the message is not there, and they are
+   * asking hunt to try again. The only way past a held claim — never a default,
+   * never a retry hunt decides on by itself.
+   */
+  confirmResend?: boolean
+}
+
+/**
+ * What happened, for a caller that has to say something true to the user.
+ *
+ * `unconfirmed` is the honest third answer: the step carries a claim from an
+ * attempt whose outcome nobody ever learned. It is neither "sent" nor "not
+ * sent", and pretending otherwise is what puts a second email in an inbox.
+ */
+export type SendOutcome = 'sent' | 'already-sent' | 'unconfirmed'
+
+export interface SendStepResult {
+  outcome: SendOutcome
+  step: Outreach
+}
+
+/**
+ * Statuses a step can still be sent from — the same pair `PENDING_STATUSES` in
+ * `./sequence` walks. Everything else is history.
+ */
+const SENDABLE = ['draft', 'scheduled'] as const
+
+function isSendable(status: string): boolean {
+  return (SENDABLE as readonly string[]).includes(status)
+}
+
+/**
+ * A step that was claimed for a send that never reported back: still pending,
+ * but carrying a `sentAt`. Exported because the composer and the dashboard both
+ * have to say "we don't know" instead of "not sent yet".
+ */
+export function isUnconfirmed(step: { status: string; sentAt: Date | null }): boolean {
+  return step.sentAt !== null && isSendable(step.status)
 }
 
 /**
@@ -105,17 +170,47 @@ export async function resolveFrom(): Promise<string | null> {
 }
 
 /**
- * Send one step and stamp what came back.
+ * Send one step, exactly once, and stamp what came back.
+ *
+ * **The claim.** Between reading the row and putting the message on the wire
+ * there is a window in which a second request — a double-click, a retried form
+ * POST, a second tab — would send the same email again. So one conditional
+ * `updateMany` compare-and-swaps `sentAt` from what we read to a claim
+ * timestamp, guarded on the status still being sendable. Exactly one caller can
+ * win that write; the losers return `already-sent`/`unconfirmed` and never
+ * touch the adapter. That is the whole guarantee, and it lives here rather than
+ * in a disabled button because a disabled button is not a guarantee.
+ *
+ * **Why the claim is `sentAt` and not a new status.** `OUTREACH_STATUSES` is a
+ * closed vocabulary the board, the queue and the timeline all read; a seventh
+ * "sending" value would need a meaning in each of them. `sentAt` already means
+ * "an attempt happened", so the claim reuses it: a row with `sentAt` set and a
+ * still-pending status *is* the in-flight state, reconciled on read by
+ * `isUnconfirmed`. No migration, no vocabulary change, one invariant.
+ *
+ * **What happens if the process dies mid-send.** The claim survives, and the
+ * step reads as unconfirmed forever until a human resolves it. That is
+ * deliberate, and it is not the same bug as a stuck lock: hunt genuinely does
+ * not know whether that message left, and neither Resend nor SMTP takes an
+ * idempotency key that would let it ask. An expiring lease would eventually
+ * re-send — silently — into a recruiter's inbox, which is the exact failure
+ * this function exists to prevent. So the escape is a person, not a timer:
+ * "mark as sent" if it went out, `confirmResend` if it did not. Pre-flight
+ * checks (no address, no provider, no From) all run *before* the claim, so the
+ * common failures leave the row untouched and retryable.
  *
  * The application advances to `outreach` only when it is behind that column —
  * a row already at `replied` or `interview` must never be dragged backwards by
  * a follow-up going out.
  */
-export async function sendStep(outreachId: string, deps: SendDeps = {}) {
+export async function sendStep(outreachId: string, deps: SendDeps = {}): Promise<SendStepResult> {
   const step = await prisma.outreach.findUniqueOrThrow({
     where: { id: outreachId },
     include: { contact: true },
   })
+
+  if (!isSendable(step.status)) return { outcome: 'already-sent', step }
+  if (isUnconfirmed(step) && !deps.confirmResend) return { outcome: 'unconfirmed', step }
 
   const to = step.contact?.email?.trim()
   if (!to) throw new NoContactEmailError()
@@ -126,7 +221,25 @@ export async function sendStep(outreachId: string, deps: SendDeps = {}) {
   const from = deps.from ?? (await resolveFrom())
   if (!from) throw notConfigured(email.id, 'no From address is set')
 
-  const result = await email.send({ to, from, subject: step.subject, text: step.body })
+  // The claim. `sentAt: step.sentAt` is the compare half of the swap, so a
+  // confirmed resend is as safe against a double-click as a first send is.
+  const claimed = await prisma.outreach.updateMany({
+    where: { id: step.id, status: { in: [...SENDABLE] }, sentAt: step.sentAt },
+    data: { sentAt: new Date() },
+  })
+  if (claimed.count === 0) {
+    const current = await prisma.outreach.findUniqueOrThrow({ where: { id: step.id } })
+    return { outcome: isSendable(current.status) ? 'unconfirmed' : 'already-sent', step: current }
+  }
+
+  let result
+  try {
+    result = await email.send({ to, from, subject: step.subject, text: step.body })
+  } catch (error) {
+    // The claim stays. Releasing it here would be a guess that the message did
+    // not leave, and that guess is wrong exactly when it is most expensive.
+    throw new SendUnconfirmedError(error)
+  }
 
   const row = await prisma.outreach.update({
     where: { id: step.id },
@@ -138,7 +251,7 @@ export async function sendStep(outreachId: string, deps: SendDeps = {}) {
   })
 
   await advanceToOutreach(step.applicationId)
-  return row
+  return { outcome: 'sent', step: row }
 }
 
 /**

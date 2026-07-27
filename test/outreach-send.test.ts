@@ -5,12 +5,14 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { FakeEmailAdapter } from '@/lib/adapters/email/fake'
+import type { EmailMessage, SendResult } from '@/lib/adapters/email/types'
 import { prisma } from '@/lib/db/client'
 import {
   EmailNotConfiguredError,
   markSentManually,
   messageText,
   NoContactEmailError,
+  SendUnconfirmedError,
   sendStep,
 } from '@/lib/outreach/send'
 import { createSequence } from '@/lib/outreach/sequence'
@@ -58,6 +60,18 @@ async function seed({
 
 function tmpCaptureFile(): string {
   return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'hunt-send-')), 'outbox.jsonl')
+}
+
+/**
+ * A provider that takes the message and then loses the answer — the failure the
+ * claim exists for. `outbox` still records the send, because from the
+ * recruiter's side it happened.
+ */
+class LosesTheAnswer extends FakeEmailAdapter {
+  async send(message: EmailMessage): Promise<SendResult> {
+    await super.send(message)
+    throw new Error('socket hang up')
+  }
 }
 
 describe('sending a step', () => {
@@ -133,6 +147,75 @@ describe('sending a step', () => {
     expect(row.threadRef).toBeNull()
     const application = await prisma.application.findUniqueOrThrow({ where: { id: applicationId } })
     expect(application.status).toBe('applied')
+  })
+})
+
+describe('sending a step exactly once', () => {
+  it('refuses to put the same step on the wire twice', async () => {
+    const { stepId } = await seed({ email: 'jordan@example.com' })
+    const email = new FakeEmailAdapter()
+
+    const first = await sendStep(stepId, { email, from: 'alex.chen@example.com' })
+    const second = await sendStep(stepId, { email, from: 'alex.chen@example.com' })
+
+    expect(first.outcome).toBe('sent')
+    expect(second.outcome).toBe('already-sent')
+    expect(email.outbox).toHaveLength(1)
+  })
+
+  it('sends once when two clicks race the same step', async () => {
+    const { stepId } = await seed({ email: 'jordan@example.com' })
+    const email = new FakeEmailAdapter()
+
+    const outcomes = await Promise.all([
+      sendStep(stepId, { email, from: 'alex.chen@example.com' }),
+      sendStep(stepId, { email, from: 'alex.chen@example.com' }),
+    ])
+
+    // The row is claimed before the network call, so only one caller can reach it.
+    expect(email.outbox).toHaveLength(1)
+    expect(outcomes.filter((result) => result.outcome === 'sent')).toHaveLength(1)
+  })
+
+  it('holds the claim and says the outcome is unknown when the provider drops the answer', async () => {
+    const { stepId } = await seed({ email: 'jordan@example.com' })
+
+    await expect(
+      sendStep(stepId, { email: new LosesTheAnswer(), from: 'alex.chen@example.com' }),
+    ).rejects.toBeInstanceOf(SendUnconfirmedError)
+
+    const row = await prisma.outreach.findUniqueOrThrow({ where: { id: stepId } })
+    expect(row.status).toBe('scheduled')
+    // Claimed, not stamped: hunt does not know whether that message left.
+    expect(row.sentAt).toBeInstanceOf(Date)
+    expect(row.threadRef).toBeNull()
+
+    // And the obvious retry does not quietly mail the recruiter a second time.
+    const retry = new FakeEmailAdapter()
+    const result = await sendStep(stepId, { email: retry, from: 'alex.chen@example.com' })
+    expect(result.outcome).toBe('unconfirmed')
+    expect(retry.outbox).toHaveLength(0)
+  })
+
+  it('sends again only when the user says the first attempt never landed', async () => {
+    const { stepId } = await seed({ email: 'jordan@example.com' })
+
+    await expect(
+      sendStep(stepId, { email: new LosesTheAnswer(), from: 'alex.chen@example.com' }),
+    ).rejects.toBeInstanceOf(SendUnconfirmedError)
+
+    const retry = new FakeEmailAdapter()
+    const result = await sendStep(stepId, {
+      email: retry,
+      from: 'alex.chen@example.com',
+      confirmResend: true,
+    })
+
+    expect(result.outcome).toBe('sent')
+    expect(retry.outbox).toHaveLength(1)
+    const row = await prisma.outreach.findUniqueOrThrow({ where: { id: stepId } })
+    expect(row.status).toBe('sent')
+    expect(row.threadRef).toBe(retry.outbox[0]!.messageId)
   })
 })
 

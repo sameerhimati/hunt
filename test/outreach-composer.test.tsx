@@ -13,7 +13,7 @@ import type { OutreachStepView, SequenceView } from '@/lib/outreach/types'
  * Server actions are mocked — this file is about the UI's behaviour, and the
  * actions themselves are exercised through the gate's send/sequence tests.
  */
-const sendStepAction = vi.fn(async () => ({}) as { error?: string })
+const sendStepAction = vi.fn(async () => ({}) as { error?: string; note?: string })
 const saveDraftAction = vi.fn(async () => ({}) as { error?: string })
 const markSentManuallyAction = vi.fn(async () => ({}) as { error?: string })
 const regenerateAction = vi.fn(
@@ -147,7 +147,9 @@ describe('composer', () => {
     fireEvent.change(screen.getByTestId('message-body'), { target: { value: 'Rewritten by hand.' } })
     fireEvent.click(screen.getByTestId('send-now'))
 
-    await waitFor(() => expect(sendStepAction).toHaveBeenCalledWith('step-1'))
+    await waitFor(() =>
+      expect(sendStepAction).toHaveBeenCalledWith('step-1', { confirmResend: false }),
+    )
     expect(saveDraftAction).toHaveBeenCalledWith('step-1', {
       subject: 'Senior Backend Engineer — payments reliability background',
       body: 'Rewritten by hand.',
@@ -162,7 +164,9 @@ describe('composer', () => {
 
     fireEvent.click(screen.getByTestId('send-now'))
 
-    await waitFor(() => expect(sendStepAction).toHaveBeenCalledWith('step-1'))
+    await waitFor(() =>
+      expect(sendStepAction).toHaveBeenCalledWith('step-1', { confirmResend: false }),
+    )
     expect(saveDraftAction).not.toHaveBeenCalled()
   })
 
@@ -218,6 +222,42 @@ describe('composer', () => {
     expect((screen.getByTestId('send-now') as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByTestId('mark-sent-manually') as HTMLButtonElement).disabled).toBe(true)
     expect(screen.getByText(/2026-07-20/)).toBeTruthy()
+  })
+
+  it('says it does not know, rather than "not sent", after an unconfirmed attempt', async () => {
+    // A step the send path claimed and never heard back about: still pending,
+    // but carrying a sentAt. Calling that "scheduled" would assert the message
+    // never left, which is the one thing hunt cannot know.
+    render(
+      <Composer
+        sequence={sequence({
+          steps: [step({ status: 'scheduled', sentAt: new Date('2026-07-20T09:00:00.000Z') })],
+        })}
+      />,
+    )
+
+    expect(screen.getByTestId('send-unconfirmed').textContent).toMatch(/never got an answer back/i)
+    expect(screen.getByTestId('sequence-step').textContent).toContain('unconfirmed')
+    expect(screen.getByTestId('sequence-step').textContent).not.toContain('scheduled')
+
+    // Pressing the button here is the user saying the first attempt never landed.
+    expect(screen.getByTestId('send-now').textContent).toBe('Send again')
+    fireEvent.click(screen.getByTestId('send-now'))
+    await waitFor(() =>
+      expect(sendStepAction).toHaveBeenCalledWith('step-1', { confirmResend: true }),
+    )
+  })
+
+  it('does not paint "already sent" red — it is a normal outcome, not a failure', async () => {
+    sendStepAction.mockResolvedValue({ note: 'That step already went out — nothing sent again.' })
+    render(<Composer sequence={sequence()} />)
+
+    fireEvent.click(screen.getByTestId('send-now'))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('composer-note').textContent).toContain('already went out'),
+    )
+    expect(screen.queryByTestId('composer-error')).toBeNull()
   })
 
   it('says what to do when there is no sequence at all', () => {

@@ -9,6 +9,7 @@ import {
   saveDraftAction,
   sendStepAction,
 } from '@/app/outreach/actions'
+import { isUnconfirmedStep } from '@/components/outreach/sequence-timeline'
 import { Button } from '@/components/ui/button'
 import type { OutreachCitation, OutreachStepView } from '@/lib/outreach/types'
 import { cn } from '@/lib/utils'
@@ -70,6 +71,11 @@ export function MessageEditor({
     }
   }, [menuOpen])
 
+  const sendable = step.status === 'draft' || step.status === 'scheduled'
+  // A step hunt claimed for a send it never got an answer to. It is neither
+  // sent nor safe to assume unsent, and the footer has to say so out loud.
+  const unconfirmed = isUnconfirmedStep(step)
+
   /** Every action runs the same way: clear the last answer, then report this one. */
   const run = (work: () => Promise<string | null>) => {
     setError(null)
@@ -100,7 +106,10 @@ export function MessageEditor({
     run(async () => {
       const failure = await persist()
       if (failure) return failure
-      const result = await sendStepAction(step.id)
+      // On an unconfirmed step this button reads "Send again", so pressing it
+      // *is* the user telling hunt the first attempt never landed.
+      const result = await sendStepAction(step.id, { confirmResend: unconfirmed })
+      if (result.note) setNote(result.note)
       return result.error ?? null
     })
 
@@ -143,8 +152,6 @@ export function MessageEditor({
       }
       return null
     })
-
-  const sendable = step.status === 'draft' || step.status === 'scheduled'
 
   return (
     <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
@@ -219,6 +226,16 @@ export function MessageEditor({
         </p>
       ) : null}
 
+      {unconfirmed ? (
+        <p
+          data-testid="send-unconfirmed"
+          className="border-t border-border bg-warn-bg px-[18px] py-2.5 text-xs leading-relaxed text-warn"
+        >
+          hunt started sending this and never got an answer back, so it may already be in their
+          inbox. Check your sent mail — then mark it sent, or send it again if it never left.
+        </p>
+      ) : null}
+
       {!emailConfigured ? (
         <p className="border-t border-border px-[18px] py-2.5 font-mono text-[10.5px] text-faint">
           No email key yet — hunt drafts and tracks, you send from your own client.
@@ -270,7 +287,7 @@ export function MessageEditor({
                   disabled={pending || !sendable}
                   onClick={send}
                 >
-                  {pending ? 'Sending…' : 'Send now'}
+                  {pending ? 'Sending…' : unconfirmed ? 'Send again' : 'Send now'}
                 </Button>
                 <Button
                   type="button"

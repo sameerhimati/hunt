@@ -34,6 +34,11 @@ import { versionContent } from '@/lib/resume/store'
 
 export interface ActionResult {
   error?: string
+  /**
+   * Something true worth saying that is not a failure — "that step already went
+   * out". Kept apart from `error` so the UI does not paint a normal outcome red.
+   */
+  note?: string
 }
 
 export interface DraftResult extends ActionResult {
@@ -67,23 +72,39 @@ const GONE = 'That step is no longer here. Reload the screen.'
 /**
  * Send this step now.
  *
- * `sendStep` stamps the row from the adapter's own result, and the revalidate
- * below is what makes the timeline say "sent" on the very next render — the
- * e2e gate reads exactly that.
+ * `sendStep` claims the row before the wire and stamps it from the adapter's
+ * own result, and the revalidate below is what makes the timeline say "sent" on
+ * the very next render — the e2e gate reads exactly that.
+ *
+ * Every path revalidates, failures included: a send that threw may still have
+ * written its claim, and the surfaces have to show that rather than keep
+ * offering a Send button for a message that might already be in an inbox.
  */
-export async function sendStepAction(stepId: string): Promise<ActionResult> {
+export async function sendStepAction(
+  stepId: string,
+  options: { confirmResend?: boolean } = {},
+): Promise<ActionResult> {
   const step = await loadStep(stepId)
   if (!step) return { error: GONE }
 
+  let outcome
   try {
-    await sendStep(stepId)
+    ;({ outcome } = await sendStep(stepId, { confirmResend: options.confirmResend }))
   } catch (error) {
+    revalidateOutreach(step.applicationId)
     return { error: describe(error) }
   }
 
   revalidateOutreach(step.applicationId)
-  return {}
+  if (outcome === 'sent') return {}
+  if (outcome === 'already-sent') return { note: 'That step already went out — nothing sent again.' }
+  return { error: UNCONFIRMED }
 }
+
+/** What a step claimed by an attempt nobody heard back from has to say. */
+const UNCONFIRMED =
+  'An earlier attempt on this step was never confirmed, so it may already have reached them. ' +
+  'Check your sent mail: mark it sent if it went out, or send it again if it did not.'
 
 /** Save the edits in the box. `dayOffset` shifts every later step, by design. */
 export async function saveDraftAction(
