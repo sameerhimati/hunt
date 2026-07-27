@@ -318,9 +318,12 @@ own, which is what kept the parallel work conflict-free.
   row, including one already sent and including a `halted` step. Harmless today
   only because the composer disables it, which is the same client-side-only
   defence the double-send fix was filed against.
-- **A#2's UI half** — `applyChangesWithReport` reports skipped changes; the
-  workspace must demote those rows so they don't read as accepted and don't
-  inflate the summary count.
+- ~~**A#2's UI half**~~ — done. A skipped change now renders as a demoted card:
+  same slot as a refusal, quieter and non-amber, no diff colours, no
+  accept/reject, and excluded from the accepted count. Its copy names *staleness*
+  rather than fabrication, because with the validator fix an unlandable change is
+  refused before it is shown — so one surviving to commit means the résumé moved
+  between the run and the save.
 
 **Known and accepted:**
 
