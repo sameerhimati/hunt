@@ -142,7 +142,44 @@ describe('sourcing workspace', () => {
     rate.resolve({ ratings: [{ externalId: 'a-1', rating: rating('strong') }] })
 
     expect(await screen.findByTestId('fit-tier-badge')).toBeTruthy()
+    // The badge and the header describe the same commit. A card wearing a fit
+    // tier under a header still saying "rating for fit…" is the screen
+    // contradicting itself, and it is what this test used to catch at random.
     expect(screen.getByTestId('result-summary').textContent).toContain('rated for fit')
+    expect(screen.getByTestId('result-summary').textContent).not.toContain('rating for fit')
+  })
+
+  it('never paints a fit badge under a header that still says it is rating', async () => {
+    const rate = deferred<{ ratings: { externalId: string; rating: FitRating }[] }>()
+    rateAction.mockReturnValue(rate.promise)
+
+    renderWorkspace()
+    await runSearch()
+    await waitFor(() => expect(screen.getAllByTestId('sourcing-result')).toHaveLength(1))
+
+    // The test above only sees whichever commit `findBy` happens to land on.
+    // This one watches every commit, because the contradiction lives in exactly
+    // one of them: React settles an async transition's `isPending` a tick after
+    // it commits the state the transition awaited, so `rating` as a pending
+    // flag is still true in the commit that paints the badges.
+    const contradictions: string[] = []
+    const observer = new MutationObserver(() => {
+      if (!document.querySelector('[data-testid="fit-tier-badge"]')) return
+      const summary = screen.getByTestId('result-summary').textContent ?? ''
+      if (summary.includes('rating for fit')) contradictions.push(summary)
+    })
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      characterData: true,
+    })
+
+    rate.resolve({ ratings: [{ externalId: 'a-1', rating: rating('strong') }] })
+    await screen.findByTestId('fit-tier-badge')
+    observer.disconnect()
+
+    expect(contradictions).toEqual([])
   })
 
   it('says why nothing is rated instead of inventing a tier', async () => {

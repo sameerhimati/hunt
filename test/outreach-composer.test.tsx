@@ -201,15 +201,53 @@ describe('composer', () => {
     )
     expect(screen.getByTestId('citation-chip').textContent).toBe('experience[0].bullets[3]')
 
+    // A draft you can read is a draft you can send. The regenerate must not
+    // still be holding the row now that its answer is on screen — React drops
+    // clicks on a disabled button, so a stale hold turns this into a dead click
+    // and, further down, into a mystifying "Number of calls: 0".
+    const send = screen.getByTestId('send-now')
+    expect(send.hasAttribute('disabled')).toBe(false)
+
     // Regenerating does not write: the new draft is unsaved until it is sent
     // or saved, so sending must persist it first.
-    fireEvent.click(screen.getByTestId('send-now'))
+    fireEvent.click(send)
     await waitFor(() =>
       expect(saveDraftAction).toHaveBeenCalledWith('step-1', {
         subject: 'Payments reliability — Senior Backend Engineer',
         body: 'Hi Jordan — I cut p99 from 210ms to 130ms.',
       }),
     )
+  })
+
+  it('hands Send back in the same commit that paints the regenerated draft', async () => {
+    regenerateAction.mockResolvedValue({
+      subject: 'Payments reliability — Senior Backend Engineer',
+      body: 'Hi Jordan — I cut p99 from 210ms to 130ms.',
+      citations: [{ path: 'experience[0].bullets[3]', snippet: 'Cut p99 latency 38%' }],
+    })
+    render(<Composer sequence={sequence()} />)
+
+    // The assertion above only sees whichever commit `waitFor` happens to land
+    // on, so it catches this maybe one run in five. This one watches *every*
+    // commit: the moment the new draft is in the DOM, Send has to be live.
+    // React settles an async transition's `isPending` a tick after it commits
+    // the state the transition awaited, so a pending flag always paints one
+    // frame of readable-but-dead draft — invisible here, long enough to eat a
+    // real click on a busy main thread.
+    const dead: string[] = []
+    const observer = new MutationObserver(() => {
+      if (!document.querySelector('[data-testid="citation-chip"]')) return
+      if (screen.getByTestId('send-now').hasAttribute('disabled')) {
+        dead.push((screen.getByTestId('message-subject') as HTMLInputElement).value)
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true })
+
+    fireEvent.click(screen.getByTestId('regenerate'))
+    await waitFor(() => expect(screen.getByTestId('citation-chip')).toBeTruthy())
+    observer.disconnect()
+
+    expect(dead).toEqual([])
   })
 
   it('will not offer to send or hand-send a step that already went out', () => {

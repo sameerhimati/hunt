@@ -3,7 +3,7 @@
 import { OctagonX } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -67,14 +67,22 @@ export function SourcingWorkspace({
   const [ratingNote, setRatingNote] = useState<string | null>(null)
 
   // The screen has two arrivals — the boards answering, then the model — and
-  // they must stay independent. The search deliberately does *not* use
-  // `useTransition`: React entangles every transition started inside an async
-  // one, so a rating fired from within a search transition would hold
-  // `searching` true until the model replied and the skeletons would sit on top
-  // of results that had already arrived. That is precisely the wait this design
-  // removes. Plain state for the search, a transition for the rating.
+  // they must stay independent. Neither uses `useTransition`, for two reasons
+  // that are really the same reason.
+  //
+  // React entangles every transition started inside an async one, so a rating
+  // fired from within a search transition would hold `searching` true until the
+  // model replied and the skeletons would sit on top of results that had
+  // already arrived — precisely the wait this design removes.
+  //
+  // And React settles an async transition's `isPending` a tick *after* it
+  // commits the state the transition awaited, so `rating` as a pending flag is
+  // still true in the commit that paints the badges: the cards wear their fit
+  // tier under a header that says "rating for fit…", the screen contradicting
+  // itself. A flag that describes what is on screen has to change in the same
+  // commit as what is on screen, and only plain state does that.
   const [searching, setSearching] = useState(false)
-  const [rating, startRating] = useTransition()
+  const [rating, setRating] = useState(false)
 
   // Which search owns the screen. A rating that resolves after a newer search
   // started is dropped rather than painted onto the wrong listings.
@@ -114,23 +122,31 @@ export function SourcingWorkspace({
 
     setResults(listings.map((listing) => ({ listing })))
     setRatingNote(null)
+    setRating(listings.length > 0)
     if (listings.length === 0) return
 
-    startRating(async () => {
-      const { ratings, degraded: unavailable } = await rateAction(listings, resumeVersionId)
-      if (runRef.current !== runId) return
+    void (async () => {
+      try {
+        const { ratings, degraded: unavailable } = await rateAction(listings, resumeVersionId)
+        if (runRef.current !== runId) return
 
-      // No rating is a state, not a value: the cards keep their absent badge and
-      // the reason is said once, in words. Inventing a tier here would be the
-      // one lie this product doesn't tell.
-      if (unavailable) {
-        setRatingNote(unavailable)
-        return
+        // No rating is a state, not a value: the cards keep their absent badge
+        // and the reason is said once, in words. Inventing a tier here would be
+        // the one lie this product doesn't tell.
+        if (unavailable) {
+          setRatingNote(unavailable)
+          return
+        }
+
+        const byId = new Map(ratings.map((rated) => [rated.externalId, rated.rating]))
+        setResults(listings.map((listing) => ({ listing, rating: byId.get(listing.externalId) })))
+      } finally {
+        // Same batch as the results above, so the badges and the header land in
+        // one commit. A rating that lost its race leaves the flag alone: it
+        // belongs to the search that owns the screen now.
+        if (runRef.current === runId) setRating(false)
       }
-
-      const byId = new Map(ratings.map((rated) => [rated.externalId, rated.rating]))
-      setResults(listings.map((listing) => ({ listing, rating: byId.get(listing.externalId) })))
-    })
+    })()
   }
 
   /** One search lifecycle, whichever control started it. */
