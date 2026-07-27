@@ -191,7 +191,16 @@ describe('ContactActions', () => {
     fireEvent.click(screen.getByTestId('find-contacts'))
 
     await waitFor(() => expect(screen.getByText('Dana Whitfield')).toBeTruthy())
-    fireEvent.click(screen.getByTestId('save-found-contact'))
+
+    // A hit you can see is a hit you can save. The lookup's own pending flag
+    // must not reach this button: React settles an async transition's
+    // `isPending` a tick after it paints the awaited state, so a shared flag
+    // leaves the list on screen with every Save disabled — and a disabled
+    // button eats the click silently.
+    const save = screen.getByTestId('save-found-contact')
+    expect(save.hasAttribute('disabled')).toBe(false)
+
+    fireEvent.click(save)
 
     await waitFor(() =>
       expect(saveContactAction).toHaveBeenCalledWith(

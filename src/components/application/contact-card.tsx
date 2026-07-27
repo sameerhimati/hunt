@@ -321,11 +321,21 @@ export function ContactActions({
   const [reason, setReason] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<string[]>([])
-  const [pending, startTransition] = useTransition()
+
+  // Two transitions, not one. `isPending` for an async transition does not fall
+  // back to false in the commit that paints the awaited state — React only
+  // settles it once the action's promise has resolved, a tick later. Share one
+  // flag between the lookup and the save and the hits arrive with every Save
+  // button still disabled: the list is on screen, looks ready, and swallows the
+  // click (React drops events on a disabled button). On a busy main thread that
+  // window is long enough for a real person to land a click in it and get
+  // nothing back. The lookup gates its own button; saving gates its own.
+  const [finding, startFinding] = useTransition()
+  const [saving, startSaving] = useTransition()
 
   const find = () => {
     setError(null)
-    startTransition(async () => {
+    startFinding(async () => {
       const result = await findContactsAction(applicationId)
       setHits(result.hits)
       setReason(result.reason)
@@ -335,7 +345,7 @@ export function ContactActions({
 
   const keep = (hit: PersonHit) => {
     setError(null)
-    startTransition(async () => {
+    startSaving(async () => {
       const key = hitKey(hit)
       const result = await saveContactAction({
         applicationId,
@@ -363,10 +373,10 @@ export function ContactActions({
           size="sm"
           variant="outline"
           data-testid="find-contacts"
-          disabled={pending}
+          disabled={finding}
           onClick={find}
         >
-          {pending ? (
+          {finding ? (
             <Loader2 size={14} className="animate-spin" aria-hidden="true" />
           ) : (
             <Search size={14} aria-hidden="true" />
@@ -393,7 +403,7 @@ export function ContactActions({
                 size="sm"
                 variant="ghost"
                 data-testid="save-found-contact"
-                disabled={pending || saved.includes(hitKey(hit))}
+                disabled={saving || saved.includes(hitKey(hit))}
                 onClick={() => keep(hit)}
               >
                 {saved.includes(hitKey(hit)) ? 'Saved' : 'Save'}
