@@ -1,5 +1,6 @@
 import { resolvePath, type ResumeContent } from '@/lib/resume/schema'
 
+import { canApply } from './apply'
 import type { ChangeStatus, Citation, TailorChange, TailorChangeKind } from './types'
 
 /**
@@ -17,6 +18,13 @@ import type { ChangeStatus, Citation, TailorChange, TailorChangeKind } from './t
  * aggressive reframing, strong verbs or confident emphasis — those are the
  * product. It has an opinion about one thing: hunt does not author a claim it
  * cannot trace to the user's own document.
+ *
+ * It answers a second question too, and for the same reason: *can this change
+ * actually land where it says it lands?* A proposal whose own `path` addresses
+ * nothing is skipped by the applier, so it would render as an all-green
+ * addition, be accepted, be counted — and be absent from the saved version. The
+ * user would have reviewed a document that was never saved. That is the honesty
+ * invariant read backwards, so it is refused here, where the user can see it.
  *
  * Three rules, all load-bearing (`src/lib/tailor/types.ts` explains why):
  *  - **the returned array has exactly as many entries as the input, in order.**
@@ -179,6 +187,18 @@ function samePath(a: string, b: string): boolean {
 }
 
 /**
+ * The refusal for a change the applier could not land. Worded per kind because
+ * "there is no such bullet" and "that is not a list" are different facts, and a
+ * user who cannot tell which one it is cannot fix it.
+ */
+function unlandable(kind: TailorChangeKind, path: string): string {
+  if (kind === 'reorder') return `Cannot reorder ${path} — your résumé has no list there.`
+  if (kind === 'add') return `Cannot add at ${path} — your résumé has nowhere to put it.`
+  if (kind === 'remove') return `Cannot remove ${path} — your résumé has no such field.`
+  return `Cannot edit ${path} — your résumé has no text there.`
+}
+
+/**
  * Input is `unknown[]` because this is a boundary: entries arrive off a model
  * response with no ids and no status, and this is what turns them into
  * `TailorChange`es. Ids the engine already assigned survive; anything else gets
@@ -226,7 +246,9 @@ function normaliseChange(entry: unknown, index: number, source: ResumeContent): 
     ? refused('The model did not say where this change goes.')
     : !now && kind !== 'remove'
       ? refused('The model proposed no text for this change.')
-      : judge(citation, source, { path, now })
+      : !canApply(source, kind, path)
+        ? refused(unlandable(kind, path))
+        : judge(citation, source, { path, now })
 
   return { id, kind, path, was, now, why, citation, ...verdict }
 }

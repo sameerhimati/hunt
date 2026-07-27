@@ -7,7 +7,7 @@ import { FakeLlmProvider } from '@/lib/llm'
 import { promptKindOf } from '@/lib/llm/prompts'
 import type { LlmRequest } from '@/lib/llm/types'
 import { parseResumeContent } from '@/lib/resume/schema'
-import { applyChanges } from '@/lib/tailor/apply'
+import { applyChanges, applyChangesWithReport } from '@/lib/tailor/apply'
 import { runTailor, TailorResponseError, TailorUnavailableError } from '@/lib/tailor/engine'
 import type { TailorChange } from '@/lib/tailor/types'
 import { validateChanges } from '@/lib/tailor/validator'
@@ -215,6 +215,35 @@ describe('validateChanges', () => {
     expect(skill.status).toBe('proposed')
   })
 
+  it('refuses a change whose own target is not in the résumé', () => {
+    const offByOne = {
+      kind: 'edit',
+      path: `experience[0].bullets[${content.experience[0].bullets.length}]`,
+      now: 'Cut p99 latency 38% on the charge path',
+      why: 'Latency.',
+      citation: {
+        path: 'experience[0].bullets[3]',
+        snippet: 'Reduced p99 from 210ms to 130ms after sharding the balance-read path',
+      },
+    }
+
+    const [edit, remove, reorder, add] = validateChanges(
+      [
+        offByOne,
+        { ...offByOne, kind: 'remove' },
+        { ...offByOne, kind: 'reorder', path: 'experience[0].title' },
+        { ...offByOne, kind: 'add', path: 'experience[9].bullets' },
+      ],
+      content,
+    )
+
+    // Everything here is validly cited; what is wrong is where it lands.
+    for (const change of [edit, remove, reorder, add]) {
+      expect(change.status).toBe('refused')
+      expect(change.refusedReason).toBeTruthy()
+    }
+  })
+
   it('still accepts an add addressed at a list that exists', () => {
     const [append] = validateChanges(
       [
@@ -274,6 +303,39 @@ describe('applyChanges', () => {
     ])
 
     expect(applied).toEqual(content)
+  })
+
+  it('names what it could not apply instead of dropping it in silence', () => {
+    const missing = change({
+      id: 'change-7',
+      kind: 'edit',
+      path: `experience[0].bullets[${content.experience[0].bullets.length}]`,
+      now: 'Cut p99 latency 38% on the charge path',
+    })
+
+    const report = applyChangesWithReport(content, [
+      change({ id: 'change-1', kind: 'edit', path: 'basics.label', now: 'Payments Engineer' }),
+      missing,
+      change({ id: 'change-8', kind: 'reorder', path: 'skills[0].items', now: 'Go · Rust' }),
+    ])
+
+    expect(report.content.basics.label).toBe('Payments Engineer')
+    expect(JSON.stringify(report.content)).not.toContain('38%')
+
+    expect(report.skipped.map((entry) => entry.id)).toEqual(['change-7', 'change-8'])
+    expect(report.skipped[0].path).toBe(missing.path)
+    expect(report.skipped[0].reason).toBeTruthy()
+  })
+
+  it('reports nothing skipped on a clean apply', () => {
+    const report = applyChangesWithReport(content, [
+      change({ kind: 'edit', path: 'basics.label', now: 'Payments Engineer' }),
+    ])
+
+    expect(report.skipped).toEqual([])
+    expect(report.content).toEqual(applyChanges(content, [
+      change({ kind: 'edit', path: 'basics.label', now: 'Payments Engineer' }),
+    ]))
   })
 
   it('drops a refused change even when a caller hands it one', () => {
