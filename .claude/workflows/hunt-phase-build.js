@@ -41,6 +41,31 @@ const CTX = [
   'Gate files are the contract — NEVER edit, weaken, or delete them; implement the module paths and data-testids they import. If a gate is genuinely wrong, STOP and report it as blocking instead of changing it.',
 ].join(' ')
 
+// ---- surviving a dead agent ----
+// agent() returns null when a subagent dies on a terminal API error after
+// retries, or when the operator skips it — normal on a long wave that runs out
+// of session budget. Dereferencing that null throws, and the throw propagates
+// into the parent wave orchestrator as a lost phase, stranding whatever this
+// worktree already committed. So every nullable call goes through alive():
+// the loss becomes a reported non-green result, and lostAgents keeps "the agent
+// never reported" (retryable) distinct from "the agent reported failure"
+// (needs a code fix). Duplicated from the wave orchestrator on purpose —
+// workflow scripts are self-contained and cannot import.
+const lostAgents = []
+function alive(where, result, fallback) {
+  if (result) return result
+  lostAgents.push(where)
+  log(`Phase ${PHASE}: AGENT LOST at ${where} — no result (terminal error or skipped), not a reported failure. Committed work in ${DIR} is preserved.`)
+  return fallback
+}
+function deadVerify(where) {
+  return {
+    green: false,
+    dead: true,
+    failures: [{ where, message: 'agent returned no result (died or was skipped) — retryable, not a test failure' }],
+  }
+}
+
 // ---- structured-output schemas ----
 const PLAN_SCHEMA = {
   type: 'object',
@@ -112,6 +137,24 @@ const plan = await agent(
     `If PHASE-PLAN.md lists a "verifier gap" for this phase (fixtures the gate needs that don't exist), recording those fixtures is the FIRST foundation task. Do NOT write or edit gate test files — they exist and are the contract. Return the DAG (and any fixture files you must create) now.`,
   { phase: 'Plan', model: 'opus', schema: PLAN_SCHEMA }
 )
+if (!plan) {
+  // No DAG means nothing to build; running the rest would spend a wave's budget
+  // producing an empty diff. Abort in the same shape the happy path returns so
+  // the parent orchestrator reads it as a non-green phase, not as a crash.
+  lostAgents.push('Plan')
+  log(`Phase ${PHASE}: PLANNER LOST — no task DAG returned (died or was skipped). Aborting before any build work; nothing was changed in ${DIR}.`)
+  return {
+    phase: PHASE,
+    green: false,
+    aborted: 'plan',
+    lostAgents,
+    autoloopAttempts: 0,
+    taskCount: 0,
+    remainingFailures: [{ where: 'Plan', message: 'planner agent returned no result (died or was skipped) — retryable' }],
+    blockingIssues: [],
+    nextStep: `Re-run this phase: the planner never reported, so ${DIR} is untouched.`,
+  }
+}
 const foundation = plan.tasks.filter((t) => t.kind === 'foundation')
 const leaves = plan.tasks.filter((t) => t.kind === 'leaf')
 log(`Phase ${PHASE}: ${foundation.length} foundation + ${leaves.length} leaves; gate = pnpm gate ${PHASE} (pre-committed RED).`)
@@ -143,29 +186,43 @@ log(`Phase ${PHASE}: ${leaves.length} leaves built in parallel.`)
 
 // ============ 4. INTEGRATE — wire it up, run the real verifier ============
 phase('Integrate')
-let verify = await agent(
-  `${CTX}\n\nPhase ${PHASE} INTEGRATE: wire every leaf into the shared registries/routes, resolve import gaps, then run "pnpm verify" AND "pnpm gate ${PHASE}". Report green:true only if BOTH pass. List every failure with where + message.`,
-  { phase: 'Integrate', model: 'opus', schema: VERIFY_SCHEMA }
+let verify = alive(
+  'Integrate',
+  await agent(
+    `${CTX}\n\nPhase ${PHASE} INTEGRATE: wire every leaf into the shared registries/routes, resolve import gaps, then run "pnpm verify" AND "pnpm gate ${PHASE}". Report green:true only if BOTH pass. List every failure with where + message.`,
+    { phase: 'Integrate', model: 'opus', schema: VERIFY_SCHEMA }
+  ),
+  deadVerify('Integrate')
 )
 
 // ============ 5. AUTOLOOP — root-cause fix until green (or cap) ============
 phase('Autoloop')
 let attempts = 0
-while (!verify.green && attempts < MAX_FIX) {
+// `!verify.dead` stops the loop the moment an agent vanishes: whatever killed it
+// will kill its successors identically, so spending the cap buys nothing.
+while (!verify.green && !verify.dead && attempts < MAX_FIX) {
   attempts++
-  verify = await agent(
-    `${CTX}\n\nPhase ${PHASE} AUTOLOOP fix attempt ${attempts}/${MAX_FIX}. "pnpm verify"/"pnpm gate ${PHASE}" is RED:\n${JSON.stringify(verify.failures, null, 2)}\n` +
-      `Find the ROOT CAUSE of each failure — no band-aids, never delete or weaken a test to make it pass, and gate files under gates/ are strictly read-only. Fix, re-run "pnpm verify" + "pnpm gate ${PHASE}", report the new state.`,
-    { phase: 'Autoloop', label: `fix:${attempts}`, model: 'opus', schema: VERIFY_SCHEMA }
+  verify = alive(
+    `Autoloop:fix:${attempts}`,
+    await agent(
+      `${CTX}\n\nPhase ${PHASE} AUTOLOOP fix attempt ${attempts}/${MAX_FIX}. "pnpm verify"/"pnpm gate ${PHASE}" is RED:\n${JSON.stringify(verify.failures, null, 2)}\n` +
+        `Find the ROOT CAUSE of each failure — no band-aids, never delete or weaken a test to make it pass, and gate files under gates/ are strictly read-only. Fix, re-run "pnpm verify" + "pnpm gate ${PHASE}", report the new state.`,
+      { phase: 'Autoloop', label: `fix:${attempts}`, model: 'opus', schema: VERIFY_SCHEMA }
+    ),
+    deadVerify(`Autoloop fix ${attempts}`)
   )
-  log(`Phase ${PHASE} autoloop ${attempts}: ${verify.green ? 'GREEN ✓' : `${verify.failures.length} still failing`}`)
+  log(`Phase ${PHASE} autoloop ${attempts}: ${verify.green ? 'GREEN ✓' : verify.dead ? 'AGENT LOST — stopping the autoloop' : `${verify.failures.length} still failing`}`)
 }
 
 // ============ 6. REVIEW — quality + honest-AI + design fidelity; propose the commit ============
 phase('Review')
-const review = await agent(
-  `${CTX}\n\nPhase ${PHASE} REVIEW. Verify is ${verify.green ? 'GREEN' : 'RED'}. Review this phase's diff for: real bugs, unhandled edge cases, any fabricated/uncited resume content (honest-AI invariant), any key logged or committed, any adapter missing its Fake twin, and fidelity to DESIGN.md / the mockups. ${PHASE >= 8 ? 'Run a full security pass (keys at rest, no key in logs, CSP).' : ''} Separate BLOCKING issues from nits. Propose a PR-sized commit message that explains WHY, not what.`,
-  { phase: 'Review', model: 'opus', schema: REVIEW_SCHEMA }
+const review = alive(
+  'Review',
+  await agent(
+    `${CTX}\n\nPhase ${PHASE} REVIEW. Verify is ${verify.green ? 'GREEN' : 'RED'}. Review this phase's diff for: real bugs, unhandled edge cases, any fabricated/uncited resume content (honest-AI invariant), any key logged or committed, any adapter missing its Fake twin, and fidelity to DESIGN.md / the mockups. ${PHASE >= 8 ? 'Run a full security pass (keys at rest, no key in logs, CSP).' : ''} Separate BLOCKING issues from nits. Propose a PR-sized commit message that explains WHY, not what.`,
+    { phase: 'Review', model: 'opus', schema: REVIEW_SCHEMA }
+  ),
+  { blocking: [], nits: [], designFidelity: 'unreviewed — reviewer agent returned no result', commitMessage: '' }
 )
 
 return {
@@ -177,4 +234,10 @@ return {
   blockingIssues: review.blocking,
   designFidelity: review.designFidelity,
   suggestedCommit: review.commitMessage,
+  // Empty on a clean run. Non-empty = those agents never reported; retry them
+  // rather than treating this as a failure the phase diagnosed itself.
+  lostAgents,
+  nextStep: verify.green
+    ? `Phase ${PHASE} green in ${DIR}; commit and hand back to the wave.`
+    : `Phase ${PHASE} RED after ${attempts} autoloop attempts${lostAgents.length ? ` with agents lost (${lostAgents.join(', ')}) — retryable` : ''}. Whatever is committed is safe in ${DIR}; finish it there by hand before the wave merges its branch.`,
 }
