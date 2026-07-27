@@ -1,8 +1,7 @@
 import { revalidatePath } from 'next/cache'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 
-import { SubmitButton } from '@/components/dashboard/follow-up-form'
+import { FollowUpForm, type FollowUpResult } from '@/components/dashboard/follow-up-form'
 import { buttonVariants } from '@/components/ui/button'
 import { createAdapter } from '@/lib/adapters/factory'
 import { followUpsDue, type FollowUpRow } from '@/lib/outreach/queue'
@@ -37,35 +36,53 @@ async function emailConfigured(): Promise<boolean> {
   return Boolean(resend ?? smtp)
 }
 
+/** The three surfaces that count outreach. Leaving one stale shows two answers. */
+function revalidate(applicationId: string): void {
+  revalidatePath('/')
+  revalidatePath('/outreach')
+  if (applicationId) revalidatePath(`/applications/${applicationId}`)
+}
+
+/**
+ * `sendStep` claimed the row and never learned what the provider did with it.
+ * Saying "sent" or "not sent" would both be guesses.
+ */
+const UNCONFIRMED =
+  'hunt could not confirm this one — it may already have reached them. Check your sent mail.'
+
 export async function FollowUpsPanel() {
   const due = await followUpsDue()
 
   /**
    * Send one due step, or record one the user sent from their own client.
    *
-   * A failure is not an error page: the composer is where the message, the
-   * contact and the fix all live, so a failed send lands there carrying the
-   * provider's own words rather than a stack trace.
+   * A failure is not an error page and not a redirect: it comes back as state
+   * the row renders in place. The reason is the adapter's own message — which
+   * for an SMTP handshake carries host, port and username — so it must not
+   * travel in a query string, where browser history, the `Referer` header and
+   * every access log in the path would keep a copy.
+   *
+   * Every path revalidates, failures included: `sendStep` claims the row before
+   * it touches the network, so even a send that threw may have changed what the
+   * panel should show.
    */
-  async function dispatch(formData: FormData) {
+  async function dispatch(_state: FollowUpResult, formData: FormData): Promise<FollowUpResult> {
     'use server'
     const id = String(formData.get('step') ?? '')
     const applicationId = String(formData.get('application') ?? '')
-    if (!id) return
+    if (!id) return { error: 'That step is no longer here. Reload the page.' }
 
+    let outcome: string | undefined
     try {
       if (formData.get('mode') === 'manual') await markSentManually(id)
-      else await sendStep(id)
+      else ({ outcome } = await sendStep(id))
     } catch (error) {
-      const reason = error instanceof Error ? error.message : 'the send failed'
-      // `redirect` throws in Next; the explicit return says so out loud, so
-      // nothing below can run on a send that never happened.
-      return redirect(`/outreach?application=${applicationId}&error=${encodeURIComponent(reason)}`)
+      revalidate(applicationId)
+      return { error: error instanceof Error ? error.message : 'The send failed.' }
     }
 
-    revalidatePath('/')
-    revalidatePath('/outreach')
-    revalidatePath(`/applications/${applicationId}`)
+    revalidate(applicationId)
+    return outcome === 'unconfirmed' ? { error: UNCONFIRMED } : {}
   }
 
   // Only ask once, and only when a row would use the answer.
@@ -145,15 +162,14 @@ export async function FollowUpsPanel() {
                 </Link>
 
                 {canSend ? (
-                  <form action={dispatch} className="shrink-0">
-                    <input type="hidden" name="step" value={step.id} />
-                    <input type="hidden" name="application" value={step.applicationId} />
-                    <SubmitButton
-                      testId="follow-up-send"
-                      label="Send"
-                      pendingLabel="Sending…"
-                    />
-                  </form>
+                  <FollowUpForm
+                    action={dispatch}
+                    stepId={step.id}
+                    applicationId={step.applicationId}
+                    testId="follow-up-send"
+                    label="Send"
+                    pendingLabel="Sending…"
+                  />
                 ) : (
                   <span className="flex shrink-0 items-center gap-1">
                     <Link
@@ -170,17 +186,16 @@ export async function FollowUpsPanel() {
                     >
                       Copy
                     </Link>
-                    <form action={dispatch}>
-                      <input type="hidden" name="step" value={step.id} />
-                      <input type="hidden" name="application" value={step.applicationId} />
-                      <input type="hidden" name="mode" value="manual" />
-                      <SubmitButton
-                        testId="follow-up-mark-sent"
-                        label="Mark sent"
-                        pendingLabel="Marking…"
-                        variant="ghost"
-                      />
-                    </form>
+                    <FollowUpForm
+                      action={dispatch}
+                      stepId={step.id}
+                      applicationId={step.applicationId}
+                      mode="manual"
+                      testId="follow-up-mark-sent"
+                      label="Mark sent"
+                      pendingLabel="Marking…"
+                      variant="ghost"
+                    />
                   </span>
                 )}
               </li>

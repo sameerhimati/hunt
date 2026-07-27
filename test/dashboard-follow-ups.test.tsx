@@ -63,7 +63,7 @@ function submit(form: HTMLFormElement): Promise<void> {
 beforeEach(() => {
   vi.clearAllMocks()
   createAdapter.mockResolvedValue({ id: 'resend' })
-  sendStep.mockResolvedValue({ id: 'step-1' })
+  sendStep.mockResolvedValue({ outcome: 'sent', step: { id: 'step-1' } })
   markSentManually.mockResolvedValue({ id: 'step-1' })
 })
 
@@ -164,7 +164,9 @@ describe('FollowUpsPanel', () => {
     // clicked twice. Before hydration a bare form is a native POST, so two
     // clicks were two sends with certainty.
     let finish = () => {}
-    sendStep.mockImplementation(() => new Promise((resolve) => (finish = () => resolve(null))))
+    sendStep.mockImplementation(
+      () => new Promise((resolve) => (finish = () => resolve({ outcome: 'sent', step: {} }))),
+    )
     followUpsDue.mockResolvedValue([row({ id: 'step-9' })])
     await renderPanel()
 
@@ -198,16 +200,45 @@ describe('FollowUpsPanel', () => {
     expect(markSentManually).toHaveBeenCalledTimes(1)
   })
 
-  it('sends a failed send to the composer with the provider’s own words', async () => {
-    sendStep.mockRejectedValue(new Error('Resend: no email provider is configured'))
+  it('says why a send failed, on the row, and never in the URL', async () => {
+    // nodemailer puts host, port and username in its handshake errors. That
+    // belongs on the row, not in browser history, the Referer header and every
+    // access log between here and there.
+    const reason = 'SMTP: 535 auth failed for alex@chen.dev at smtp.fastmail.com:465'
+    sendStep.mockRejectedValue(new Error(reason))
     followUpsDue.mockResolvedValue([row({ id: 'step-3', applicationId: 'app-3' })])
     await renderPanel()
 
     await submit(screen.getByTestId('follow-up-send').closest('form') as HTMLFormElement)
 
-    expect(redirect).toHaveBeenCalledWith(
-      `/outreach?application=app-3&error=${encodeURIComponent('Resend: no email provider is configured')}`,
+    await waitFor(() =>
+      expect(screen.getByTestId('follow-up-error').textContent).toContain('535 auth failed'),
     )
-    expect(revalidatePath).not.toHaveBeenCalled()
+    expect(redirect).not.toHaveBeenCalled()
+  })
+
+  it('says a failed hand-mark failed too', async () => {
+    createAdapter.mockResolvedValue(null)
+    markSentManually.mockRejectedValue(new Error('That step is no longer here.'))
+    followUpsDue.mockResolvedValue([row({ id: 'step-7' })])
+    await renderPanel()
+
+    await submit(screen.getByTestId('follow-up-mark-sent').closest('form') as HTMLFormElement)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('follow-up-error').textContent).toContain('no longer here'),
+    )
+  })
+
+  it('does not claim a step went out when the send path says it did not', async () => {
+    sendStep.mockResolvedValue({ outcome: 'unconfirmed', step: { id: 'step-9' } })
+    followUpsDue.mockResolvedValue([row({ id: 'step-9' })])
+    await renderPanel()
+
+    await submit(screen.getByTestId('follow-up-send').closest('form') as HTMLFormElement)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('follow-up-error').textContent).toMatch(/sent mail/i),
+    )
   })
 })
