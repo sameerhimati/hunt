@@ -11,6 +11,20 @@ async function seed(company: string) {
   return createApplication(job.id)
 }
 
+describe('createApplication', () => {
+  it('deals one card per job, however many times the URL is pasted', async () => {
+    const job = await prisma.job.create({
+      data: { title: 'Backend Engineer', company: `Dedupe-${Math.random()}`, jdText: 'JD' },
+    })
+
+    const first = await createApplication(job.id)
+    const second = await createApplication(job.id)
+
+    expect(second.id).toBe(first.id)
+    expect(await prisma.application.count({ where: { jobId: job.id } })).toBe(1)
+  })
+})
+
 describe('transitionApplication', () => {
   it('never erases a milestone once it has happened', async () => {
     const application = await seed(`Acme-${Math.random()}`)

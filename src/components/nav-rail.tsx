@@ -18,7 +18,11 @@ interface NavItem {
   href: string
   label: string
   icon: typeof LayoutDashboard
-  /** Areas that land in a later phase render dimmed rather than 404ing. */
+  /**
+   * Areas that land in a later phase render dimmed rather than 404ing. The
+   * value is our own build vocabulary and stays internal — a stranger reading
+   * "lands in Phase 5" learns nothing. Dropping the field is what un-dims a link.
+   */
   comingIn?: string
 }
 
@@ -48,11 +52,11 @@ function RailLink({ item, active }: { item: NavItem; active: boolean }) {
     return (
       <span
         className="flex size-9 cursor-not-allowed items-center justify-center rounded-md text-faint"
-        title={`${item.label} — lands in ${item.comingIn}`}
+        title={`${item.label} — not built yet`}
         aria-disabled="true"
       >
         <Icon size={17} aria-hidden="true" />
-        <span className="sr-only">{`${item.label} (${item.comingIn})`}</span>
+        <span className="sr-only">{`${item.label} — not built yet`}</span>
       </span>
     )
   }

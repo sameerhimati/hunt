@@ -48,7 +48,19 @@ export async function transitionApplication(applicationId: string, status: strin
   })
 }
 
-/** Creates the pipeline row for a job. One application per job in v1. */
+/**
+ * The pipeline row for a job — one per job in v1, which makes this find-or-create
+ * rather than create. Re-pasting a URL already on the board upserts the Job and
+ * lands back here; without the lookup that second paste would deal a duplicate
+ * card for the same posting. Enforced here rather than by a unique index because
+ * Wave 2 sourcing may legitimately want a second run at an old job.
+ */
 export async function createApplication(jobId: string, status: ApplicationStatus = DEFAULT_STATUS) {
+  const existing = await prisma.application.findFirst({
+    where: { jobId },
+    orderBy: { createdAt: 'asc' },
+  })
+  if (existing) return existing
+
   return prisma.application.create({ data: { jobId, status } })
 }

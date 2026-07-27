@@ -7,13 +7,25 @@ import { createManualJob, identityFromPage, ingestJobUrl } from '@/lib/jobs/inge
 
 const URL_ONE = 'https://jobs.example.com/acme/staff-engineer'
 
-const scrape = new FakeScrapeAdapter({
-  [URL_ONE]: {
-    url: URL_ONE,
-    title: 'Staff Engineer — Acme',
-    markdown: '# Staff Engineer\n\nAcme is hiring. You will own the ingestion pipeline.',
-  },
-})
+/**
+ * A fresh posting per test. Jobs are keyed by URL and the row outlives the test
+ * that created it, so sharing one URL would silently couple these cases — a
+ * test asserting the create path would end up exercising the refresh path
+ * depending on what ran before it.
+ */
+function posting(slug: string) {
+  const url = `https://jobs.example.com/acme/${slug}`
+  const scrape = new FakeScrapeAdapter({
+    [url]: {
+      url,
+      title: 'Staff Engineer — Acme',
+      markdown: '# Staff Engineer\n\nAcme is hiring. You will own the ingestion pipeline.',
+    },
+  })
+  return { url, scrape }
+}
+
+const scrape = posting('staff-engineer').scrape
 
 describe('ingestJobUrl', () => {
   it('works with no model at all — the keyless floor', async () => {
@@ -26,29 +38,51 @@ describe('ingestJobUrl', () => {
   })
 
   it('re-pasting the same URL refreshes the posting instead of failing', async () => {
-    await ingestJobUrl(URL_ONE, { scrape, llm: null })
-    const again = await ingestJobUrl(URL_ONE, { scrape, llm: null })
+    const { url, scrape: page } = posting('repeat-paste')
 
-    expect(await prisma.job.count({ where: { url: URL_ONE } })).toBe(1)
-    expect(again.url).toBe(URL_ONE)
+    await ingestJobUrl(url, { scrape: page, llm: null })
+    const again = await ingestJobUrl(url, { scrape: page, llm: null })
+
+    expect(await prisma.job.count({ where: { url } })).toBe(1)
+    expect(again.url).toBe(url)
+  })
+
+  it('re-pasting does not overwrite an identity the user corrected by hand', async () => {
+    const { url, scrape: page } = posting('hand-corrected')
+    const job = await ingestJobUrl(url, { scrape: page, llm: null })
+
+    // The user fixes the scraper's guess on the application page.
+    await prisma.job.update({
+      where: { id: job.id },
+      data: { title: 'Staff Engineer, Ingestion', company: 'Acme Corporation' },
+    })
+
+    const again = await ingestJobUrl(url, { scrape: page, llm: null })
+
+    expect(again.title).toBe('Staff Engineer, Ingestion')
+    expect(again.company).toBe('Acme Corporation')
+    // The scrape-derived half still refreshes.
+    expect(again.jdText).toContain('ingestion pipeline')
   })
 
   it('keeps the scraped description verbatim even when the model rewrites the identity', async () => {
+    const { url, scrape: page } = posting('model-identity')
     const llm = new FakeLlmProvider({
       responder: () =>
         JSON.stringify({ title: 'Staff Software Engineer', company: 'Acme Corp', location: 'Remote' }),
     })
 
-    const job = await ingestJobUrl(URL_ONE, { scrape, llm })
+    const job = await ingestJobUrl(url, { scrape: page, llm })
     expect(job.title).toBe('Staff Software Engineer')
     expect(job.location).toBe('Remote')
     expect(job.jdText).toContain('Acme is hiring')
   })
 
   it('falls back to the page identity when the model answers with prose', async () => {
+    const { url, scrape: page } = posting('prose-reply')
     const llm = new FakeLlmProvider({ reply: 'Sure! Here is the job you asked about.' })
 
-    const job = await ingestJobUrl(URL_ONE, { scrape, llm })
+    const job = await ingestJobUrl(url, { scrape: page, llm })
     expect(job.title).toBe('Staff Engineer')
     expect(job.company).toBe('Acme')
   })
