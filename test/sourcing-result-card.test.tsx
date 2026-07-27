@@ -95,6 +95,30 @@ describe('WhyItFits', () => {
     ])
     expect(chips.every((chip) => chip.className.includes('font-mono'))).toBe(true)
   })
+
+  it('does not dress an unsourced claim up as an evidenced match', () => {
+    render(
+      <WhyItFits
+        reasons={[
+          reason({ text: 'Ledger work maps to the role.' }),
+          reason({
+            text: 'You built the Kafka ingestion pipeline at Stripe.',
+            citations: [],
+            flag: 'No source — cited experience[3].bullets[2], which your résumé does not have.',
+          }),
+        ]}
+      />,
+    )
+
+    const rows = [...screen.getByTestId('why-it-fits').querySelectorAll('li')]
+    expect(rows[0].textContent).toContain('+')
+    // Three states, three markers: evidenced, unsourced, gap.
+    expect(rows[1].textContent).not.toContain('+')
+    expect(rows[1].textContent).not.toContain('~')
+    expect(screen.getByTestId('fit-reason-flag').textContent).toContain(
+      'which your résumé does not have',
+    )
+  })
 })
 
 describe('ResultCard', () => {

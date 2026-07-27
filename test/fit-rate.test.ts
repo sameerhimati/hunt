@@ -75,6 +75,49 @@ describe('rateFit', () => {
 
     // The fabricated path is gone; the real one — and the reason — survive.
     expect(rating.reasons[0].citations).toEqual(['experience[0].bullets[2]'])
+    // One path still resolved, so the reason is evidenced and carries no flag.
+    expect(rating.reasons[0].flag).toBeUndefined()
+  })
+
+  it('flags a claim whose every citation points nowhere instead of passing it off as a match', async () => {
+    const rating = await rateFit({
+      content,
+      job,
+      llm: llmReturning({
+        tier: 'strong',
+        reasons: [
+          {
+            text: 'You built the Kafka ingestion pipeline at Stripe',
+            citations: ['experience[9].bullets[2]'],
+          },
+        ],
+      }),
+    })
+
+    expect(rating.reasons[0].citations).toEqual([])
+    // Named, so the user can check the thing hunt could not.
+    expect(rating.reasons[0].flag).toContain('No source')
+    expect(rating.reasons[0].flag).toContain('experience[9].bullets[2]')
+  })
+
+  it('tells "cited nothing" apart from "cited something you do not have" — and from a gap', async () => {
+    const rating = await rateFit({
+      content,
+      job,
+      llm: llmReturning({
+        tier: 'possible',
+        reasons: [
+          { text: 'Broadly adjacent platform work', citations: [] },
+          { text: 'Owns a payments ledger', citations: ['experience[0].bullets[0]'] },
+          { text: 'No gRPC anywhere in the résumé', citations: [], gap: true },
+        ],
+      }),
+    })
+
+    expect(rating.reasons[0].flag).toBe('No source — nothing in your résumé backs this.')
+    expect(rating.reasons[1].flag).toBeUndefined()
+    // A gap is *about* an absence: uncited is the correct state, not a missing one.
+    expect(rating.reasons[2].flag).toBeUndefined()
   })
 
   it('refuses a tier outside the vocabulary instead of rounding it', async () => {

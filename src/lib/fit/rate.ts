@@ -34,6 +34,11 @@ export interface FitReason {
   citations: string[]
   /** True when the reason is about something the résumé does not evidence. */
   gap: boolean
+  /**
+   * One factual sentence, present only on a match hunt could not substantiate.
+   * The UI must not render a flagged reason with the evidenced-match marker.
+   */
+  flag?: string
 }
 
 export interface FitRating {
@@ -83,23 +88,66 @@ export function jsonFromResponse(text: string): unknown {
 }
 
 /**
- * Keeps only citations that actually resolve into the user's résumé.
+ * Splits the model's citations into the ones that resolve into the user's
+ * résumé and the ones that point nowhere.
  *
  * A path that points nowhere is not evidence, and rendering it as a citation
  * chip the user can click into nothing would be the exact false-provenance the
- * product refuses. The reason itself survives, uncited — the model's judgement
- * is still worth reading, it just isn't traced.
+ * product refuses. But the unresolved paths are kept, not discarded: the fact
+ * that the model cited `experience[3].bullets[2]` on a two-job résumé is the
+ * user's only way to check what hunt could not.
  */
-function resolvableCitations(citations: unknown, content: ResumeContent): string[] {
-  if (!Array.isArray(citations)) return []
+function partitionCitations(
+  citations: unknown,
+  content: ResumeContent,
+): { resolved: string[]; unresolved: string[] } {
+  const resolved: string[] = []
+  const unresolved: string[] = []
+  if (!Array.isArray(citations)) return { resolved, unresolved }
 
-  return citations
-    .filter((path): path is string => typeof path === 'string' && path.trim().length > 0)
-    .map((path) => path.trim())
-    .filter((path) => resolvePath(content, path) !== undefined)
+  for (const raw of citations) {
+    if (typeof raw !== 'string') continue
+    const path = raw.trim()
+    if (!path) continue
+
+    if (resolvePath(content, path) !== undefined) resolved.push(path)
+    else unresolved.push(path)
+  }
+
+  return { resolved, unresolved }
 }
 
-/** Shared by the single and batch paths — same shape, same guarantees. */
+/**
+ * The flag sentence — same two cases, same words as the cover letter's
+ * (`src/lib/tailor/cover-letter.ts`). "Cited nothing" and "cited a path you
+ * don't have" are different facts about the same claim, and only the second one
+ * is checkable if it names the path.
+ */
+function flagFor(unresolved: string[]): string {
+  if (unresolved.length === 0) {
+    return 'No source — nothing in your résumé backs this.'
+  }
+
+  const list = unresolved.slice(0, 3).join(', ')
+  const rest = unresolved.length > 3 ? `, +${unresolved.length - 3} more` : ''
+  return `No source — cited ${list}${rest}, which your résumé does not have.`
+}
+
+/**
+ * Shared by the single and batch paths — same shape, same guarantees.
+ *
+ * An uncited reason is not silently downgraded to "uncited"; it is **flagged**,
+ * because the screens render a match as a green `+` and a bare drop makes
+ * "you built the Kafka pipeline at Stripe" — citing a bullet the résumé does
+ * not have — look exactly like a traced claim about the user's own history.
+ * Cited nothing, cited something that doesn't exist, and cited real text are
+ * three different states and must stay visibly different.
+ *
+ * A gap is the one exception: it is a statement *about* an absence, so having
+ * no citation is its correct state rather than a missing one. A gap whose
+ * citations pointed nowhere is still flagged — that is the model erring, not
+ * the résumé lacking.
+ */
 export function parseFitReasons(raw: unknown, content: ResumeContent): FitReason[] {
   if (!Array.isArray(raw)) return []
 
@@ -110,10 +158,15 @@ export function parseFitReasons(raw: unknown, content: ResumeContent): FitReason
     const text = typeof value.text === 'string' ? value.text.trim() : ''
     if (!text) continue
 
+    const { resolved, unresolved } = partitionCitations(value.citations, content)
+    const gap = value.gap === true
+    const unsubstantiated = resolved.length === 0 && (unresolved.length > 0 || !gap)
+
     reasons.push({
       text,
-      citations: resolvableCitations(value.citations, content),
-      gap: value.gap === true,
+      citations: resolved,
+      gap,
+      ...(unsubstantiated ? { flag: flagFor(unresolved) } : {}),
     })
   }
 
