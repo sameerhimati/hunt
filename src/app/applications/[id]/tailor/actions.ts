@@ -8,7 +8,7 @@ import { applicationDetail } from '@/lib/pipeline/board'
 import { transitionApplication } from '@/lib/pipeline/status'
 import { parseResumeContent, type ResumeContent } from '@/lib/resume/schema'
 import { getVersion, saveVersion, versionContent } from '@/lib/resume/store'
-import { applyChanges } from '@/lib/tailor/apply'
+import { applyChangesWithReport, type SkippedChange } from '@/lib/tailor/apply'
 import {
   draftCoverLetter,
   loadCoverLetter,
@@ -109,7 +109,17 @@ export interface SaveTailoredVersionRequest {
 }
 
 export type SaveTailoredVersionResult =
-  | { ok: true; version: { id: string; label: string; resumeId: string } }
+  | {
+      ok: true
+      version: { id: string; label: string; resumeId: string }
+      /**
+       * Accepted changes the saved document had no place for — empty on the
+       * normal save. The caller has to show these: a change the user reviewed
+       * and accepted that is not in the version is a difference between the
+       * document they approved and the one that was written.
+       */
+      skipped: SkippedChange[]
+    }
   | { ok: false; error: string }
 
 /**
@@ -130,15 +140,19 @@ export async function saveTailoredVersionAction(
     // document. The validator's verdict is authoritative, never the client's.
     const accepted = request.accepted.filter((change) => change.status === 'proposed')
 
-    const content = request.contentOverride
-      ? parseResumeContent(request.contentOverride)
-      : applyChanges(versionContent(base), accepted)
+    // The base is read fresh here, so it can have moved since the run — an
+    // accepted change may now point at a bullet that is gone. Dropping it is
+    // right; dropping it in silence is not, so what did not land travels back
+    // with the version rather than dying inside this function.
+    const applied = request.contentOverride
+      ? { content: parseResumeContent(request.contentOverride), skipped: [] as SkippedChange[] }
+      : applyChangesWithReport(versionContent(base), accepted)
 
     const created = await saveVersion({
       resumeId: base.resumeId,
       parentVersionId: base.id,
       label: request.label.trim() || 'Tailored version',
-      content,
+      content: applied.content,
       templateId: request.templateId ?? base.templateId,
       rawLatexOverride: request.rawLatexOverride ?? null,
     })
@@ -160,6 +174,7 @@ export async function saveTailoredVersionAction(
     return {
       ok: true,
       version: { id: created.id, label: created.label, resumeId: created.resumeId },
+      skipped: applied.skipped,
     }
   } catch (cause) {
     return { ok: false, error: reason(cause, 'Saving the tailored version failed.') }
