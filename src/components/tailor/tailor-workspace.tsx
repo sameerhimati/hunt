@@ -172,6 +172,13 @@ export function TailorWorkspace({
   const [error, setError] = useState<string | null>(null)
 
   const [runTab, setRunTab] = useState('resume')
+  /**
+   * Whether the Cover letter tab has ever been opened. It is force-mounted from
+   * then on (see the TabsContent below) so that leaving the tab does not throw
+   * away an unsaved letter — but not before, because mounting it is what spends
+   * the model call, and hunt does not spend it on a tab nobody looked at.
+   */
+  const [coverOpened, setCoverOpened] = useState(false)
   const [leftTab, setLeftTab] = useState<LeftTab>('review')
   const [templateId, setTemplateId] = useState(base?.templateId ?? DEFAULT_TEMPLATE_ID)
   const [rawLatex, setRawLatex] = useState<string | null>(base?.rawLatexOverride ?? null)
@@ -441,7 +448,10 @@ export function TailorWorkspace({
       {run ? (
         <Tabs
           value={runTab}
-          onValueChange={setRunTab}
+          onValueChange={(value) => {
+            setRunTab(value)
+            if (value === 'cover') setCoverOpened(true)
+          }}
           className="min-h-0 flex-1 gap-0 overflow-hidden"
         >
           <TabsList variant="line" className="h-10 shrink-0 border-b border-border px-4">
@@ -642,7 +652,21 @@ export function TailorWorkspace({
             </div>
           </TabsContent>
 
-          <TabsContent value="cover" className="min-h-0 flex-1 overflow-y-auto">
+          {/*
+            Force-mounted once opened, and hidden by hand rather than by Radix.
+            Every piece of letter state — the draft, the dirty flag, the
+            already-drafted latch — is local to the tab, so letting Radix
+            unmount it on a trip to Résumé changes would throw away the user's
+            prose and spend a second model call redrafting it. `forceMount`
+            makes Radix render the panel unconditionally, `hidden` is what still
+            takes it out of the layout and off the a11y tree.
+          */}
+          <TabsContent
+            value="cover"
+            forceMount={coverOpened || undefined}
+            hidden={runTab !== 'cover'}
+            className="min-h-0 flex-1 overflow-y-auto"
+          >
             <CoverLetterTab
               applicationId={applicationId}
               baseVersionId={saved?.id ?? base.id}
