@@ -5,14 +5,14 @@ import { FollowUpForm, type FollowUpResult } from '@/components/dashboard/follow
 import { buttonVariants } from '@/components/ui/button'
 import { createAdapter } from '@/lib/adapters/factory'
 import { followUpsDue, type FollowUpRow } from '@/lib/outreach/queue'
-import { markSentManually, sendStep } from '@/lib/outreach/send'
+import { isUnconfirmed, markSentManually, sendStep } from '@/lib/outreach/send'
 import { cn } from '@/lib/utils'
 
 /**
  * The dashboard's *Follow-ups due today* panel (`design/Dashboard.dc.html`) —
  * the action queue the closed loop pays off into.
  *
- * Three rules it lives by:
+ * Four rules it lives by:
  *
  * 1. **The count is a count.** `followUpsDue()` walks the same `dueSteps`
  *    schedule the Outreach screen's "Due today" group does, so the number in
@@ -23,6 +23,11 @@ import { cn } from '@/lib/utils'
  * 3. **No email key is a product state, not a dead button.** Without a provider
  *    the row offers Draft / Copy / Mark sent and says why (SCREENS §2), instead
  *    of a greyed-out Send with no explanation.
+ * 4. **Nothing sends from a row that is not showing the message.** Every action
+ *    lives inside the row's `<details>`, under the subject and body it would
+ *    put in someone's inbox. Collapsed, that content is `display: none` and its
+ *    submit button cannot be activated — with or without JavaScript — so the
+ *    guarantee is structural rather than a rule the markup asks nicely for.
  *
  * The mutation is an inline Server Function (Next docs,
  * `01-app/01-getting-started/07-mutating-data.md`: `'use server'` at the top of
@@ -135,69 +140,105 @@ export async function FollowUpsPanel() {
               <li
                 key={step.id}
                 data-testid="follow-up-row"
-                className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
+                className="border-b border-border last:border-b-0"
               >
-                <Link
-                  href={`/applications/${step.applicationId}`}
-                  className="flex min-w-0 flex-1 items-center gap-3"
-                >
-                  <span
-                    aria-hidden
-                    className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-2 font-serif text-sm"
-                  >
-                    {initial(step)}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium">
-                      {step.contactName ?? 'No contact yet'}
+                <details className="group">
+                  <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 hover:bg-surface-2">
+                    <span
+                      aria-hidden
+                      className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-2 font-serif text-sm"
+                    >
+                      {initial(step)}
                     </span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {[step.company, step.title].filter(Boolean).join(' · ')}
-                      {' — '}
-                      <span className="font-mono">
-                        step {step.sequenceStep} · day +{step.dayOffset}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {step.contactName ?? 'No contact yet'}
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {[step.company, step.title].filter(Boolean).join(' · ')}
+                        {' — '}
+                        <span className="font-mono">
+                          step {step.sequenceStep} · day +{step.dayOffset}
+                        </span>
                       </span>
                     </span>
-                  </span>
-                </Link>
+                    <span className="shrink-0 font-mono text-[11px] text-muted-foreground group-open:hidden">
+                      Read it →
+                    </span>
+                  </summary>
 
-                {canSend ? (
-                  <FollowUpForm
-                    action={dispatch}
-                    stepId={step.id}
-                    applicationId={step.applicationId}
-                    testId="follow-up-send"
-                    label="Send"
-                    pendingLabel="Sending…"
-                  />
-                ) : (
-                  <span className="flex shrink-0 items-center gap-1">
-                    <Link
-                      href={`/outreach?application=${step.applicationId}`}
-                      data-testid="follow-up-draft"
-                      className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'text-xs')}
-                    >
-                      Draft
-                    </Link>
-                    <Link
-                      href={`/outreach?application=${step.applicationId}&copy=${step.id}`}
-                      data-testid="follow-up-copy"
-                      className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'text-xs')}
-                    >
-                      Copy
-                    </Link>
-                    <FollowUpForm
-                      action={dispatch}
-                      stepId={step.id}
-                      applicationId={step.applicationId}
-                      mode="manual"
-                      testId="follow-up-mark-sent"
-                      label="Mark sent"
-                      pendingLabel="Marking…"
-                      variant="ghost"
-                    />
-                  </span>
-                )}
+                  <div className="space-y-3 px-4 pb-3 pl-[60px]">
+                    {isUnconfirmed(step) ? (
+                      <p
+                        data-testid="follow-up-unconfirmed"
+                        className="rounded-md bg-warn-bg px-2.5 py-2 text-xs leading-relaxed text-warn"
+                      >
+                        hunt tried this one and never got an answer back, so it may already have
+                        reached them. Check your sent mail before sending it again.
+                      </p>
+                    ) : null}
+
+                    <div className="rounded-md border border-border bg-surface-2 p-2.5">
+                      <p className="text-xs font-medium">{step.subject}</p>
+                      <p className="mt-1.5 max-h-40 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+                        {step.body}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-end gap-1">
+                      <Link
+                        href={`/applications/${step.applicationId}`}
+                        className="mr-auto font-mono text-[11px] text-muted-foreground hover:text-foreground"
+                      >
+                        Open application →
+                      </Link>
+
+                      {canSend ? (
+                        <FollowUpForm
+                          action={dispatch}
+                          stepId={step.id}
+                          applicationId={step.applicationId}
+                          testId="follow-up-send"
+                          label="Send"
+                          pendingLabel="Sending…"
+                        />
+                      ) : (
+                        <>
+                          <Link
+                            href={`/outreach?application=${step.applicationId}`}
+                            data-testid="follow-up-draft"
+                            className={cn(
+                              buttonVariants({ variant: 'outline', size: 'sm' }),
+                              'text-xs',
+                            )}
+                          >
+                            Draft
+                          </Link>
+                          <Link
+                            href={`/outreach?application=${step.applicationId}&copy=${step.id}`}
+                            data-testid="follow-up-copy"
+                            className={cn(
+                              buttonVariants({ variant: 'ghost', size: 'sm' }),
+                              'text-xs',
+                            )}
+                          >
+                            Copy
+                          </Link>
+                          <FollowUpForm
+                            action={dispatch}
+                            stepId={step.id}
+                            applicationId={step.applicationId}
+                            mode="manual"
+                            testId="follow-up-mark-sent"
+                            label="Mark sent"
+                            pendingLabel="Marking…"
+                            variant="ghost"
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </details>
               </li>
             ))}
           </ul>

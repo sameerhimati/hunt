@@ -19,7 +19,12 @@ const redirect = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/outreach/queue', () => ({ followUpsDue }))
 vi.mock('@/lib/adapters/factory', () => ({ createAdapter }))
-vi.mock('@/lib/outreach/send', () => ({ sendStep, markSentManually }))
+vi.mock('@/lib/outreach/send', () => ({
+  sendStep,
+  markSentManually,
+  isUnconfirmed: (step: { status: string; sentAt: Date | null }) =>
+    step.sentAt !== null && (step.status === 'draft' || step.status === 'scheduled'),
+}))
 vi.mock('next/cache', () => ({ revalidatePath }))
 vi.mock('next/navigation', () => ({ redirect }))
 
@@ -114,6 +119,50 @@ describe('FollowUpsPanel', () => {
     const text = screen.getByTestId('follow-up-row').textContent ?? ''
     expect(text).toContain('No contact yet')
     expect(text).toContain('Stripe')
+  })
+
+  it('shows the message it is about to send', async () => {
+    // With no LLM key the drafter falls back to a template whose step-1 body is
+    // a literal bracketed placeholder. One click used to mail that to a
+    // recruiter, from a row that never showed a word of it.
+    const placeholder = '[Two sentences on the work of yours that lines up with this role.]'
+    followUpsDue.mockResolvedValue([row({ subject: 'Quick note', body: placeholder })])
+    await renderPanel()
+
+    const text = screen.getByTestId('follow-up-row').textContent ?? ''
+    expect(text).toContain('Quick note')
+    expect(text).toContain(placeholder)
+  })
+
+  it('keeps Send behind the disclosure that reveals the message', async () => {
+    followUpsDue.mockResolvedValue([row()])
+    await renderPanel()
+
+    // "hunt prepares, the human sends" — so the send control cannot be reachable
+    // from a row that is not showing the message.
+    const details = screen.getByTestId('follow-up-send').closest('details') as HTMLDetailsElement
+    expect(details).toBeTruthy()
+    expect(details.open).toBe(false)
+    expect(details.textContent).toContain('Hello again')
+  })
+
+  it('keeps the degraded actions behind the same disclosure', async () => {
+    createAdapter.mockResolvedValue(null)
+    followUpsDue.mockResolvedValue([row()])
+    await renderPanel()
+
+    const details = screen
+      .getByTestId('follow-up-mark-sent')
+      .closest('details') as HTMLDetailsElement
+    expect(details).toBeTruthy()
+    expect(details.textContent).toContain('Hello again')
+  })
+
+  it('warns on a row whose last attempt was never confirmed', async () => {
+    followUpsDue.mockResolvedValue([row({ sentAt: new Date('2026-03-01T10:00:00Z') })])
+    await renderPanel()
+
+    expect(screen.getByTestId('follow-up-unconfirmed').textContent).toMatch(/may already/i)
   })
 
   it('sends inline when an email provider is configured', async () => {
