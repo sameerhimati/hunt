@@ -210,9 +210,69 @@ describe('ChecksPanel — states', () => {
 
   it('runs the sweep from a per-check Run control', async () => {
     render(<ChecksPanel />)
+    await waitFor(() => expect(screen.getByTestId('run-check-format_lint')).toBeTruthy())
     fireEvent.click(screen.getByTestId('run-check-format_lint'))
 
     await waitFor(() => expect(runChecksAction).toHaveBeenCalledWith('app-1'))
+  })
+})
+
+/**
+ * The actions return a result union rather than throwing, but the *call* is
+ * still an RPC: a dropped connection or a 500 rejects the promise instead. Left
+ * unhandled that stranded the panel — "Running…" forever, five skeletons, and
+ * `error` still null so nothing on screen explained it.
+ */
+describe('ChecksPanel — when the call itself fails', () => {
+  it('releases the button and says why when a sweep never reaches the server', async () => {
+    runChecksAction.mockRejectedValue(new Error('Failed to fetch'))
+
+    render(<ChecksPanel />)
+    fireEvent.click(screen.getByTestId('run-checks'))
+
+    await waitFor(() => expect(screen.getByTestId('checks-error')).toBeTruthy())
+    expect(screen.getByTestId('checks-error').textContent).toContain('Failed to fetch')
+
+    // The panel has to come back: a stuck "Running…" only clears on a reload.
+    expect(screen.getByTestId('run-checks').textContent).not.toMatch(/Running/)
+    expect(screen.getByTestId('run-checks').hasAttribute('disabled')).toBe(false)
+    await waitFor(() => expect(screen.queryAllByTestId('check-skeleton')).toHaveLength(0))
+  })
+
+  it('says the readings could not be read rather than failing silently', async () => {
+    loadChecksAction.mockRejectedValue(new Error('Failed to fetch'))
+
+    render(<ChecksPanel />)
+
+    // The silent version of this bug reads "Nothing measured yet" forever for
+    // an application that has stored readings.
+    await waitFor(() => expect(screen.getByTestId('checks-error')).toBeTruthy())
+    expect(screen.getByTestId('checks-error').textContent).toContain('Failed to fetch')
+  })
+})
+
+describe('ChecksPanel — first paint', () => {
+  it('claims nothing about the data until the load answers', async () => {
+    let release: (result: ChecksResult) => void = () => {}
+    loadChecksAction.mockReturnValue(
+      new Promise<ChecksResult>((resolve) => {
+        release = resolve
+      }),
+    )
+
+    render(<ChecksPanel />)
+
+    // Both of these are positive claims about the user's data, and at this
+    // point the panel has not read a single row.
+    const text = () => screen.getByTestId('checks-panel').textContent ?? ''
+    expect(text()).not.toMatch(/Nothing measured yet/i)
+    expect(text()).not.toMatch(/no résumé pinned yet/i)
+    expect(screen.getAllByTestId('check-skeleton')).toHaveLength(4)
+
+    release({ ok: true, snapshot: snapshot([]) })
+
+    // Once it has looked, it is allowed to say so.
+    await waitFor(() => expect(text()).toMatch(/Nothing measured yet/i))
   })
 })
 
