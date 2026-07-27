@@ -46,6 +46,37 @@ function isJobsAdapter(adapter: Adapter | null): adapter is JobsAdapter {
   return adapter !== null && typeof (adapter as JobsAdapter).search === 'function'
 }
 
+/** The parts of a URL that identify the posting, tracking noise already gone. */
+interface PostingUrl {
+  /** Includes the trailing colon, as `URL.protocol` does. */
+  protocol: string
+  host: string
+  path: string
+  /** Already prefixed with `?`, or empty. */
+  query: string
+}
+
+function postingUrl(raw: string): PostingUrl | null {
+  try {
+    const url = new URL(raw.trim())
+
+    const params = [...url.searchParams.entries()]
+      .filter(([key]) => !TRACKING_PARAMS.test(key))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`)
+      .join('&')
+
+    return {
+      protocol: url.protocol,
+      host: url.host.toLowerCase().replace(/^www\./, ''),
+      path: url.pathname.replace(/\/+$/, ''),
+      query: params ? `?${params}` : '',
+    }
+  } catch {
+    return null
+  }
+}
+
 /**
  * The same posting on two boards rarely arrives as the same string: one adds
  * `?utm_source=`, the other a trailing slash or a `www.`. Normalising to
@@ -54,21 +85,41 @@ function isJobsAdapter(adapter: Adapter | null): adapter is JobsAdapter {
  * collapse two real listings into one.
  */
 function normalizeUrl(raw: string): string {
-  try {
-    const url = new URL(raw.trim())
-    const host = url.host.toLowerCase().replace(/^www\./, '')
-    const path = url.pathname.replace(/\/+$/, '')
+  const parts = postingUrl(raw)
+  if (!parts) return raw.trim().toLowerCase()
 
-    const params = [...url.searchParams.entries()]
-      .filter(([key]) => !TRACKING_PARAMS.test(key))
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => `${key}=${value}`)
-      .join('&')
+  return `${parts.host}${parts.path}${parts.query}`
+}
 
-    return `${host}${path}${params ? `?${params}` : ''}`
-  } catch {
-    return raw.trim().toLowerCase()
-  }
+/**
+ * The same identity as `normalizeUrl`, kept as a URL you can still click.
+ *
+ * Sourcing needs this rule twice and it has to be one rule: search dedupes a
+ * merged result list in memory, and `pullIntoPipeline` writes to `Job.url`,
+ * which is the unique index the pipeline dedupes on. If the string the board
+ * happened to send is what gets stored, `…/jobs/123?utm_source=remotive` and
+ * `…/jobs/123` become two Job rows and two pipeline cards — the same duplicate
+ * the in-memory dedupe already refuses one layer up.
+ *
+ * So the *canonical* form is what is stored, not the raw one. That includes
+ * dropping `www.`, which in principle could turn a working link into a host
+ * that does not resolve; in practice job URLs live on subdomains that never
+ * carry `www` at all, and an apex that pairs with `www` redirects. A stable
+ * identity is worth that much more than a spelling.
+ *
+ * Blank in, null out. Several board mappers emit `url: ''` when the provider
+ * gave no link, and on a nullable unique column `''` is a value, not a missing
+ * one — every link-less posting would collide on the same row.
+ */
+export function canonicalPostingUrl(raw: string | null | undefined): string | null {
+  const trimmed = raw?.trim()
+  if (!trimmed) return null
+
+  const parts = postingUrl(trimmed)
+  // Not parseable as a URL: keep what the board sent rather than invent a shape.
+  if (!parts) return trimmed
+
+  return `${parts.protocol}//${parts.host}${parts.path}${parts.query}`
 }
 
 function squash(value: string): string {

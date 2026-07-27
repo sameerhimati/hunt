@@ -83,4 +83,92 @@ describe('pullIntoPipeline', () => {
     // Never a fabricated JD: the placeholder names its own absence.
     expect(job.jdText.length).toBeGreaterThan(0)
   })
+
+  it('keeps two link-less listings apart instead of colliding on one empty URL', async () => {
+    // Every board mapper emits `url: '' ` when the provider gave no link, and
+    // '' is a value on a unique index, not a missing one.
+    const first = await pullIntoPipeline(listing('urlless-1', { url: '' }))
+    const second = await pullIntoPipeline(
+      listing('urlless-2', { url: '', title: 'Staff Data Engineer' }),
+    )
+
+    expect(second.job.id).not.toBe(first.job.id)
+    expect(second.application.id).not.toBe(first.application.id)
+
+    const kept = await prisma.job.findUnique({ where: { id: first.job.id } })
+    expect(kept?.title).toBe('Senior Backend Engineer')
+  })
+
+  it('re-pulls a link-less listing onto its own row rather than dealing a duplicate', async () => {
+    const input = listing('urlless-idempotent', { url: '' })
+
+    const first = await pullIntoPipeline(input)
+    const second = await pullIntoPipeline(input)
+
+    expect(second.job.id).toBe(first.job.id)
+    expect(second.application.id).toBe(first.application.id)
+  })
+
+  it('treats a tracking param as the same posting, not a second card', async () => {
+    const canonical = listing('utm-1')
+    const tracked = listing('utm-1', {
+      externalId: 'utm-1-again',
+      url: `https://WWW.jobs.example.com/utm-1/?utm_source=remotive&ref=weekly`,
+    })
+
+    const first = await pullIntoPipeline(canonical)
+    const second = await pullIntoPipeline(tracked)
+
+    expect(second.job.id).toBe(first.job.id)
+    expect(second.application.id).toBe(first.application.id)
+    expect(await prisma.application.count({ where: { jobId: first.job.id } })).toBe(1)
+  })
+
+  it('never overwrites a correction the user made or a JD already scraped', async () => {
+    const { job } = await pullIntoPipeline(listing('refresh-1'))
+
+    const scraped = 'The full posting, as Firecrawl returned it. '.repeat(40).trim()
+    await prisma.job.update({
+      where: { id: job.id },
+      data: {
+        title: 'Staff Backend Engineer',
+        company: 'Northwind Robotics, Inc.',
+        jdText: scraped,
+        source: 'paste',
+      },
+    })
+
+    const { job: after } = await pullIntoPipeline(
+      listing('refresh-1', { description: undefined }),
+    )
+
+    expect(after.title).toBe('Staff Backend Engineer')
+    expect(after.company).toBe('Northwind Robotics, Inc.')
+    expect(after.jdText).toBe(scraped)
+    // How the row arrived is history, not a field a later sighting rewrites.
+    expect(after.source).toBe('paste')
+  })
+
+  it('lets a fuller description win but never a placeholder', async () => {
+    await pullIntoPipeline(listing('jd-1', { description: 'Short blurb.' }))
+
+    const full = 'You will own the fleet ingestion pipeline. '.repeat(20).trim()
+    const { job: better } = await pullIntoPipeline(listing('jd-1', { description: full }))
+    expect(better.jdText).toBe(full)
+
+    const { job: unchanged } = await pullIntoPipeline(
+      listing('jd-1', { description: undefined }),
+    )
+    expect(unchanged.jdText).toBe(full)
+  })
+
+  it('replaces the no-description placeholder as soon as a real body arrives', async () => {
+    const { job } = await pullIntoPipeline(listing('jd-2', { description: undefined }))
+    expect(job.jdText).toContain('No description was returned')
+
+    const { job: filled } = await pullIntoPipeline(
+      listing('jd-2', { description: 'The real posting body.' }),
+    )
+    expect(filled.jdText).toBe('The real posting body.')
+  })
 })
