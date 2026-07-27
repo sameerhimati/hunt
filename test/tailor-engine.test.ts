@@ -153,8 +153,8 @@ describe('validateChanges', () => {
     expect(forged.status).toBe('refused')
   })
 
-  it('accepts a coarse citation to a whole entry', () => {
-    const [checked] = validateChanges(
+  it('refuses a citation to a whole entry — a subtree is not a field', () => {
+    const [coarse] = validateChanges(
       [
         {
           kind: 'edit',
@@ -167,7 +167,72 @@ describe('validateChanges', () => {
       content,
     )
 
-    expect(checked.status).toBe('proposed')
+    // The snippet really is in there — but "in there" spans the whole job entry,
+    // so the chip would point at a record, not at the line it quotes.
+    expect(coarse.status).toBe('refused')
+    expect(coarse.refusedReason).toContain('experience[1]')
+  })
+
+  it('refuses a snippet that carries no claim, however findable it is', () => {
+    const [oneCharacter, justTheCompany] = validateChanges(
+      [
+        {
+          kind: 'edit',
+          path: 'experience[0].bullets[0]',
+          now: 'Led a 40-person platform org at Google and owned a $12M budget',
+          why: 'Scale.',
+          citation: { path: 'experience[0]', snippet: 'a' },
+        },
+        {
+          kind: 'edit',
+          path: 'experience[0].bullets[0]',
+          now: 'Led a 40-person platform org at Google and owned a $12M budget',
+          why: 'Scale.',
+          citation: { path: 'experience[0].company', snippet: 'Ramp' },
+        },
+      ],
+      content,
+    )
+
+    expect(oneCharacter.status).toBe('refused')
+    expect(justTheCompany.status).toBe('refused')
+  })
+
+  it('accepts a short citation when the snippet is the whole field', () => {
+    const [skill] = validateChanges(
+      [
+        {
+          kind: 'edit',
+          path: 'skills[0].items[0]',
+          now: 'Go (six years, production payment services)',
+          why: 'The posting names Go first.',
+          citation: { path: 'skills[0].items[0]', snippet: 'Go' },
+        },
+      ],
+      content,
+    )
+
+    expect(skill.status).toBe('proposed')
+  })
+
+  it('still accepts an add addressed at a list that exists', () => {
+    const [append] = validateChanges(
+      [
+        {
+          kind: 'add',
+          path: 'experience[0].bullets',
+          now: 'Ran the payments on-call rota',
+          why: 'The posting asks for on-call.',
+          citation: {
+            path: 'experience[0].bullets[4]',
+            snippet: "Mentor two mid-level engineers and run the backend guild's weekly design review",
+          },
+        },
+      ],
+      content,
+    )
+
+    expect(append.status).toBe('proposed')
   })
 })
 
