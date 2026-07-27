@@ -197,3 +197,59 @@ describe('the cover letter survives a trip to the résumé tab', () => {
     expect(draftCoverLetterAction).not.toHaveBeenCalled()
   })
 })
+
+describe('committing the tailored version exactly once', () => {
+  it('ignores a second ⌘↵ while the first save is still in flight', async () => {
+    let release!: () => void
+    const inFlight = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    saveTailoredVersionAction.mockImplementation(async () => {
+      await inFlight
+      return { ok: true, version: { id: 'v2', label: 'Stripe', resumeId: 'r1' } }
+    })
+
+    await startRun()
+
+    fireEvent.keyDown(window, { key: 'Enter', metaKey: true })
+    fireEvent.keyDown(window, { key: 'Enter', metaKey: true })
+    fireEvent.keyDown(window, { key: 'Enter', metaKey: true })
+
+    release()
+    await waitFor(
+      () => expect(screen.getByTestId('save-tailored-version').textContent).toBe('Saved'),
+      { timeout: 3000 },
+    )
+    expect(saveTailoredVersionAction).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables the commit once the decisions on screen are the ones that were saved', async () => {
+    await startRun()
+
+    const button = () => screen.getByTestId('save-tailored-version') as HTMLButtonElement
+    fireEvent.click(button())
+    await waitFor(() => expect(button().textContent).toBe('Saved'), { timeout: 3000 })
+
+    expect(button().disabled).toBe(true)
+    fireEvent.click(button())
+    fireEvent.keyDown(window, { key: 'Enter', metaKey: true })
+    expect(saveTailoredVersionAction).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-opens the commit when the user changes a decision after saving', async () => {
+    await startRun()
+
+    const button = () => screen.getByTestId('save-tailored-version') as HTMLButtonElement
+    fireEvent.click(button())
+    await waitFor(() => expect(button().textContent).toBe('Saved'), { timeout: 3000 })
+
+    // `r` rejects the selected change — the document on screen is no longer the
+    // one that was saved, so saving again is a new version, not a duplicate.
+    fireEvent.keyDown(window, { key: 'r' })
+    await waitFor(() => expect(button().disabled).toBe(false))
+    expect(button().textContent).toMatch(/new version/i)
+
+    fireEvent.click(button())
+    await waitFor(() => expect(saveTailoredVersionAction).toHaveBeenCalledTimes(2))
+  })
+})
