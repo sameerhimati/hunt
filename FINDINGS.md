@@ -264,16 +264,95 @@ forgot the previous two.
 
 ## Follow-ups created by this session's own fixes
 
-- **A#2's UI half.** `applyChanges` now reports skipped changes; the tailor
-  workspace should demote those rows rather than showing them as applied. The
-  library and component fixes ran in separate worktrees, so the wiring is not
-  done.
+Each was surfaced by the agent that made the corresponding fix, and left
+deliberately — almost all because the residual sits in a file that agent did not
+own, which is what kept the parallel work conflict-free.
+
+**Still reachable, worth doing first:**
+
+- **`ingest.ts` still stores the raw pasted URL.** `pullIntoPipeline` now
+  canonicalises, but the paste path doesn't, so pasting `…/j/1?utm=a` and then
+  pulling the same posting from a board still deals a duplicate `Job`. ~2 lines
+  (`url: canonicalPostingUrl(url) ?? url` on both the where-clause and the
+  create) — plus a decision about whether rows already written with tracking
+  params need a backfill. They will each duplicate exactly once.
+- **`saveVersion` has no server-side dedupe.** The UI guard closes both duplicate
+  paths reachable by clicking, but not the one where `saveTailoredVersionAction`
+  throws *after* `saveVersion` already inserted: the action returns `ok:false`,
+  the row exists, the user retries. Either wrap the action's three writes in a
+  transaction, or no-op when the newest child of the same `parentVersionId` has
+  an identical label and content hash.
+- **`markSentManually` has no guard at all** — it stamps `status: 'sent'` on any
+  row, including one already sent and including a `halted` step. Harmless today
+  only because the composer disables it, which is the same client-side-only
+  defence the double-send fix was filed against.
+- **A#2's UI half** — `applyChangesWithReport` reports skipped changes; the
+  workspace must demote those rows so they don't read as accepted and don't
+  inflate the summary count.
+
+**Known and accepted:**
+
+- **Editing a committed migration changes its checksum.** `ensureSchema` matches
+  on migration *name*, so the runtime path is unaffected — but a dev DB that
+  already applied the pre-backfill version will report drift under
+  `prisma migrate dev` and will not receive the backfill. Inherent to making the
+  backfill ride with the migration.
+- **Two tests flake ~1-in-3 under full-suite load**, both on 1000ms `waitFor`
+  races: `test/contact-card.test.tsx` and `test/sourcing-workspace.test.tsx`.
+  Confirmed pre-existing by three separate agents against a stashed base. This is
+  the failure a previous session saw once and could not pin down.
+- **Suppressing an impossible funnel rate overloads `FunnelRow`'s em-dash** —
+  it already means "no data yet" and now also means "these stages don't nest".
+  A `reason` discriminant on `StageConversion` would separate them.
+- **`isUnconfirmed` is duplicated** in `sequence-timeline.tsx` and `send.ts`,
+  because the client bundle can't import the Prisma-touching module. Its right
+  home is `src/lib/outreach/types.ts`.
+- **"They replied" always targets the last *sent* step.** Correct for the common
+  case; wrong if a sequence has two sent steps and the human answered the first.
+- **`fromMarkdown` recomputes an unsourced paragraph's flag as the generic
+  `UNSOURCED_FLAG`**, losing the named unresolvable paths from `flagFor`. Now
+  visible where it wasn't, because a touched-but-not-rewritten paragraph
+  round-trips as `origin: 'model'`. Persist the sentence in the annotation.
+- **The Résumé changes panel still isn't force-mounted**, so every trip to the
+  cover letter and back re-runs a Tectonic compile. Not data loss, but the same
+  class of wasted expensive call as the cover-letter bug.
+- **Nothing prevents the underlying funnel inconsistency.** The board still lets
+  any card go to any status, so `repliedAt` without `appliedAt` stays reachable.
+  The dashboard has stopped lying about it; the pipeline is not ordered.
 - **Workflow scripts.** `e2e` isn't in the phase-build verifier — only the
   wave-level integrate runs `pnpm e2e`, so a phase can be green in its worktree
   and break e2e at merge, which is exactly the load the integrate agent was under
   when it died. Separately, exhausting `MAX_FIX` leaves the operator the same
   `nextStep` shape as a lost-agent run; `lostAgents` now distinguishes them but
   nothing stops a later wave's preflight building on a red `wave-K`.
+
+## Decisions worth not relitigating
+
+- **The funnel fix suppresses impossible rates rather than backfilling
+  milestones.** Backfilling looks right — you cannot reply to an application
+  never sent — but `outreach` sits *between* `applied` and `replied` in this
+  product's status vocabulary, so a reply to cold outreach with no application
+  behind it is a real path. Stamping `appliedAt` would invent the event, not just
+  the date. Clamping to 100% was rejected separately: it asserts a perfect
+  conversion, which is a different false claim rather than the absence of one.
+- **The send claim never expires, and a failed send does not release it.**
+  Neither Resend nor SMTP accepts an idempotency key, so on a thrown send hunt
+  genuinely does not know whether the message left. A lease that expired would
+  eventually re-send silently — the exact failure being guarded — so the escape
+  is a person ("mark as sent", or an explicit "Send again"), not a timer.
+- **The citation snippet floor is 4 words and 1/3 of the replacement**, except
+  when a change rewrites end-to-end the very field it quotes, which is accepted
+  at any length (that is the legitimate one-word skill case, and the diff row
+  shows the source beside the result anyway). Four words because one is a name
+  and two or three a noun phrase — the cheapest spans to quote truthfully and
+  vouch for nothing. Neither number vouches for the unquoted remainder; no
+  post-hoc check on generated text can, and the comment says so.
+- **A flagged cover-letter paragraph stays marked while more than half the words
+  hunt wrote survive in it** — measured as multiset word retention against
+  hunt's original, not against the previous keystroke (which would let a
+  word-at-a-time rewrite never lift the mark) and not as string similarity
+  (which would score appending your own paragraph as "mostly different" and
+  launder the claim). A typo fix retains ~92%; a genuine rewrite, 43%.
 
 ---
 
