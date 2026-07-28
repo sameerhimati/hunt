@@ -52,7 +52,7 @@ Every other integration is optional and only widens what you already have.
 
 Pre-alpha, building in public. Phases 0–5 are built and gated: resume core,
 pipeline, tailoring and checks, outreach, and sourcing. What's left is reply
-detection and launch polish — the plan is in [PLAN.md](PLAN.md).
+detection and launch polish — the plan is in [docs/PLAN.md](docs/PLAN.md).
 
 There is **no onboarding wizard yet**, so after first boot go to Settings and add
 a key. It's usable today; it is not finished.

@@ -6,8 +6,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # hunt — session orientation
 
-**Read `PLAN.md` first.** It is the source of truth: end goal, principles,
-stack, data model, and Phases 0–8 each with a verifiable exit gate.
+**Read `docs/PLAN.md` first.** It is the source of truth: end goal, principles,
+stack, data model, and Phases 0–8 each with a verifiable exit gate. Everything
+else lives in `docs/` too — only README, AGENTS and CLAUDE stay at root.
 
 ## Current state
 - **Phases 0–5 are built and promoted** (`gates/DONE`): skeleton, résumé core,
@@ -20,11 +21,13 @@ stack, data model, and Phases 0–8 each with a verifiable exit gate.
   (`Outreach.threadRef`). Three setup steps instead of eight, and no OAuth
   subsystem. Put it behind an adapter + Fake twin so an OAuth adapter can drop in
   if Google ever kills app passwords.
-- `DESIGN.md` / `SCREENS.md` / `TAILORING-DIFF.md` + `design/*.dc.html` are
-  committed ground truth — build UI against them, don't invent layout.
-- **`FINDINGS.md` records what the wave-2 review found**, including two defect
-  classes that shipped in four of five areas. Read it before writing code in
-  outreach, sourcing or tailoring.
+- `docs/DESIGN.md` / `docs/SCREENS.md` / `docs/TAILORING-DIFF.md` +
+  `design/*.dc.html` are committed ground truth — build UI against them, don't
+  invent layout. Source docblocks cite these by bare filename (`see DESIGN.md
+  §5`), which still resolves; they are names, not paths.
+- **`docs/reviews/wave-2.md` records what the wave-2 review found**, including
+  three defect classes that each shipped in four of five areas. Read it before
+  writing code in outreach, sourcing or tailoring.
 
 ## What the early phases established (don't relearn these)
 - The DB **migrates itself on first query** (`src/lib/db/migrate.ts`). There is
