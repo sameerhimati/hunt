@@ -7,7 +7,7 @@ import type { ProviderCategory } from '@/lib/providers/types'
 // Keys live in SQLite, so this page must read on every request.
 export const dynamic = 'force-dynamic'
 
-const SECTIONS: ProviderCategory[] = ['llm', 'scrape', 'jobs', 'people', 'email', 'linkedin']
+const SECTIONS: ProviderCategory[] = ['llm', 'scrape', 'jobs', 'people', 'email']
 
 export default async function SettingsPage() {
   const states = await readAllProviderStates()

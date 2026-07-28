@@ -5,7 +5,7 @@
  * without it* — without anyone writing that copy twice. Honest onboarding.
  */
 
-export type ProviderCategory = 'llm' | 'scrape' | 'jobs' | 'people' | 'email' | 'linkedin'
+export type ProviderCategory = 'llm' | 'scrape' | 'jobs' | 'people' | 'email'
 
 /** `live` ships wired in v1; `stub` implements the interface but isn't callable yet. */
 export type ProviderShipStatus = 'live' | 'stub'

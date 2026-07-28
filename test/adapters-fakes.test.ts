@@ -4,7 +4,6 @@ import { FakeEmailAdapter } from '@/lib/adapters/email/fake'
 import { FakeJobsAdapter } from '@/lib/adapters/jobs/fake'
 import { FakePeopleAdapter } from '@/lib/adapters/people/fake'
 import { FakeScrapeAdapter } from '@/lib/adapters/scrape/fake'
-import { BrightDataScrapeAdapter } from '@/lib/adapters/scrape/brightdata'
 import { LinkedInCookieAdapter } from '@/lib/adapters/linkedin/cookie'
 import { AdapterError, NotWiredError } from '@/lib/adapters/types'
 
@@ -76,18 +75,18 @@ describe('fake adapters', () => {
   })
 })
 
-describe('stub adapters', () => {
-  it('fail with a scope explanation, not a mystery crash', async () => {
-    await expect(new BrightDataScrapeAdapter().scrape('https://x')).rejects.toBeInstanceOf(
+describe('the dormant LinkedIn seam', () => {
+  // Phase 6 was cancelled; this adapter is kept unregistered so the shape
+  // survives. These assert it stays inert — if it ever silently starts working,
+  // a user's own LinkedIn account is what pays for the surprise.
+  it('fails with a scope explanation, not a mystery crash', async () => {
+    await expect(new LinkedInCookieAdapter().findPeopleAtCompany('Acme')).rejects.toBeInstanceOf(
       NotWiredError,
-    )
-    await expect(new LinkedInCookieAdapter().findPeopleAtCompany('Acme')).rejects.toThrow(
-      /Phase 6/,
     )
   })
 
-  it('report an honest failed connection test', async () => {
-    const result = await new BrightDataScrapeAdapter().testConnection()
+  it('reports an honest failed connection test', async () => {
+    const result = await new LinkedInCookieAdapter().testConnection()
     expect(result.ok).toBe(false)
     expect(result.detail).toMatch(/stub/i)
   })

@@ -3,10 +3,7 @@ import { smtpMeta } from '@/lib/adapters/email/smtp'
 import { adzunaMeta } from '@/lib/adapters/jobs/adzuna'
 import { freeBoardsMeta } from '@/lib/adapters/jobs/boards'
 import { jsearchMeta } from '@/lib/adapters/jobs/jsearch'
-import { linkedInMeta } from '@/lib/adapters/linkedin/cookie'
 import { apolloMeta } from '@/lib/adapters/people/apollo'
-import { brightDataPeopleMeta } from '@/lib/adapters/people/brightdata'
-import { brightDataScrapeMeta } from '@/lib/adapters/scrape/brightdata'
 import { firecrawlMeta } from '@/lib/adapters/scrape/firecrawl'
 import { anthropicMeta, openAiCompatMeta } from '@/lib/llm/meta'
 
@@ -21,15 +18,12 @@ export const PROVIDERS: ProviderMeta[] = [
   anthropicMeta,
   openAiCompatMeta,
   firecrawlMeta,
-  brightDataScrapeMeta,
   apolloMeta,
-  brightDataPeopleMeta,
   jsearchMeta,
   adzunaMeta,
   freeBoardsMeta,
   smtpMeta,
   resendMeta,
-  linkedInMeta,
 ]
 
 export const CATEGORY_LABELS: Record<ProviderCategory, string> = {
@@ -38,7 +32,6 @@ export const CATEGORY_LABELS: Record<ProviderCategory, string> = {
   jobs: 'Job search',
   people: 'People lookup',
   email: 'Email',
-  linkedin: 'LinkedIn',
 }
 
 export function getProvider(id: string): ProviderMeta | undefined {

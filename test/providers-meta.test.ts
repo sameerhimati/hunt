@@ -44,10 +44,12 @@ describe('provider registry', () => {
     }
   })
 
-  it('gives the at-own-risk providers an explicit risk statement', () => {
-    const linkedin = getProvider('linkedin')
-    expect(linkedin?.risk).toMatch(/Terms of Service/i)
-    expect(linkedin?.ship).toBe('stub')
+  it('asks for nothing a user could be harmed by giving', () => {
+    // The only provider that ever carried a `risk` statement was LinkedIn,
+    // which wanted a session cookie and could get the user's own account
+    // restricted. It was cut on 2026-07-28 rather than shipped with a warning.
+    expect(getProvider('linkedin')).toBeUndefined()
+    expect(PROVIDERS.filter((provider) => provider.risk)).toEqual([])
   })
 
   it('namespaces settings so two providers cannot collide on a field name', () => {
@@ -63,6 +65,6 @@ describe('provider registry', () => {
 
   it('covers every category the plan promises', () => {
     const categories = new Set(PROVIDERS.map((provider) => provider.category))
-    expect([...categories].sort()).toEqual(['email', 'jobs', 'linkedin', 'llm', 'people', 'scrape'])
+    expect([...categories].sort()).toEqual(['email', 'jobs', 'llm', 'people', 'scrape'])
   })
 })
