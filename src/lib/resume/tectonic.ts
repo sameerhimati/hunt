@@ -13,29 +13,31 @@ import path from 'node:path'
  * self-contained binary that pulls the TeX packages it needs on demand, which
  * is why it is the only TeX distribution that can honour that promise.
  *
- *   node scripts/ensure-tectonic.mjs      prints the resolved path
- *
  * Overrides: `HUNT_TECTONIC_BIN` points at a binary directly (Docker sets it to
  * /usr/local/bin/tectonic implicitly by having it on PATH).
+ *
+ * Server-only: this shells out and touches the filesystem. `render.ts` is its
+ * one caller, and it lived under `scripts/` until the app was reaching three
+ * directories up out of `src/` to import it.
  */
 
 export const TECTONIC_VERSION = '0.16.9'
 
-const TARGETS = {
+const TARGETS: Record<string, string> = {
   'darwin-arm64': 'aarch64-apple-darwin',
   'darwin-x64': 'x86_64-apple-darwin',
   'linux-x64': 'x86_64-unknown-linux-musl',
   'linux-arm64': 'aarch64-unknown-linux-musl',
 }
 
-function cacheDir() {
+function cacheDir(): string {
   const base =
     process.env.HUNT_CACHE_DIR ??
     path.join(os.homedir(), process.platform === 'darwin' ? 'Library/Caches' : '.cache', 'hunt')
   return path.join(base, `tectonic-${TECTONIC_VERSION}`)
 }
 
-function onPath() {
+function onPath(): string | null {
   const probe = spawnSync('tectonic', ['--version'], { stdio: 'ignore' })
   return probe.status === 0 ? 'tectonic' : null
 }
@@ -51,14 +53,14 @@ function onPath() {
  *   gh api repos/tectonic-typesetting/tectonic/releases/tags/tectonic@<version> \
  *     --jq '.assets[] | "\(.name) \(.digest)"'
  */
-const CHECKSUMS = {
+const CHECKSUMS: Record<string, string> = {
   'aarch64-apple-darwin': 'edb67c61aba768289f6da441c9e6f523cfaff4f8b2a5708523ef29c543f8e88e',
   'x86_64-apple-darwin': '79d8839fa3594bfea9b2bf2ac0a0455bcc4d0de956a5e5c403107e9a72f79e86',
   'x86_64-unknown-linux-musl': '60b13a0826ae7ad9ce34b4a2df06bff2cfcfa6dda8a915477c0cbb84e1a4a902',
   'aarch64-unknown-linux-musl': 'f9aa39017dbd51f111fdb93dda222178cbe51c8193508fc567b523cc74fff9c1',
 }
 
-async function download(target, destination) {
+async function download(target: string, destination: string): Promise<void> {
   const url =
     `https://github.com/tectonic-typesetting/tectonic/releases/download/` +
     `tectonic%40${TECTONIC_VERSION}/tectonic-${TECTONIC_VERSION}-${target}.tar.gz`
@@ -107,13 +109,13 @@ async function download(target, destination) {
   }
 }
 
-let pending = null
+let pending: Promise<string> | null = null
 
 /**
  * Path to a usable `tectonic`. Concurrent callers share one download — the
  * render gate compiles three templates and would otherwise race on the file.
  */
-export function ensureTectonic() {
+export function ensureTectonic(): Promise<string> {
   if (process.env.HUNT_TECTONIC_BIN) return Promise.resolve(process.env.HUNT_TECTONIC_BIN)
 
   const cached = path.join(cacheDir(), 'tectonic')
@@ -132,20 +134,10 @@ export function ensureTectonic() {
 
   pending ??= download(target, cached)
     .then(() => cached)
-    .catch((error) => {
+    .catch((error: unknown) => {
       pending = null
       throw error
     })
 
   return pending
-}
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-  ensureTectonic().then(
-    (binary) => console.log(binary),
-    (error) => {
-      console.error(error.message)
-      process.exit(1)
-    },
-  )
 }

@@ -4,9 +4,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
-import { ensureTectonic } from '../../../scripts/ensure-tectonic.mjs'
-
 import { renderTex, type TexInput } from './tex'
+import { ensureTectonic } from './tectonic'
 
 const run = promisify(execFile)
 

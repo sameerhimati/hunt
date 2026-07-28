@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest'
  * script still reaches its `return` with an actionable, non-green result.
  */
 
-const ORCHESTRATE = 'scripts/orchestrate-phases.workflow.js'
+const ORCHESTRATE = '.claude/workflows/orchestrate-phases.workflow.js'
 const PHASE_BUILD = '.claude/workflows/hunt-phase-build.js'
 
 type AgentOpts = { phase?: string; label?: string; model?: string; schema?: unknown }
