@@ -189,8 +189,9 @@ backend engineer* — applying to Stripe, Linear, Notion, etc. Replace with real
   arrive unrated then fill in fit.
 - **Interactions:** remote toggle, sort by best fit / newest / salary; pull-in →
   toast with link to the new card; save search.
-- **Later:** LinkedIn network-intel appears as contact enrichment on results/detail
-  ("who do I know here", connection degree), not listing scraping.
+- **Not coming:** LinkedIn network-intel ("who do I know here", connection degree).
+  Phase 6 was cancelled 2026-07-26 — see `PLAN.md`. Contacts are Apollo or
+  hand-added, and a hand-added one can carry a profile URL we deep-link to.
 
 ---
 
@@ -201,8 +202,9 @@ backend engineer* — applying to Stripe, Linear, Notion, etc. Replace with real
   composer main. Composer: contact header (name, title, email, source, sending-from
   address), **Sequence** timeline (steps with day offsets, states) + **message
   editor**.
-- **ContactCard:** name, title, company, source badge (Apollo / LinkedIn / manual),
-  email-found state, degree (when LinkedIn on).
+- **ContactCard:** name, title, company, source badge (Apollo / manual),
+  email-found state, and — when the user recorded one on a manual contact — a
+  LinkedIn profile link that opens out to their profile.
 - **SequenceTimeline:** Step 1 + N follow-ups with `day +N` offsets; states sent /
   due / scheduled; "+ add step"; note that the sequence **halts automatically on
   reply**. The editing step is highlighted.
@@ -222,15 +224,17 @@ backend engineer* — applying to Stripe, Linear, Notion, etc. Replace with real
 ## 10. Settings
 **Mockup:** `Settings.dc.html`
 
-- **Layout:** shell rail + settings sub-nav (Providers & keys, Email, LinkedIn,
+- **Layout:** shell rail + settings sub-nav (Providers & keys, Email,
   Data & privacy, Appearance, About) + **KeyProviderCards**.
 - **KeyProviderCard:** icon, name, one-line "what it powers", **status pill**
   (Configured green / Missing amber / Not-set hollow / Error red), fields (masked
   key; OpenAI-compatible adds base URL + model; job API adds JSearch/Adzuna choice),
   **Test connection** with a concrete result (`✓ 200 · 180ms · cache hit`), and a
   **"what breaks without this"** line on the missing/optional ones.
-- **LinkedIn** card carries an **at-your-own-risk** disclaimer (ToS + account risk,
-  read-only, off by default, toggle).
+- **No card carries an at-your-own-risk disclaimer.** A provider that needs one
+  doesn't ship — the LinkedIn cookie card was cut for exactly that reason
+  (2026-07-26; `PLAN.md` Phase 6). Every registered provider is live and none
+  declares a `risk`; both are test-enforced.
 - **On screen & why:** BYOK is the whole trust model. States are explicit so the
   user always knows what's live; the honesty extends here — we tell you the
   consequence of every missing key rather than nagging. Privacy note pinned:

@@ -19,7 +19,7 @@ a human review boundary, with the change called out).
 ```
 Wave 1:  foundation₁ → [ P1 résumé-core ‖ P2 jobs+tracker ] → integrate → gate → HUMAN
 Wave 2:  foundation₂ → [ P3 tailoring+evals ‖ P4 people+outreach ‖ P5 sourcing ] → integrate → gate → HUMAN
-Wave 3:  foundation₃ → [ P6 LinkedIn ‖ P7 Gmail ] → integrate → gate → HUMAN
+Wave 3:  foundation₃ → [ P7 Gmail ] → integrate → gate → HUMAN     (P6 cancelled 2026-07-26)
 Wave 4:  [ P8 launch polish ] → gate (golden path + cold starts) → HUMAN → ship
 ```
 
@@ -392,62 +392,102 @@ zero plan changes (they share only wave-foundation files).**
 
 ---
 
-## 5. Wave 3 — P6 LinkedIn ‖ P7 Gmail
+## 5. Wave 3 — P7 Gmail (P6 cancelled)
 
-**Entry:** Wave 2 merged, gates 1–5 in DONE.
+**Entry:** Wave 2 merged, gates 1–5 in DONE. **Not a parallel wave any more** —
+P6 was cancelled 2026-07-26, so the only fan-out left is P7's leaves.
 
 ### Wave 3 foundation (serial)
 F3.1 `registry.ts` + `factory.ts` gmail slot (provider meta registered by P7 but
 the shared-file edits happen here: add gmail case to factory switch, PROVIDERS
 entry importing from a stub meta file P7 owns). F3.2 Settings sub-nav sections
-(Email, LinkedIn) if not already split into per-section files.
+(Email) if not already split into per-section files — there is no LinkedIn
+section to build: the `linkedin` category is gone from `ProviderCategory`
+entirely.
 
-### Phase 6 — LinkedIn adapter (at-own-risk, off by default)
-**Done =** paste `li_at` cookie in Settings behind an explicit opt-in toggle +
-ToS disclaimer; read-only people-graph intel (who's at company X, degree,
-recruiter search) feeding Contacts alongside Apollo; deep links only, zero write
-automation.
+### ~~Phase 6 — LinkedIn adapter (at-own-risk, off by default)~~ — CANCELLED
+Decided 2026-07-26, applied in code 2026-07-28 (`a6c3a6e`).
 
-**Exit gate:** `pnpm gate 6` — unit: fixture-backed adapter returns people with
-degrees; expired-cookie fixture ⇒ `AdapterError` naming the cookie, never a
-crash; changed-markup fixture ⇒ clear error; **off-by-default enforced:
-`createAdapter('linkedin')` returns null when the opt-in toggle is unset even
-with a cookie present**; e2e: disclaimer visible on the Settings card; enabling
-shows degree badges on contacts.
+**What it would have been:** paste `li_at` cookie in Settings behind an explicit
+opt-in toggle + ToS disclaimer; read-only people-graph intel (who's at company X,
+degree, recruiter search) feeding Contacts alongside Apollo; deep links only,
+zero write automation.
 
-**Contracts:** extend `src/lib/adapters/linkedin/cookie.ts` (implement
-`findPeopleAtCompany`), `FakeLinkedInAdapter` fixtures, opt-in setting key
-`provider.linkedin.enabled`.
-**Verifier gap (P6 first task):** record real response fixtures (voyager JSON),
-including an expired-cookie and a changed-markup capture.
-**Leaves:** P6.a adapter + fixtures · P6.b contact enrichment UI (degree badge,
-"who do I know here" on sourcing results/detail) · P6.c Settings card
-(disclaimer + toggle).
+**Why it's cut** — three reasons, in the order they mattered:
+1. It is the only integration in the product that can get the user's **own**
+   LinkedIn account restricted. Everything else can cost them a key; this can
+   cost them their network.
+2. The whole pitch is trust — local-first, nothing leaves the machine. A
+   Settings card reading "this may violate their ToS, the risk is yours" is not
+   a thing that product can ship. Shipping the disclaimer instead of the cut was
+   the worst of both.
+3. It parses an undocumented internal endpoint, so its fixtures go stale **by
+   definition**. It would have been the highest-maintenance module in the repo,
+   permanently, for a secondary feature — and its verifier gap (record real
+   voyager JSON, plus expired-cookie and changed-markup captures) was that
+   maintenance cost showing up before the first line was written.
 
-### Phase 7 — Gmail (user-owned OAuth) + the closed loop
-**Done =** user pastes their own Google OAuth client ID/secret (their project,
-test mode — no verification), hunt sends via Gmail API and **polls threads of
-sent outreach to auto-flip `replied` and halt sequences**.
+**The replacement, and it is most of the value:** a manually-added contact +
+`Contact.linkedinUrl` deep-linking to their profile + the existing P4 outreach
+drafter writing the message. No cookie, nothing that can harm the user, no
+fixtures to keep alive.
 
-**Exit gate:** `pnpm gate 7` — integration tests against Gmail API mocks
-(mocked `fetch`): token exchange + refresh, send returns id/threadId stored as
-`threadRef`, `pollReplies()` on a thread-with-reply fixture flips Outreach →
-replied, Application → replied, halts remaining steps (reuses the P4 sequence
-gate assertions). No e2e gate — PLAN specifies a documented manual smoke
-runbook with a real Gmail (`docs/runbooks/gmail-smoke.md`).
+**What the code actually did:** dropped `linkedInMeta` and both Bright Data
+metas from `PROVIDERS`, the `linkedin` category from `ProviderCategory` and the
+Settings sub-nav, and the three `createAdapter` cases; deleted
+`people/brightdata.ts` + `scrape/brightdata.ts`. **Kept:**
+`src/lib/adapters/linkedin/{cookie,types}.ts` as a dormant, *unregistered* seam
+— it renders no card and `createAdapter` cannot build it — plus
+`Contact.linkedinUrl` and both `source` vocabularies (`paste|api|linkedin` on Job,
+`apollo|linkedin|manual|brightdata` on Contact), unchanged in the schema.
+
+**The gates stay RED.** `gates/unit/phase-6/` and `gates/e2e/phase-6/` remain
+committed and are **never promoted**; `gates/DONE` skips 6 (`0 1 2 3 4 5` →
+`0 1 2 3 4 5 7`). Deleting them would erase the record of what was decided;
+promoting them would be a lie. RED-but-inert is exactly what §1's gate mechanism
+is for.
+
+### Phase 7 — Gmail over IMAP + the closed loop
+**Redesigned 2026-07-27** (was "user-owned OAuth"). Reply detection *is* the
+phase, and it is an IMAP feature: `SEARCH HEADER References "<id>"` is
+standards-mandated and matches exactly the message hunt sent, off the
+`Outreach.threadRef` P4 already stores. Gmail's API cannot search
+`In-Reply-To`/`References` at all — its only message-id operator is
+`rfc822msgid:`, which matches a message by its *own* id — so over the API reply
+detection degrades to `from:X after:Y`, which answers a different question. IMAP
+also costs the user three setup steps against OAuth's eight, needs no Google
+Cloud project, and dodges the 7-day refresh-token expiry that every
+Testing-status OAuth app lives under.
+
+**Done =** user pastes a Gmail app password in Settings, hunt sends through it
+and **polls for replies to sent outreach to auto-flip `replied` and halt
+sequences**.
+
+**Exit gate:** `pnpm gate 7` — integration tests against a fake IMAP server (no
+network): send stores the outgoing `Message-ID` as `threadRef`; `pollReplies()`
+against a mailbox holding a reply that carries `References: <threadRef>` flips
+Outreach → replied, Application → replied, halts remaining steps (reuses the P4
+sequence gate assertions); a mailbox with no matching reply leaves everything
+untouched. No e2e gate — PLAN specifies a documented manual smoke runbook with a
+real Gmail (`docs/runbooks/gmail-smoke.md`).
 
 **Contracts:** `src/lib/adapters/email/gmail.ts` (EmailAdapter + `meta` with the
-BYO-OAuth steps), `src/lib/google/oauth.ts` (exchange/refresh),
-`src/lib/outreach/reply-detection.ts` (`pollReplies()` — manual "Check replies"
-button in v1; cron later).
-**Verifier gap (P7 first task):** author the Gmail API mock fixtures (send,
-thread list, message get) from the public API shapes.
-**Leaves:** P7.a OAuth flow + settings docs w/ screenshots · P7.b gmail adapter
-+ fake twin · P7.c reply detection + status flip · P7.d runbook.
+app-password steps) with its `Fake` twin, `src/lib/outreach/reply-detection.ts`
+(`pollReplies()` — manual "Check replies" button in v1; cron later). **No
+`src/lib/google/oauth.ts`** — that subsystem belonged to the old design and is
+not built. The adapter boundary is what makes a Gmail-OAuth adapter addable
+later if Google ever retires app passwords (Microsoft already did for personal
+Outlook.com in Sept 2024).
+**Verifier gap (P7 first task):** stand up the fake IMAP server + fixtures — a
+sent message, a reply carrying `References`, and an unrelated message that must
+not match.
+**Leaves:** P7.a app-password settings card + docs w/ screenshots · P7.b IMAP
+adapter + fake twin · P7.c reply detection + status flip · P7.d runbook.
 
 ### Wave 3 integrate
-Merge both → verify + e2e + gates 6,7 → promote → human review. (No new nav
-areas; LinkedIn/Gmail surface inside Settings, Contacts, Outreach.)
+One branch, so this is short: verify + e2e + gate 7 → promote 7 → human review.
+(No new nav areas; Gmail surfaces inside Settings and Outreach, and contacts stay
+Apollo + manual.)
 
 ---
 
@@ -524,7 +564,7 @@ one command.
 4. **Error voice:** what failed, the real reason in mono (`402 — over plan
    limit`), 2–3 recovery actions. Never a stack trace, never lost work.
 5. **Docs for humans:** README quickstart is the npx line + a GIF; the
-   BYO-Google-OAuth guide has screenshots; every provider's Settings card links
+   Gmail app-password guide has screenshots; every provider's Settings card links
    its own get-a-key page (already in `meta`).
 
 ---
@@ -557,8 +597,10 @@ one command.
    dropdown is the tested path, drag is UI polish verified by humans.
 5. **Mailpit demoted from the P4 gate** to an env-flagged smoke; the fake email
    adapter's `outbox.jsonl` capture keeps the gate Docker-free and deterministic.
-6. **P6 gains an off-by-default gate** (adapter refuses to construct without the
-   explicit opt-in toggle) — the ToS posture is enforced in code, not copy.
+6. ~~**P6 gains an off-by-default gate**~~ — **superseded 2026-07-26.** The
+   off-by-default toggle was the design that assumed the feature shipped; P6 is
+   cancelled instead (§5), which enforces the ToS posture by not having the
+   code path at all.
 7. **User-agency stance codified** (§1): validator = provenance instrument;
    nothing blocks, nothing lectures; "Add it yourself" is the escape hatch.
 8. **`src/lib/db/enums.ts`** is referenced by the schema comment but was never
@@ -566,3 +608,14 @@ one command.
    vocabularies are first shared.
 9. **Port 4826** for the packaged `npx` runner (avoids 3000 clashes on dev
    machines); dev/e2e ports unchanged.
+
+Taken after this plan was written, recorded here so the sequencing stays honest:
+
+10. **Phase 6 cancelled** (2026-07-26, applied 2026-07-28) — cookie-session
+    LinkedIn is the only integration that can get the user's own account
+    restricted, and it sits badly against a trust-first product. Wave 3 drops to
+    a single phase; its gates stay committed and RED forever (§5).
+11. **Phase 7 respecced as IMAP + app password** (2026-07-27) — reply detection
+    needs `SEARCH HEADER References`, which IMAP mandates and the Gmail API does
+    not have. `src/lib/google/oauth.ts` is not built; the adapter seam keeps
+    OAuth addable later (§5).

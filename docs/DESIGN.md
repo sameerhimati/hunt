@@ -217,7 +217,7 @@ panels) · `Popover` · `DropdownMenu` · `Command` (⌘K) · `Tooltip` · `Sepa
 | **FitTierBadge** | Strong / Possible / Reach | qualitative tiers + reason on hover — never a fake %/score |
 | **PdfPreviewFrame** | live rendered résumé | light paper, toolbar (template ▾, zoom, page, diff-overlay), re-renders on edit |
 | **SequenceTimeline** | outreach steps | step 1 + follow-ups w/ day offsets, sent/replied/scheduled states |
-| **ContactCard** | recruiter / hiring mgr | source badge (Apollo/LinkedIn/manual), degree, actions |
+| **ContactCard** | recruiter / hiring mgr | source badge (Apollo/manual), LinkedIn profile link when the user recorded one, actions |
 | **FunnelStat** | dashboard metric | count + stage + conversion % to next stage |
 | **KeyProviderCard** | Settings BYOK | configured/missing/error state, test-connection, "what breaks without this" |
 | **VersionTree** | résumé version history | base → tailored children; select two → diff |
