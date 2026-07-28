@@ -297,6 +297,7 @@ export function SourcingWorkspace({
         onRun={runSaved}
         onSave={save}
         onDelete={remove}
+        query={query}
       />
 
       {searchError ? (

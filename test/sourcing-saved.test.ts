@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { FakeJobsAdapter } from '@/lib/adapters/jobs/fake'
 import { prisma } from '@/lib/db/client'
+import { describeQuery } from '@/lib/sourcing/types'
 import type { JobListing, JobQuery, SearchOptions } from '@/lib/sourcing/types'
 
 /**
@@ -45,11 +46,13 @@ beforeEach(async () => {
 })
 
 describe('saveSearch / listSavedSearches', () => {
-  it('round-trips a query with its chip label', async () => {
+  it('round-trips a query the chip can name', async () => {
     const saved = await saveSearch({ keywords: 'backend', remoteOnly: true })
 
     expect(saved.id).toBeTruthy()
-    expect(saved.label).toBe('backend · remote')
+    // The label is derived at render, never stored — the chip has to read as the
+    // query it will re-run, so the query is the thing worth asserting on.
+    expect(describeQuery(saved.query)).toBe('backend · remote')
     expect(saved.query).toEqual({ keywords: 'backend', remoteOnly: true })
 
     const list = await listSavedSearches()
@@ -72,7 +75,7 @@ describe('saveSearch / listSavedSearches', () => {
     const list = await listSavedSearches()
     expect(list).toHaveLength(2)
     expect(list[0].id).toBe(second.id)
-    expect(list[0].label).toBe('platform · SF')
+    expect(describeQuery(list[0].query)).toBe('platform · SF')
   })
 })
 

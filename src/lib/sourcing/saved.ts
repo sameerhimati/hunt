@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db/client'
 import { readSetting, writeSetting } from '@/lib/settings/store'
 
 import { searchJobs } from './search'
-import { SAVED_SEARCHES_KEY, describeQuery } from './types'
+import { SAVED_SEARCHES_KEY } from './types'
 import type { JobListing, JobQuery, SavedSearch, SearchOptions } from './types'
 
 /**
@@ -53,9 +53,10 @@ async function writeAll(searches: SavedSearch[]): Promise<void> {
 }
 
 /**
- * Persists `query` with its chip label (`describeQuery`) and returns the stored
- * row. Saving the same query twice returns the existing entry rather than
- * growing a wall of identical chips.
+ * Persists `query` and returns the stored row. Saving the same query twice
+ * returns the existing entry rather than growing a wall of identical chips.
+ * No label is stored — the chip re-derives it from the query at render, so it
+ * always reads as the search it will actually re-run.
  */
 export async function saveSearch(query: JobQuery): Promise<SavedSearch> {
   const searches = await readAll()
@@ -66,7 +67,6 @@ export async function saveSearch(query: JobQuery): Promise<SavedSearch> {
 
   const saved: SavedSearch = {
     id: newId(),
-    label: describeQuery(query),
     query,
     createdAt: new Date().toISOString(),
   }

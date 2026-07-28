@@ -133,7 +133,6 @@ export interface CheckDetailByKind {
   match_rating: MatchRatingDetail
 }
 
-export type CheckDetail = CheckDetailByKind[CheckKind]
 
 /**
  * One instrument reading.

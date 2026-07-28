@@ -25,7 +25,6 @@ const query = (overrides: Partial<JobQuery> = {}): JobQuery => ({
 
 const saved = (overrides: Partial<SavedSearch> = {}): SavedSearch => ({
   id: 's1',
-  label: 'platform',
   query: { keywords: 'platform' },
   createdAt: '2026-01-01T00:00:00.000Z',
   ...overrides,

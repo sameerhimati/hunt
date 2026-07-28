@@ -288,9 +288,15 @@ forgot the previous two.
   `reason.text`/`reason.citations` unguarded while its sibling line carefully
   guards the same shape. `tailor-workspace:499` passes a possibly-undefined
   `baseResume?.name` that line 656 defends and this one doesn't.
-- The five new shadcn primitives (`alert`, `avatar`, `hover-card`, `popover`,
-  `progress`) are unmodified stock and **nothing outside `components/ui/` imports
-  any of them**. Dead surface.
+- ~~The five new shadcn primitives (`alert`, `avatar`, `hover-card`, `popover`,
+  `progress`) are unmodified stock and nothing outside `components/ui/` imports
+  any of them.~~ **Partly wrong, and instructively so.** `hover-card` *is*
+  imported, by `fit-tier-badge.tsx`. That claim came from grepping a
+  double-quoted import path in a codebase that uses single quotes, which returns
+  zero hits for **every** component — including `button`, which has 23 importers.
+  Re-run quote-agnostically the real number was **eleven** orphans, not five, and
+  they have since been deleted. Lesson: a grep that reports everything as dead is
+  reporting on your pattern, not your code.
 
 ---
 

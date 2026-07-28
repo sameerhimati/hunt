@@ -67,7 +67,6 @@ export function isFitTier(value: string): value is FitTier {
 /** `Job.source` — how the posting arrived. */
 export const JOB_SOURCES = ['paste', 'api', 'linkedin', 'manual'] as const
 
-export type JobSource = (typeof JOB_SOURCES)[number]
 
 /** `Contact.source` — where the human came from. */
 export const CONTACT_SOURCES = ['apollo', 'linkedin', 'manual', 'brightdata'] as const

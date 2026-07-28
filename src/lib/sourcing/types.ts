@@ -44,8 +44,6 @@ export interface SourcedResult {
 /** A query the user chose to keep, so re-running the search is one click. */
 export interface SavedSearch {
   id: string
-  /** The chip label — `describeQuery(query)` at save time. */
-  label: string
   query: JobQuery
   /** ISO 8601. A string because this row round-trips through JSON in Setting. */
   createdAt: string
