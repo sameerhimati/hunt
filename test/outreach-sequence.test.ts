@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import { prisma } from '@/lib/db/client'
 import {
-  addStep,
   createSequence,
   dueSteps,
   markReplied,
@@ -238,24 +237,6 @@ describe('sequenceSteps', () => {
 })
 
 describe('composer edits', () => {
-  it('appends a step on the end of the cadence', async () => {
-    const { application, contact } = await seed()
-    await createSequence({
-      applicationId: application.id,
-      contactId: contact.id,
-      steps: [{ subject: 'Intro', body: 'hi', dayOffset: 0 }],
-    })
-
-    const added = await addStep(
-      { applicationId: application.id, contactId: contact.id },
-      { subject: 'Follow-up', body: 'bump', dayOffset: 4 },
-    )
-
-    expect(added.sequenceStep).toBe(2)
-    const view = await sequenceSteps({ applicationId: application.id, contactId: contact.id })
-    expect(view.map((s) => s.cumulativeOffset)).toEqual([0, 4])
-  })
-
   it('shifts every later step when an offset is edited', async () => {
     const { application, contact } = await seed()
     const steps = await createSequence({

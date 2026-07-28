@@ -78,11 +78,6 @@ describe('SequenceTimeline', () => {
     expect(link?.getAttribute('href')).toBe('?step=s3')
   })
 
-  it('shows the add-step affordance', () => {
-    render(<SequenceTimeline steps={STEPS} />)
-    expect(screen.getByText('+ add step')).toBeTruthy()
-  })
-
   it('never claims it notices a reply on its own', () => {
     render(<SequenceTimeline steps={STEPS} />)
 

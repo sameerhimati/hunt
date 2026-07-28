@@ -217,24 +217,6 @@ export async function sequenceSteps(key: SequenceKey): Promise<OutreachStepView[
   })
 }
 
-/** "+ add step" in the composer: another follow-up on the end of the cadence. */
-export async function addStep(key: SequenceKey, step: SequenceStepInput): Promise<Outreach> {
-  const rows = await loadSequence(key)
-  const last = rows.at(-1)
-
-  return prisma.outreach.create({
-    data: {
-      applicationId: key.applicationId,
-      contactId: key.contactId ?? null,
-      sequenceStep: (last?.sequenceStep ?? 0) + 1,
-      dayOffset: step.dayOffset,
-      subject: step.subject,
-      body: step.body,
-      status: 'scheduled' satisfies OutreachStatus,
-    },
-  })
-}
-
 /**
  * Edit one step. Every step is editable, sent ones included — the mockup says
  * so, and a sent row's copy is worth correcting for the next send even when

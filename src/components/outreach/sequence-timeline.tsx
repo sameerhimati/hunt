@@ -151,9 +151,6 @@ export function SequenceTimeline({
           )
         })}
       </div>
-      <div className="mt-4 rounded-lg border border-dashed border-border p-2 text-center text-[11.5px] text-primary">
-        + add step
-      </div>
       {replied ? (
         <p className="mt-3.5 text-[11px] leading-relaxed text-faint">
           They replied on step {replied.sequenceStep} — every step after it is halted.

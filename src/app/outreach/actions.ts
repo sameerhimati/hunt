@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/db/client'
 import { draftOutreach } from '@/lib/outreach/draft'
 import { EmailNotConfiguredError, markSentManually, sendStep } from '@/lib/outreach/send'
-import { addStep, markReplied, updateStep } from '@/lib/outreach/sequence'
+import { markReplied, updateStep } from '@/lib/outreach/sequence'
 import type { OutreachCitation } from '@/lib/outreach/types'
 import { versionContent } from '@/lib/resume/store'
 
@@ -194,44 +194,6 @@ export async function markSentManuallyAction(stepId: string): Promise<ActionResu
   revalidateOutreach(step.applicationId)
   return {}
 }
-
-/**
- * "+ add step" — another follow-up on the end of the cadence, four days after
- * the one before it. The subject names the role so the row is readable in the
- * queue before anyone has written a word of it.
- */
-export async function addStepAction(input: {
-  applicationId: string
-  contactId?: string | null
-  subject?: string
-  body?: string
-  dayOffset?: number
-}): Promise<ActionResult> {
-  const application = await prisma.application.findUnique({
-    where: { id: input.applicationId },
-    select: { job: { select: { title: true } } },
-  })
-  if (!application) return { error: 'That application is no longer here. Reload the screen.' }
-
-  try {
-    await addStep(
-      { applicationId: input.applicationId, contactId: input.contactId ?? null },
-      {
-        subject: input.subject ?? `Re: ${application.job.title}`,
-        body: input.body ?? '',
-        dayOffset: input.dayOffset ?? DEFAULT_FOLLOW_UP_GAP,
-      },
-    )
-  } catch (error) {
-    return { error: describe(error) }
-  }
-
-  revalidateOutreach(input.applicationId)
-  return {}
-}
-
-/** Days after the previous step a hand-added follow-up lands on. */
-const DEFAULT_FOLLOW_UP_GAP = 4
 
 /**
  * They answered. Halts the rest of the sequence and moves the application to

@@ -51,10 +51,6 @@ export const OUTREACH_STATUSES = [
 
 export type OutreachStatus = (typeof OUTREACH_STATUSES)[number]
 
-export function isOutreachStatus(value: string): value is OutreachStatus {
-  return (OUTREACH_STATUSES as readonly string[]).includes(value)
-}
-
 /**
  * `Application.fitTier` — qualitative, always. There is no fourth "score" tier
  * and there never will be; `src/lib/fit/rate.ts` is built on this list so the

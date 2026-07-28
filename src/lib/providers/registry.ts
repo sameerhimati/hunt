@@ -45,10 +45,6 @@ export function getProvider(id: string): ProviderMeta | undefined {
   return PROVIDERS.find((provider) => provider.id === id)
 }
 
-export function providersByCategory(category: ProviderCategory): ProviderMeta[] {
-  return PROVIDERS.filter((provider) => provider.category === category)
-}
-
 /** Settings are stored flat as `provider.<providerId>.<fieldKey>`. */
 export function settingKey(providerId: string, fieldKey: string): string {
   return `provider.${providerId}.${fieldKey}`
