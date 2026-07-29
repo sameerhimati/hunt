@@ -20,6 +20,15 @@ key. Public roadmap: done.
 **CP2 — public launch**
 Landing page · waitlist with a public 30-day countdown · Loom walkthrough + demo
 GIF · Show HN / LinkedIn. All still to build.
+
+**Cold-start / onboarding run.** CP1-C routes `/` by state, which is not the same
+thing. `docs/SCREENS.md §1` specs a real first-run flow — welcome → keys →
+import → done, every step skippable, the LLM key badged as "the one to add" —
+and `docs/PHASE-PLAN.md §7` specs the whole non-technical path around it
+(`npx hunt-app`, Tectonic download with a visible progress state and *never a
+silent hang*, degraded-by-design everywhere). Designed, never built. Scope it
+after dogfooding, so the flow answers what actually goes wrong rather than what
+we guessed would.
 → **Gate:** three strangers get it *running*.
 
 **CP3 — first revenue · parallel, zero code**
