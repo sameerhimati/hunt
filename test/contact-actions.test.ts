@@ -188,6 +188,41 @@ describe('draftResumeNotice', () => {
     expect(notice.pinned).toBe(false)
     expect(notice.resumeName).toBe('Alex Chen — base')
   })
+
+  it('skips an archived résumé when falling back, and keeps a pinned one', async () => {
+    const application = await seedApplication()
+    const { resume: archived } = await seedResume('Alex Chen — old', 'v1')
+    const { resume: current } = await seedResume('Alex Chen — current', 'v1')
+
+    // The archived one is the most recently touched, so without the filter it
+    // would win the fallback and cite a document the user has put away.
+    await prisma.resume.update({
+      where: { id: archived.id },
+      data: { archivedAt: new Date() },
+    })
+
+    const notice = await draftResumeNotice(application.id)
+    expect(notice.resumeName).toBe('Alex Chen — current')
+    expect(current.id).toBeTruthy()
+  })
+
+  it('still names an archived résumé when an application is pinned to its version', async () => {
+    const application = await seedApplication()
+    const { resume, version } = await seedResume('Alex Chen — sent in March', 'v2')
+    await prisma.application.update({
+      where: { id: application.id },
+      data: { resumeVersionId: version.id },
+    })
+    await prisma.resume.update({ where: { id: resume.id }, data: { archivedAt: new Date() } })
+
+    // Archiving is not a retraction: the application really was sent from this
+    // version, and the record of that has to survive putting the document away.
+    expect(await draftResumeNotice(application.id)).toEqual({
+      pinned: true,
+      resumeName: 'Alex Chen — sent in March',
+      label: 'v2',
+    })
+  })
 })
 
 describe('draftOutreachAction', () => {

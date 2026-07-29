@@ -176,7 +176,10 @@ export async function ingestBoardPosting(
   // Boards normally return their own canonical permalink; when one doesn't,
   // the link the user pasted is better than no link at all, since `Job.url` is
   // the identity every later re-pull dedupes on.
-  return pullIntoPipeline(listing.url ? listing : { ...listing, url: url.trim() })
+  // 'paste', not 'api': hunt read this from the board's own API, but the user
+  // pasted a link. `Job.source` is shown to them on the application page, and it
+  // should describe what they did, not which transport we happened to use.
+  return pullIntoPipeline(listing.url ? listing : { ...listing, url: url.trim() }, undefined, 'paste')
 }
 
 export interface ManualJobInput {

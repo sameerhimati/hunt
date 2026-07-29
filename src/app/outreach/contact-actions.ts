@@ -199,7 +199,12 @@ async function resolveDraftSource(applicationId: string): Promise<DraftSource | 
     }
   }
 
+  // Archived résumés are excluded here but not above: a pinned version stays
+  // readable forever, because the application really was sent from it. This is
+  // the *fallback* — picking a document the user has put away to write a cold
+  // email they haven't reviewed is the wrong guess.
   const resume = await prisma.resume.findFirst({
+    where: { archivedAt: null },
     orderBy: { updatedAt: 'desc' },
     include: { versions: { orderBy: { createdAt: 'desc' }, take: 1 } },
   })

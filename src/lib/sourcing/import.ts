@@ -2,6 +2,7 @@ import type { Application, Job } from '@/generated/prisma/client'
 import { prisma } from '@/lib/db/client'
 import type { FitRating } from '@/lib/fit/rate'
 import { createApplication } from '@/lib/pipeline/status'
+import type { JobSource } from '@/lib/db/enums'
 
 import { canonicalPostingUrl } from './search'
 import type { JobListing } from './types'
@@ -99,6 +100,13 @@ function findExistingJob(url: string | null, listing: JobListing): Promise<Job |
 export async function pullIntoPipeline(
   listing: JobListing,
   rating?: FitRating,
+  /**
+   * How the job arrived, for `Job.source`. Defaults to `'api'` — a listing that
+   * came back from a board search. A URL the user pasted is `'paste'` even when
+   * hunt read it from that same board API: the field records what the person
+   * did, and the application page shows it to them.
+   */
+  source: JobSource = 'api',
 ): Promise<{ job: Job; application: Application }> {
   const url = canonicalPostingUrl(listing.url)
   const jdText = jdFor(listing)
@@ -124,7 +132,7 @@ export async function pullIntoPipeline(
         company: listing.company,
         location: listing.location ?? null,
         jdText,
-        source: 'api',
+        source,
         scrapedAt: new Date(),
       },
     })

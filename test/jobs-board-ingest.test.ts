@@ -245,6 +245,11 @@ describe('ingestBoardPosting', () => {
     expect(pulled?.job.company).toBe('Meridian Health')
     expect(pulled?.job.jdText).toContain('Kubernetes')
     expect(pulled?.application.jobId).toBe(pulled?.job.id)
+
+    // 'paste', not 'api'. hunt read this from Ashby's own API, but the user
+    // pasted a link — and Job.source is shown back to them on the application
+    // page, where "from api" about a link they typed reads as wrong.
+    expect(pulled?.job.source).toBe('paste')
   })
 
   it('stores the board’s own canonical link, so a legacy paste is not a second row', async () => {
