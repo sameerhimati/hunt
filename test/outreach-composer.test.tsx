@@ -81,7 +81,7 @@ afterEach(cleanup)
 
 describe('composer', () => {
   it('opens on the drafted step and names who it is going to and from', () => {
-    render(<Composer sequence={sequence()} />)
+    render(<Composer sequence={sequence()} templated={false} />)
 
     expect(screen.getByTestId('composer-contact').textContent).toContain('Jordan Lee')
     expect(screen.getByTestId('composer-contact').textContent).toContain('Technical Recruiter')
@@ -103,6 +103,7 @@ describe('composer', () => {
             step({ id: 'next-2', sequenceStep: 2, subject: 'Following up', body: 'bump' }),
           ],
         })}
+        templated={false}
       />,
     )
 
@@ -110,7 +111,7 @@ describe('composer', () => {
   })
 
   it('keeps the manual escape hatch reachable even when hunt can send', () => {
-    render(<Composer sequence={sequence()} />)
+    render(<Composer sequence={sequence()} templated={false} />)
 
     // The e2e gate asserts attachment, not visibility: the item lives in the
     // send menu, so it must be in the DOM before anyone opens it.
@@ -119,7 +120,7 @@ describe('composer', () => {
   })
 
   it('opens the send menu and marks the step sent by hand', async () => {
-    render(<Composer sequence={sequence()} />)
+    render(<Composer sequence={sequence()} templated={false} />)
 
     const item = screen.getByTestId('mark-sent-manually')
     expect(item.closest('[role="menu"]')?.hasAttribute('hidden')).toBe(true)
@@ -133,7 +134,7 @@ describe('composer', () => {
   })
 
   it('degrades to copy / mark as sent when no email provider is configured', () => {
-    render(<Composer sequence={sequence({ emailConfigured: false })} />)
+    render(<Composer sequence={sequence({ emailConfigured: false })} templated={false} />)
 
     expect(screen.queryByTestId('send-now')).toBeNull()
     expect(screen.getByTestId('copy-message')).toBeTruthy()
@@ -144,7 +145,7 @@ describe('composer', () => {
   })
 
   it('saves an unsaved edit before sending it', async () => {
-    render(<Composer sequence={sequence()} />)
+    render(<Composer sequence={sequence()} templated={false} />)
 
     fireEvent.change(screen.getByTestId('message-body'), { target: { value: 'Rewritten by hand.' } })
     fireEvent.click(screen.getByTestId('send-now'))
@@ -162,7 +163,7 @@ describe('composer', () => {
   })
 
   it('sends untouched copy without a pointless write', async () => {
-    render(<Composer sequence={sequence()} />)
+    render(<Composer sequence={sequence()} templated={false} />)
 
     fireEvent.click(screen.getByTestId('send-now'))
 
@@ -174,7 +175,7 @@ describe('composer', () => {
 
   it('shows a failed send in place instead of losing the message', async () => {
     sendStepAction.mockResolvedValue({ error: 'Resend: no email provider is configured.' })
-    render(<Composer sequence={sequence()} />)
+    render(<Composer sequence={sequence()} templated={false} />)
 
     fireEvent.click(screen.getByTestId('send-now'))
 
@@ -190,7 +191,7 @@ describe('composer', () => {
       body: 'Hi Jordan — I cut p99 from 210ms to 130ms.',
       citations: [{ path: 'experience[0].bullets[3]', snippet: 'Cut p99 latency 38%' }],
     })
-    render(<Composer sequence={sequence()} />)
+    render(<Composer sequence={sequence()} templated={false} />)
 
     fireEvent.click(screen.getByTestId('regenerate'))
 
@@ -225,7 +226,7 @@ describe('composer', () => {
       body: 'Hi Jordan — I cut p99 from 210ms to 130ms.',
       citations: [{ path: 'experience[0].bullets[3]', snippet: 'Cut p99 latency 38%' }],
     })
-    render(<Composer sequence={sequence()} />)
+    render(<Composer sequence={sequence()} templated={false} />)
 
     // The assertion above only sees whichever commit `waitFor` happens to land
     // on, so it catches this maybe one run in five. This one watches *every*
@@ -256,6 +257,7 @@ describe('composer', () => {
         sequence={sequence({
           steps: [step({ status: 'sent', sentAt: new Date('2026-07-20T09:00:00.000Z') })],
         })}
+        templated={false}
       />,
     )
 
@@ -273,6 +275,7 @@ describe('composer', () => {
         sequence={sequence({
           steps: [step({ status: 'scheduled', sentAt: new Date('2026-07-20T09:00:00.000Z') })],
         })}
+        templated={false}
       />,
     )
 
@@ -290,7 +293,7 @@ describe('composer', () => {
 
   it('does not paint "already sent" red — it is a normal outcome, not a failure', async () => {
     sendStepAction.mockResolvedValue({ note: 'That step already went out — nothing sent again.' })
-    render(<Composer sequence={sequence()} />)
+    render(<Composer sequence={sequence()} templated={false} />)
 
     fireEvent.click(screen.getByTestId('send-now'))
 
@@ -301,9 +304,32 @@ describe('composer', () => {
   })
 
   it('says what to do when there is no sequence at all', () => {
-    render(<Composer sequence={null} />)
+    render(<Composer sequence={null} templated={false} />)
 
     expect(screen.queryByTestId('message-subject')).toBeNull()
     expect(screen.getByText(/Nothing to write yet/)).toBeTruthy()
+  })
+
+  /**
+   * The keyless drafter hands back three finished-looking messages. Every other
+   * key-gated feature in hunt renders a visible state; this one produced output,
+   * and output nobody labelled reads as output a model wrote.
+   */
+  describe('a sequence that came from the template, not the model', () => {
+    it('says so, and does not take the sequence away', () => {
+      render(<Composer sequence={sequence()} templated />)
+
+      const banner = screen.getByTestId('degraded-banner')
+      expect(banner.textContent).toMatch(/template/i)
+      // The keyless floor is a promise: templates still send, edit and schedule.
+      expect(screen.getByTestId('message-subject')).toBeTruthy()
+      expect(screen.getByTestId('send-now')).toBeTruthy()
+    })
+
+    it('is silent about the model when a model wrote it', () => {
+      render(<Composer sequence={sequence()} templated={false} />)
+
+      expect(screen.queryByTestId('degraded-banner')).toBeNull()
+    })
   })
 })

@@ -3,13 +3,13 @@
 import { revalidatePath } from 'next/cache'
 
 import { prisma } from '@/lib/db/client'
-import { resolveLlm } from '@/lib/llm'
 import { applicationDetail } from '@/lib/pipeline/board'
 import { transitionApplication } from '@/lib/pipeline/status'
 import { parseResumeContent, type ResumeContent } from '@/lib/resume/schema'
 import { getVersion, saveVersion, versionContent } from '@/lib/resume/store'
 import { applyChangesWithReport, type SkippedChange } from '@/lib/tailor/apply'
 import {
+  CoverLetterUnavailableError,
   draftCoverLetter,
   loadCoverLetter,
   saveCoverLetter,
@@ -71,18 +71,12 @@ export async function runTailorAction(
     const version = await getVersion(baseVersionId)
     if (!version) return { ok: false, error: 'That résumé version no longer exists.' }
 
-    const llm = await resolveLlm()
-    if (!llm) {
-      return {
-        ok: false,
-        error: 'No LLM key configured — add Anthropic or an OpenAI-compatible endpoint in Settings.',
-      }
-    }
-
+    // No key check here: `runTailor` resolves the model itself and throws
+    // `TailorUnavailableError` when there is none, which `reason` hands back
+    // verbatim. A second check would be a second wording of the same sentence.
     const run = await runTailor({
       content: versionContent(version),
       job: context.job,
-      llm,
       baseVersionId,
     })
 
@@ -183,7 +177,17 @@ export async function saveTailoredVersionAction(
 
 export type CoverLetterResult =
   | { ok: true; draft: CoverLetterDraft | null }
-  | { ok: false; error: string }
+  | {
+      ok: false
+      error: string
+      /**
+       * True only for "there is no model configured" — the one failure the tab
+       * answers with a DegradedBanner instead of an error and a retry. It is a
+       * field rather than a sentence the tab pattern-matches: the wording is
+       * copy, and copy must be free to change without breaking a screen.
+       */
+      keyless?: boolean
+    }
 
 /** Slot for leaf P3.d — drafts the letter from the version the run produced. */
 export async function draftCoverLetterAction(
@@ -197,23 +201,17 @@ export async function draftCoverLetterAction(
     const version = await getVersion(versionId)
     if (!version) return { ok: false, error: 'That résumé version no longer exists.' }
 
-    const llm = await resolveLlm()
-    if (!llm) {
-      return {
-        ok: false,
-        error: 'No LLM key configured — add Anthropic or an OpenAI-compatible endpoint in Settings.',
-      }
-    }
-
     const draft = await draftCoverLetter({
       applicationId,
       content: versionContent(version),
       job: context.job,
-      llm,
     })
 
     return { ok: true, draft }
   } catch (cause) {
+    if (cause instanceof CoverLetterUnavailableError) {
+      return { ok: false, error: cause.message, keyless: true }
+    }
     return { ok: false, error: reason(cause, 'Drafting the cover letter failed.') }
   }
 }

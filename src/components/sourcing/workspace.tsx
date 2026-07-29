@@ -270,6 +270,10 @@ export function SourcingWorkspace({
           needs="a JSearch or Adzuna key"
           stillWorks="Company boards (Greenhouse, Lever, Ashby) are already searchable without one, and you can add any job by pasting its URL."
           settingsSection="jobs"
+          // The `jobs` heading also sits above the free-boards card, which is
+          // the thing already working — so the link lands on the first card
+          // that would actually change this screen. Adzuna is directly below.
+          settingsProvider="jsearch"
         />
       ) : null}
 

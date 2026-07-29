@@ -25,6 +25,7 @@ const {
   saveContactAction,
 } = await import('@/app/outreach/contact-actions')
 const { listContacts } = await import('@/lib/contacts/store')
+const { TEMPLATE_DRAFT } = await import('@/lib/outreach/types')
 const { prisma } = await import('@/lib/db/client')
 const { sequenceSteps } = await import('@/lib/outreach/sequence')
 
@@ -215,10 +216,11 @@ describe('draftOutreachAction', () => {
     // The follow-ups are deterministic, not generated: day 0 / +4 / +9.
     expect(steps.map((step) => step.cumulativeOffset)).toEqual([0, 4, 9])
 
+    // A model wrote step 1, so there is nothing to disclose.
     expect(redirect).toHaveBeenCalledWith(`/outreach?contact=${contactId}`)
   })
 
-  it('falls back to the template sequence when no model is configured', async () => {
+  it('falls back to the template sequence when no model is configured — and says so', async () => {
     const application = await seedApplication()
     await seedResume('Alex Chen', 'v1')
     const saved = await saveContactAction({ applicationId: application.id, name: 'Jordan Lee' })
@@ -232,7 +234,11 @@ describe('draftOutreachAction', () => {
     expect(steps[0].subject).toBeTruthy()
     // The one sentence only the human can write is left to them, in brackets.
     expect(steps[0].body).toContain('[')
-    expect(redirect).toHaveBeenCalledWith(`/outreach?contact=${contactId}`)
+    // The composer opens on three plausible-looking messages no model wrote.
+    // Handing those over unmarked is the one thing this product refuses.
+    expect(redirect).toHaveBeenCalledWith(
+      `/outreach?contact=${contactId}&${TEMPLATE_DRAFT.param}=${TEMPLATE_DRAFT.value}`,
+    )
   })
 
   it('drafts even with no résumé at all', async () => {
@@ -244,6 +250,25 @@ describe('draftOutreachAction', () => {
 
     const steps = await sequenceSteps({ applicationId: application.id, contactId })
     expect(steps).toHaveLength(3)
+  })
+
+  it('does not blame the model for a template it never asked the model about', async () => {
+    // Genuinely no résumé — the earlier cases leave versions behind, and
+    // `resolveDraftSource` would find one and reach for a model after all.
+    await prisma.application.updateMany({ data: { resumeVersionId: null } })
+    await prisma.resumeVersion.deleteMany()
+    await prisma.resume.deleteMany()
+
+    const application = await seedApplication()
+    const saved = await saveContactAction({ applicationId: application.id, name: 'Jordan Lee' })
+    const contactId = saved.contact!.id
+
+    await draftOutreachAction(application.id, contactId)
+
+    // The contact card already said "No résumé yet — the draft will be a
+    // template you fill in". Nothing was asked of a model here, so nothing is
+    // known about one, and "add a key" would be a guess dressed as a diagnosis.
+    expect(redirect).toHaveBeenCalledWith(`/outreach?contact=${contactId}`)
   })
 
   it('opens the existing sequence instead of dealing a second one', async () => {

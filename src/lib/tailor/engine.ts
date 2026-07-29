@@ -1,6 +1,7 @@
 import { asResolvedLlm, resolveLlm, type LlmLike } from '@/lib/llm'
 import { runPrompt } from '@/lib/llm/prompts'
 import { tailorMessage, tailorSystem } from '@/lib/llm/prompts/tailor'
+import { modelRequired } from '@/lib/llm/unavailable'
 import type { ResumeContent } from '@/lib/resume/schema'
 
 import { validateChanges } from './validator'
@@ -34,8 +35,10 @@ export interface TailorInput {
 export class TailorUnavailableError extends Error {
   constructor() {
     super(
-      'Tailoring needs a language model. Add an Anthropic (or OpenAI-compatible) ' +
-        'key in Settings — the résumé editor and everything else still work without one.',
+      modelRequired(
+        'Tailoring',
+        'the résumé editor and everything else still work without one',
+      ),
     )
     this.name = 'TailorUnavailableError'
   }

@@ -18,7 +18,7 @@ import {
   type OutreachJob,
 } from '@/lib/outreach/draft'
 import { createSequence, sequenceSteps } from '@/lib/outreach/sequence'
-import type { ContactView, SequenceStepInput } from '@/lib/outreach/types'
+import { TEMPLATE_DRAFT, type ContactView, type SequenceStepInput } from '@/lib/outreach/types'
 import type { ResumeContent } from '@/lib/resume/schema'
 import { versionContent } from '@/lib/resume/store'
 
@@ -30,6 +30,10 @@ import { versionContent } from '@/lib/resume/store'
  * real sequence (`templateSequenceSteps`) instead of an error dialog. Drafting
  * is the last place in the product that should hard-fail: the human is already
  * looking at a name and a send button.
+ *
+ * The floor is not a disguise, though. A template that arrives looking like a
+ * model draft is hunt asserting authorship it does not have, so the redirect
+ * carries `TEMPLATE_DRAFT` and the composer says whose words these are.
  *
  * Failures come back as `{ error }` rather than thrown, because these are
  * called from the application page and a throw there takes the whole hub down.
@@ -217,19 +221,30 @@ export async function draftResumeNotice(applicationId: string): Promise<DraftRes
  * Step 1 from the model when there is one, from the template when there isn't.
  * `OutreachUnavailableError` means "no key", which is a supported way to run
  * hunt — every other failure is real news and travels back to the card.
+ *
+ * The template is a floor, not a forgery, so it carries a receipt: `keyless`
+ * says the model was *asked and absent*. Handing three finished-looking
+ * messages to someone who believes a model wrote them is the one output this
+ * product must not produce silently.
+ *
+ * It is deliberately false for the no-résumé template. Nothing was asked of a
+ * model there, so nothing is known about one — and the contact card has already
+ * said "No résumé yet — the draft will be a template you fill in."
  */
 async function stepsFor(
   content: ResumeContent | null,
   job: OutreachJob,
   contact: OutreachContact,
-): Promise<SequenceStepInput[]> {
-  if (!content) return templateSequenceSteps({ job, contact })
+): Promise<{ steps: SequenceStepInput[]; keyless: boolean }> {
+  if (!content) return { steps: templateSequenceSteps({ job, contact }), keyless: false }
 
   try {
     const draft = await draftOutreach({ content, job, contact })
-    return buildSequenceSteps(draft, { job, contact })
+    return { steps: buildSequenceSteps(draft, { job, contact }), keyless: false }
   } catch (error) {
-    if (error instanceof OutreachUnavailableError) return templateSequenceSteps({ job, contact })
+    if (error instanceof OutreachUnavailableError) {
+      return { steps: templateSequenceSteps({ job, contact }), keyless: true }
+    }
     throw error
   }
 }
@@ -245,6 +260,9 @@ export async function draftOutreachAction(
   applicationId: string,
   contactId: string,
 ): Promise<ContactMutationResult> {
+  /** Whether the sequence this call dealt came from the template for want of a model. */
+  let keyless = false
+
   try {
     const [application, contact] = await Promise.all([
       prisma.application.findUnique({ where: { id: applicationId }, include: { job: true } }),
@@ -257,7 +275,7 @@ export async function draftOutreachAction(
     const existing = await sequenceSteps({ applicationId, contactId })
     if (existing.length === 0) {
       const source = await resolveDraftSource(applicationId)
-      const steps = await stepsFor(
+      const drafted = await stepsFor(
         source?.content ?? null,
         {
           title: application.job.title,
@@ -266,7 +284,8 @@ export async function draftOutreachAction(
         },
         { name: contact.name, title: contact.title, company: contact.company },
       )
-      await createSequence({ applicationId, contactId, steps })
+      await createSequence({ applicationId, contactId, steps: drafted.steps })
+      keyless = drafted.keyless
     }
   } catch (error) {
     return { error: describe(error) }
@@ -274,6 +293,8 @@ export async function draftOutreachAction(
 
   revalidateContacts(applicationId)
   // Straight into the composer with the sequence already written — the answer
-  // to "did that work?" is the drafted message, not a toast.
-  redirect(`/outreach?contact=${contactId}`)
+  // to "did that work?" is the drafted message, not a toast. The marker travels
+  // with it so the composer can say whose words those are.
+  const marker = keyless ? `&${TEMPLATE_DRAFT.param}=${TEMPLATE_DRAFT.value}` : ''
+  redirect(`/outreach?contact=${contactId}${marker}`)
 }

@@ -6,6 +6,7 @@ import {
   type OutreachContact,
   type OutreachJob,
 } from '@/lib/llm/prompts/outreach'
+import { modelRequired } from '@/lib/llm/unavailable'
 import { resolvePath, type ResumeContent } from '@/lib/resume/schema'
 
 import { FOLLOW_UP_OFFSETS, type DraftedOutreach, type OutreachCitation, type SequenceStepInput } from './types'
@@ -41,8 +42,7 @@ export interface DraftOutreachInput {
 export class OutreachUnavailableError extends Error {
   constructor() {
     super(
-      'Drafting needs a language model. Add an Anthropic (or OpenAI-compatible) ' +
-        'key in Settings — you can still write and send the sequence yourself.',
+      modelRequired('Drafting outreach', 'you can still write and send the sequence yourself'),
     )
     this.name = 'OutreachUnavailableError'
   }
@@ -198,6 +198,8 @@ export function buildSequenceSteps(
  * than an error dialog: a real sequence, with the role filled in and the one
  * sentence only the user can write left to them. Nothing here claims anything
  * about their experience, so nothing here needs a citation.
+ *
+ * It also never arrives unlabelled — see `TEMPLATE_DRAFT` in `./types`.
  */
 export function templateSequenceSteps(context: SequenceContext): SequenceStepInput[] {
   const { job, contact } = context

@@ -1,6 +1,7 @@
 import { asResolvedLlm, resolveLlm, type LlmLike } from '@/lib/llm'
 import { runPrompt } from '@/lib/llm/prompts'
 import { coverLetterMessage, coverLetterSystem } from '@/lib/llm/prompts/cover-letter'
+import { modelRequired } from '@/lib/llm/unavailable'
 import { resolvePath, type ResumeContent } from '@/lib/resume/schema'
 
 import type { FitJob } from './types'
@@ -92,8 +93,7 @@ export interface DraftCoverLetterInput {
 export class CoverLetterUnavailableError extends Error {
   constructor() {
     super(
-      'Drafting a cover letter needs an LLM key. Add Anthropic or an OpenAI-compatible ' +
-        'endpoint in Settings — the rest of the tailor run works without one.',
+      modelRequired('Drafting a cover letter', 'the rest of the tailor run works without one'),
     )
     this.name = 'CoverLetterUnavailableError'
   }

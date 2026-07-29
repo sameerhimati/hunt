@@ -22,8 +22,18 @@ interface DegradedBannerProps {
   needs: string
   /** What is still available meanwhile. The keyless floor is a product promise. */
   stillWorks: string
-  /** Which Settings section the link lands on. */
+  /** Where the link lands when no single provider is to blame. */
   settingsSection: ProviderCategory
+  /**
+   * A provider id from `lib/providers/registry` — every Settings card renders
+   * `id={meta.id}`, so this puts the user on the card itself rather than on the
+   * heading above a stack of them.
+   *
+   * Omit it when the remedy genuinely is the category: a feature that runs on
+   * *either* LLM key has no one card to point at, and a link that picked one
+   * anyway would be quietly recommending it.
+   */
+  settingsProvider?: string
   className?: string
 }
 
@@ -32,8 +42,13 @@ export function DegradedBanner({
   needs,
   stillWorks,
   settingsSection,
+  settingsProvider,
   className,
 }: DegradedBannerProps) {
+  const href = settingsProvider
+    ? `/settings#${settingsProvider}`
+    : `/settings#section-${settingsSection}`
+
   return (
     <div
       data-testid="degraded-banner"
@@ -53,7 +68,7 @@ export function DegradedBanner({
         <p className="mt-1 text-muted-foreground">{stillWorks}</p>
 
         <Link
-          href={`/settings#section-${settingsSection}`}
+          href={href}
           data-testid="degraded-banner-link"
           className="mt-2 inline-block font-mono text-xs text-warn underline underline-offset-2 hover:text-foreground"
         >

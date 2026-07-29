@@ -466,7 +466,7 @@ describe('the cover letter tab', () => {
     ],
   }
 
-  function mount(actions: Partial<CoverLetterActions> = {}, hasLlm?: boolean) {
+  function mount(actions: Partial<CoverLetterActions> = {}, hasLlm = true) {
     const stub: CoverLetterActions = {
       load: vi.fn(async () => ({ ok: true as const, draft: savedDraft })),
       draft: vi.fn(async () => ({ ok: true as const, draft: savedDraft })),
@@ -666,17 +666,38 @@ describe('the cover letter tab', () => {
     expect(sent.paragraphs[0].flag).toBeUndefined()
   })
 
-  it('reads the keyless state off the action when the page did not say', async () => {
+  // The key can go away between the page load that resolved it and the draft —
+  // the action says so with a flag on the result, never by wording. The tab used
+  // to run /llm key/i over the message, which made the sentence a contract
+  // between two files that nothing enforced.
+  it('reads the keyless state off the action’s flag, not off its wording', async () => {
     mount({
       load: vi.fn(async () => ({ ok: true as const, draft: null })),
       draft: vi.fn(async () => ({
         ok: false as const,
-        error: 'No LLM key configured — add Anthropic or an OpenAI-compatible endpoint in Settings.',
+        error: new CoverLetterUnavailableError().message,
+        keyless: true,
       })),
     })
 
     await waitFor(() => expect(screen.getByTestId('degraded-banner')).toBeTruthy())
     expect(screen.queryByTestId('cover-letter-error')).toBeNull()
+  })
+
+  it('treats an unflagged failure as a failure however much it sounds like a key', async () => {
+    mount({
+      load: vi.fn(async () => ({ ok: true as const, draft: null })),
+      draft: vi.fn(async () => ({
+        ok: false as const,
+        error: 'Anthropic rejected the LLM key you have configured (401).',
+      })),
+    })
+
+    await waitFor(() => expect(screen.getByTestId('cover-letter-error')).toBeTruthy())
+    // A rejected key is not a missing one: the amber "add a key" banner would
+    // send the user to add the key they already added.
+    expect(screen.queryByTestId('degraded-banner')).toBeNull()
+    expect(screen.getByTestId('retry-cover-letter')).toBeTruthy()
   })
 
   it('shows a real failure inline with a retry, not a spinner that never ends', async () => {

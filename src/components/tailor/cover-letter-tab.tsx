@@ -67,18 +67,14 @@ export interface CoverLetterTabProps {
   baseVersionId: string
   job: { title: string; company: string }
   /**
-   * Known upfront by the page the way the résumé tab knows it. Optional because
-   * the keyless case is also recognisable from the action's own error, and the
-   * tab has to degrade whether or not it was told in advance.
+   * Resolved on the server by `tailor/page.tsx`, the way the résumé tab gets
+   * it. Required, because the alternative — opening the tab, spending a model
+   * call, and learning from the error that there was never a key — is a round
+   * trip the page had the answer to before it rendered.
    */
-  hasLlm?: boolean
+  hasLlm: boolean
   /** Injected by tests; production uses the route's server actions. */
   actions?: CoverLetterActions
-}
-
-/** The one error that is a missing key rather than a failure. */
-function isKeyless(message: string): boolean {
-  return /llm key/i.test(message)
 }
 
 /**
@@ -146,7 +142,7 @@ export function CoverLetterTab({
   const [draft, setDraft] = useState<CoverLetterDraft | null>(null)
   const [busy, setBusy] = useState<'loading' | 'drafting' | null>('loading')
   const [error, setError] = useState<string | null>(null)
-  const [keyless, setKeyless] = useState(hasLlm === false)
+  const [keyless, setKeyless] = useState(!hasLlm)
   const [dirty, setDirty] = useState(false)
   const [confirmRegenerate, setConfirmRegenerate] = useState(false)
   const [saving, startSaving] = useTransition()
@@ -178,7 +174,11 @@ export function CoverLetterTab({
       return result.draft
     }
 
-    setKeyless(isKeyless(result.error))
+    // Only ever escalates. The key can disappear between the page load that
+    // resolved it and this call, but it cannot come back without a reload —
+    // and clearing the state on the next unrelated failure would take the
+    // banner off a screen that still has no model behind it.
+    if (result.keyless) setKeyless(true)
     setError(result.error)
     return null
   }, [])
@@ -212,7 +212,7 @@ export function CoverLetterTab({
         return
       }
 
-      if (hasLlm === false) {
+      if (!hasLlm) {
         setBusy(null)
         return
       }
@@ -354,6 +354,7 @@ export function CoverLetterTab({
           feature="Drafting a cover letter"
           needs="an LLM key — Anthropic or an OpenAI-compatible endpoint"
           stillWorks="The rest of this run works without one, and a letter you write here yourself saves the same way."
+          // Either LLM key unblocks this — see the workspace's banner.
           settingsSection="llm"
         />
       ) : null}
