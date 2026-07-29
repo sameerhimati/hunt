@@ -41,19 +41,36 @@ interface RemotiveResponse {
   }[]
 }
 
-interface GreenhouseResponse {
-  jobs?: {
-    id?: number | string
-    title?: string
-    absolute_url?: string
-    updated_at?: string
-    content?: string
-    location?: { name?: string }
-    company_name?: string
-  }[]
+/**
+ * The board payload shapes, and the mappers that turn them into listings.
+ *
+ * Both are exported because the *list* endpoints are no longer the only caller:
+ * pasting a posting URL fetches the same job one at a time (see `./posting`),
+ * and the two paths have to produce identical `JobListing`s — the externalId is
+ * the sourcing dedupe key, so a second copy of the field mapping would deal a
+ * duplicate pipeline card the day one copy drifted.
+ *
+ * The envelopes differ per board even though the elements do not: Greenhouse's
+ * single-job route returns the job bare, Lever's likewise, and Ashby has no
+ * single-job route at all. That is exactly why the element types are exported
+ * and the envelopes are not part of the mapper's signature.
+ */
+
+export interface GreenhouseJob {
+  id?: number | string
+  title?: string
+  absolute_url?: string
+  updated_at?: string
+  content?: string
+  location?: { name?: string }
+  company_name?: string
 }
 
-type LeverResponse = {
+export interface GreenhouseResponse {
+  jobs?: GreenhouseJob[]
+}
+
+export interface LeverJob {
   id?: string
   text?: string
   hostedUrl?: string
@@ -62,26 +79,30 @@ type LeverResponse = {
   description?: string
   descriptionPlain?: string
   categories?: { location?: string; team?: string; commitment?: string }
-}[]
+}
 
-interface AshbyResponse {
-  jobs?: {
-    id?: string
-    title?: string
-    jobUrl?: string
-    location?: string
-    isRemote?: boolean
-    publishedAt?: string
-    descriptionPlain?: string
-    organizationName?: string
-  }[]
+export type LeverResponse = LeverJob[]
+
+export interface AshbyJob {
+  id?: string
+  title?: string
+  jobUrl?: string
+  location?: string
+  isRemote?: boolean
+  publishedAt?: string
+  descriptionPlain?: string
+  organizationName?: string
+}
+
+export interface AshbyResponse {
+  jobs?: AshbyJob[]
 }
 
 const REMOTIVE_API = 'https://remotive.com/api/remote-jobs'
 
 /** The per-company boards. Remotive is keyword-wide and always on beside them. */
 const COMPANY_BOARDS = ['greenhouse', 'lever', 'ashby'] as const
-type CompanyBoard = (typeof COMPANY_BOARDS)[number]
+export type CompanyBoard = (typeof COMPANY_BOARDS)[number]
 
 export interface BoardTarget {
   board: CompanyBoard
@@ -129,6 +150,112 @@ function titleCase(token: string): string {
 
 function looksRemote(...values: (string | undefined)[]): boolean {
   return values.some((value) => (value ?? '').toLowerCase().includes('remote'))
+}
+
+/**
+ * `org` is the board token — from the `companies` setting on the search path,
+ * from the pasted URL on the paste path. It carries the `externalId` and, for
+ * Lever, doubles as the company name: Lever's payload never names the company.
+ */
+export function greenhouseListing(job: GreenhouseJob, org: string): JobListing {
+  return {
+    externalId: `greenhouse-${org}-${job.id}`,
+    title: job.title ?? 'Untitled role',
+    company: job.company_name ?? titleCase(org),
+    location: job.location?.name,
+    url: job.absolute_url ?? '',
+    description: job.content,
+    postedAt: job.updated_at ? new Date(job.updated_at) : undefined,
+    remote: looksRemote(job.location?.name),
+    source: 'greenhouse',
+  }
+}
+
+export function leverListing(job: LeverJob, org: string): JobListing {
+  return {
+    externalId: `lever-${org}-${job.id}`,
+    title: job.text ?? 'Untitled role',
+    company: titleCase(org),
+    location: job.categories?.location,
+    url: job.hostedUrl ?? '',
+    description: job.descriptionPlain ?? job.description,
+    postedAt: job.createdAt ? new Date(job.createdAt) : undefined,
+    remote: job.workplaceType === 'remote' || looksRemote(job.categories?.location),
+    source: 'lever',
+  }
+}
+
+export function ashbyListing(job: AshbyJob, org: string): JobListing {
+  return {
+    externalId: `ashby-${org}-${job.id}`,
+    title: job.title ?? 'Untitled role',
+    company: job.organizationName ?? titleCase(org),
+    location: job.location,
+    url: job.jobUrl ?? '',
+    description: job.descriptionPlain,
+    postedAt: job.publishedAt ? new Date(job.publishedAt) : undefined,
+    remote: job.isRemote === true || looksRemote(job.location),
+    source: 'ashby',
+  }
+}
+
+/** The user-facing name each board is named by in errors. */
+export const BOARD_LABELS: Record<CompanyBoard, string> = {
+  greenhouse: 'Greenhouse',
+  lever: 'Lever',
+  ashby: 'Ashby',
+}
+
+/**
+ * The three public API roots, written once. Greenhouse and Lever hang the
+ * single-job route off these; Ashby has no such route, so its board URL is the
+ * whole API surface either path gets.
+ */
+export const greenhouseBoardUrl = (org: string) =>
+  `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(org)}`
+export const leverBoardUrl = (org: string) =>
+  `https://api.lever.co/v0/postings/${encodeURIComponent(org)}`
+export const ashbyBoardUrl = (org: string) =>
+  `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(org)}`
+
+/**
+ * One GET, with the error taxonomy every board call shares: unreachable is
+ * retryable, an HTTP error keeps its status (so a caller can tell a retired
+ * posting's 404 from an outage's 503), and unparseable JSON is its own fault.
+ *
+ * Exported because the paste path in `./posting` needs precisely these
+ * distinctions and must not invent a second, subtly different set.
+ */
+export async function fetchBoardJson<T>(
+  fetchImpl: typeof fetch,
+  board: string,
+  token: string,
+  url: string,
+): Promise<T> {
+  let response: Response
+  try {
+    response = await fetchImpl(url)
+  } catch (error) {
+    throw new AdapterError('Public boards', `${board} board "${token}" is unreachable`, {
+      retryable: true,
+      cause: error,
+    })
+  }
+
+  if (!response.ok) {
+    throw new AdapterError('Public boards', `${board} board "${token}" returned ${response.status}`, {
+      status: response.status,
+      retryable: response.status >= 500,
+    })
+  }
+
+  try {
+    return (await response.json()) as T
+  } catch (error) {
+    throw new AdapterError('Public boards', `${board} board "${token}" returned invalid JSON`, {
+      cause: error,
+    })
+  }
 }
 
 /**
@@ -216,32 +343,8 @@ export class FreeBoardsAdapter implements JobsAdapter {
     return (await readSetting(settingKey(this.id, 'companies'))) ?? ''
   }
 
-  private async fetchJson<T>(board: string, token: string, url: string): Promise<T> {
-    let response: Response
-    try {
-      response = await this.fetchImpl(url)
-    } catch (error) {
-      throw new AdapterError('Public boards', `${board} board "${token}" is unreachable`, {
-        retryable: true,
-        cause: error,
-      })
-    }
-
-    if (!response.ok) {
-      throw new AdapterError(
-        'Public boards',
-        `${board} board "${token}" returned ${response.status}`,
-        { status: response.status, retryable: response.status >= 500 },
-      )
-    }
-
-    try {
-      return (await response.json()) as T
-    } catch (error) {
-      throw new AdapterError('Public boards', `${board} board "${token}" returned invalid JSON`, {
-        cause: error,
-      })
-    }
+  private fetchJson<T>(board: string, token: string, url: string): Promise<T> {
+    return fetchBoardJson<T>(this.fetchImpl, board, token, url)
   }
 
   private async searchRemotive(query: JobQuery): Promise<JobListing[]> {
@@ -290,62 +393,32 @@ export class FreeBoardsAdapter implements JobsAdapter {
 
   private async fetchGreenhouse(token: string): Promise<JobListing[]> {
     const body = await this.fetchJson<GreenhouseResponse>(
-      'Greenhouse',
+      BOARD_LABELS.greenhouse,
       token,
-      `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(token)}/jobs?content=true`,
+      `${greenhouseBoardUrl(token)}/jobs?content=true`,
     )
 
-    return (body.jobs ?? []).map((job) => ({
-      externalId: `greenhouse-${token}-${job.id}`,
-      title: job.title ?? 'Untitled role',
-      company: job.company_name ?? titleCase(token),
-      location: job.location?.name,
-      url: job.absolute_url ?? '',
-      description: job.content,
-      postedAt: job.updated_at ? new Date(job.updated_at) : undefined,
-      remote: looksRemote(job.location?.name),
-      source: 'greenhouse',
-    }))
+    return (body.jobs ?? []).map((job) => greenhouseListing(job, token))
   }
 
   private async fetchLever(token: string): Promise<JobListing[]> {
     const body = await this.fetchJson<LeverResponse>(
-      'Lever',
+      BOARD_LABELS.lever,
       token,
-      `https://api.lever.co/v0/postings/${encodeURIComponent(token)}?mode=json`,
+      `${leverBoardUrl(token)}?mode=json`,
     )
 
-    return (Array.isArray(body) ? body : []).map((job) => ({
-      externalId: `lever-${token}-${job.id}`,
-      title: job.text ?? 'Untitled role',
-      company: titleCase(token),
-      location: job.categories?.location,
-      url: job.hostedUrl ?? '',
-      description: job.descriptionPlain ?? job.description,
-      postedAt: job.createdAt ? new Date(job.createdAt) : undefined,
-      remote: job.workplaceType === 'remote' || looksRemote(job.categories?.location),
-      source: 'lever',
-    }))
+    return (Array.isArray(body) ? body : []).map((job) => leverListing(job, token))
   }
 
   private async fetchAshby(token: string): Promise<JobListing[]> {
     const body = await this.fetchJson<AshbyResponse>(
-      'Ashby',
+      BOARD_LABELS.ashby,
       token,
-      `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(token)}`,
+      ashbyBoardUrl(token),
     )
 
-    return (body.jobs ?? []).map((job) => ({
-      externalId: `ashby-${token}-${job.id}`,
-      title: job.title ?? 'Untitled role',
-      company: job.organizationName ?? titleCase(token),
-      location: job.location,
-      url: job.jobUrl ?? '',
-      description: job.descriptionPlain,
-      postedAt: job.publishedAt ? new Date(job.publishedAt) : undefined,
-      remote: job.isRemote === true || looksRemote(job.location),
-      source: 'ashby',
-    }))
+    return (body.jobs ?? []).map((job) => ashbyListing(job, token))
   }
 
   async testConnection(): Promise<ConnectionTestResult> {
