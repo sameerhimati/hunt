@@ -8,12 +8,18 @@ import {
   discoverModels,
   saveProvider,
   testProviderConnection,
+  type SaveResult,
 } from '@/app/settings/actions'
 import { StatusPill } from '@/components/settings/status-pill'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { ConnectionTestResult } from '@/lib/adapters/types'
+import {
+  envFallbackFor,
+  listFieldLabels,
+  missingRequiredFields,
+} from '@/lib/providers/fields'
 import type { ProviderField, ProviderMeta } from '@/lib/providers/types'
 import type { ProviderState } from '@/lib/providers/status'
 import { cn } from '@/lib/utils'
@@ -28,7 +34,9 @@ export function KeyProviderCard({ meta, state }: KeyProviderCardProps) {
   // unset, and expanding all twelve cards buries the one thing this screen is
   // good at: showing the whole BYOK inventory at a glance.
   const [open, setOpen] = useState(state.status === 'missing' || state.status === 'error')
-  const [message, setMessage] = useState<string | null>(null)
+  // The outcome, not just its text: a save that reported failure must not be
+  // rendered in the same neutral grey as "Anthropic saved."
+  const [message, setMessage] = useState<SaveResult | null>(null)
   const [test, setTest] = useState<ConnectionTestResult | null>(null)
   const [models, setModels] = useState<string[]>([])
   const [pending, startTransition] = useTransition()
@@ -38,7 +46,7 @@ export function KeyProviderCard({ meta, state }: KeyProviderCardProps) {
   function onSubmit(formData: FormData) {
     startTransition(async () => {
       const result = await saveProvider(meta.id, formData)
-      setMessage(result.message)
+      setMessage(result)
       setTest(null)
     })
   }
@@ -55,7 +63,10 @@ export function KeyProviderCard({ meta, state }: KeyProviderCardProps) {
         setModels((await discoverModels(meta.id)).map((model) => model.id))
         setMessage(null)
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : 'Could not fetch models.')
+        setMessage({
+          ok: false,
+          message: error instanceof Error ? error.message : 'Could not fetch models.',
+        })
       }
     })
   }
@@ -63,12 +74,17 @@ export function KeyProviderCard({ meta, state }: KeyProviderCardProps) {
   function onRemove() {
     startTransition(async () => {
       const result = await clearProvider(meta.id)
-      setMessage(result.message)
+      setMessage(result)
       setTest(null)
     })
   }
 
   const needsAttention = state.status === 'missing' || state.status === 'error'
+  const missing = missingRequiredFields(meta, state.fields)
+  const missingKeys = new Set(missing.map((field) => field.key))
+  // Anything the user actually saved is removable, working or not. Gating this on
+  // `configured` left a half-filled provider with no escape but editing the DB.
+  const hasStored = state.fields.some((field) => field.source === 'stored')
 
   return (
     <section
@@ -135,6 +151,17 @@ export function KeyProviderCard({ meta, state }: KeyProviderCardProps) {
             </p>
           )}
 
+          {state.status === 'missing' && missing.length > 0 && (
+            <p
+              data-testid="missing-fields"
+              className="mb-3 rounded-md border border-warn/25 bg-warn-bg p-3 text-sm leading-relaxed"
+            >
+              <strong className="font-semibold">Half configured:</strong>{' '}
+              {listFieldLabels(missing)} {missing.length > 1 ? 'are' : 'is'} empty, so
+              nothing here can run yet.
+            </p>
+          )}
+
           {state.errorDetail && (
             <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/[0.07] p-3 font-mono text-sm text-destructive">
               Last test failed: {state.errorDetail}
@@ -149,6 +176,8 @@ export function KeyProviderCard({ meta, state }: KeyProviderCardProps) {
                   providerId={meta.id}
                   field={field}
                   stored={fieldState(field.key)}
+                  missing={missingKeys.has(field.key)}
+                  envFallback={envFallbackFor(meta, field.key)}
                   models={models}
                   onDiscoverModels={onDiscoverModels}
                   pending={pending}
@@ -163,7 +192,7 @@ export function KeyProviderCard({ meta, state }: KeyProviderCardProps) {
               <Button type="button" size="sm" variant="outline" onClick={onTest} disabled={pending}>
                 Test connection
               </Button>
-              {state.status === 'configured' && meta.fields.length > 0 && (
+              {hasStored && meta.fields.length > 0 && (
                 <Button type="button" size="sm" variant="ghost" onClick={onRemove} disabled={pending}>
                   Remove
                 </Button>
@@ -176,7 +205,17 @@ export function KeyProviderCard({ meta, state }: KeyProviderCardProps) {
                   {test.ok ? '✓' : '✕'} {test.detail}
                 </span>
               )}
-              {message && <span className="text-xs text-muted-foreground">{message}</span>}
+              {message && (
+                <span
+                  data-testid="save-message"
+                  className={cn(
+                    'text-xs',
+                    message.ok ? 'text-muted-foreground' : 'font-medium text-warn',
+                  )}
+                >
+                  {message.message}
+                </span>
+              )}
             </div>
           </form>
 
@@ -213,6 +252,10 @@ interface FieldInputProps {
   providerId: string
   field: ProviderField
   stored?: { display: string | null; source: 'stored' | 'env' | null }
+  /** Required, and nothing stored or in the environment stands behind it. */
+  missing: boolean
+  /** The environment variable hunt reads for this field, if it declares one. */
+  envFallback: string | null
   models: string[]
   onDiscoverModels: () => void
   pending: boolean
@@ -222,6 +265,8 @@ function FieldInput({
   providerId,
   field,
   stored,
+  missing,
+  envFallback,
   models,
   onDiscoverModels,
   pending,
@@ -233,16 +278,22 @@ function FieldInput({
   const domId = `${providerId}-${field.key}`
 
   return (
-    <div className={field.kind === 'model' ? 'sm:col-span-1' : undefined}>
+    <div
+      data-testid={`field-${providerId}-${field.key}`}
+      className={field.kind === 'model' ? 'sm:col-span-1' : undefined}
+    >
       <Label htmlFor={domId}>
         {field.label}
-        {field.optional && <span className="ml-1 normal-case tracking-normal">(optional)</span>}
+        <span className="ml-1 normal-case tracking-normal">
+          {field.optional ? '(optional)' : '(required)'}
+        </span>
       </Label>
 
       {field.kind === 'select' ? (
         <select
           id={domId}
           name={field.key}
+          aria-required={field.optional ? undefined : true}
           defaultValue={stored?.display ?? field.defaultValue}
           className="h-9 w-full rounded-md border border-border bg-background px-3 font-mono text-sm"
         >
@@ -257,6 +308,7 @@ function FieldInput({
           <Input
             id={domId}
             name={field.key}
+            aria-required={field.optional ? undefined : true}
             list={`${domId}-options`}
             defaultValue={stored?.display ?? field.defaultValue ?? ''}
             placeholder={field.placeholder}
@@ -282,6 +334,7 @@ function FieldInput({
           id={domId}
           name={field.key}
           type={field.secret ? 'password' : 'text'}
+          aria-required={field.optional ? undefined : true}
           autoComplete="off"
           // A saved secret is shown only as a mask in the placeholder; leaving
           // the box empty keeps the stored key exactly as it is.
@@ -292,10 +345,21 @@ function FieldInput({
         />
       )}
 
-      {(field.help || fromEnv) && (
+      {fromEnv ? (
         <p className="mt-1 text-xs text-faint">
-          {fromEnv ? 'Set from your environment — save a key here to override it.' : field.help}
+          Set from your environment — save a key here to override it.
         </p>
+      ) : (
+        <>
+          {missing && <p className="mt-1 text-xs text-warn">Required — this box is empty.</p>}
+          {!hasValue && envFallback && (
+            <p className="mt-1 text-xs text-faint">
+              hunt also reads <code className="font-mono">{envFallback}</code> from your
+              environment — nothing is set under that name.
+            </p>
+          )}
+          {field.help && <p className="mt-1 text-xs text-faint">{field.help}</p>}
+        </>
       )}
     </div>
   )

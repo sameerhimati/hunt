@@ -7,9 +7,15 @@ import type { ConnectionTestResult } from '@/lib/adapters/types'
 import { AnthropicProvider } from '@/lib/llm/providers/anthropic'
 import { OpenAiCompatProvider } from '@/lib/llm/providers/openai-compat'
 import type { ModelInfo } from '@/lib/llm/types'
+import { listFieldLabels, missingRequiredFields } from '@/lib/providers/fields'
 import { errorKey, getProvider, settingKey } from '@/lib/providers/registry'
-import { resolveSecret } from '@/lib/providers/status'
-import { deleteSetting, readSetting, writeSetting } from '@/lib/settings/store'
+import { computeProviderState, resolveSecret } from '@/lib/providers/status'
+import {
+  deleteSetting,
+  readAllMasked,
+  readSetting,
+  writeSetting,
+} from '@/lib/settings/store'
 
 export interface SaveResult {
   ok: boolean
@@ -20,6 +26,12 @@ export interface SaveResult {
  * Saves one provider's fields. A blank secret means "leave the stored key
  * alone" — the form only ever shows a mask, so submitting it unchanged must
  * never overwrite the real key with bullet characters.
+ *
+ * An incomplete form is still written — throwing away a base URL somebody just
+ * typed to punish a missing key is hostile, and the next attempt would start
+ * from nothing. What it does not do is report success: this used to answer
+ * "OpenAI-compatible saved." to a form with no key in it, and the only symptom
+ * was tailoring quietly failing later.
  */
 export async function saveProvider(providerId: string, formData: FormData): Promise<SaveResult> {
   const meta = getProvider(providerId)
@@ -49,10 +61,22 @@ export async function saveProvider(providerId: string, formData: FormData): Prom
   await deleteSetting(errorKey(providerId))
   revalidatePath('/settings')
 
-  return {
-    ok: true,
-    message: written ? `${meta.name} saved.` : `${meta.name} unchanged.`,
+  // Judged on what is stored *after* the write, so a preserved secret and a dev
+  // key in the environment both count — the same rule the status pill uses.
+  const state = computeProviderState(meta, await readAllMasked())
+  const missing = missingRequiredFields(meta, state.fields)
+  const verb = written ? 'saved' : 'unchanged'
+
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      message: `${meta.name} ${verb}, but ${listFieldLabels(missing)} ${
+        missing.length > 1 ? 'are' : 'is'
+      } still empty — it can't be used yet.`,
+    }
   }
+
+  return { ok: true, message: `${meta.name} ${verb}.` }
 }
 
 /** Removes every stored field for a provider. Used by the card's Remove action. */

@@ -7,7 +7,7 @@ import { apolloMeta } from '@/lib/adapters/people/apollo'
 import { firecrawlMeta } from '@/lib/adapters/scrape/firecrawl'
 import { anthropicMeta, openAiCompatMeta } from '@/lib/llm/meta'
 
-import type { ProviderCategory, ProviderField, ProviderMeta } from './types'
+import type { ProviderCategory, ProviderMeta } from './types'
 
 /**
  * The single list that drives Settings, onboarding, and the docs. Adding a
@@ -51,7 +51,9 @@ export function errorKey(providerId: string): string {
   return `provider.${providerId}.lastError`
 }
 
-/** The fields that must be filled for a provider to count as configured. */
-export function requiredFields(meta: ProviderMeta): ProviderField[] {
-  return meta.fields.filter((field) => !field.optional)
-}
+/**
+ * Field arithmetic lives in `./fields` so the Settings card — a client component —
+ * can share it without pulling every adapter into the browser bundle. Re-exported
+ * here because this module is the registry everything else already imports.
+ */
+export { envFallbackFor, listFieldLabels, missingRequiredFields, requiredFields } from './fields'
