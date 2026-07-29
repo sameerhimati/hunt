@@ -52,7 +52,12 @@ Every other integration is optional and only widens what you already have.
 
 Pre-alpha, building in public. Phases 0–5 are built and gated: resume core,
 pipeline, tailoring and checks, outreach, and sourcing. What's left is reply
-detection and launch polish — the plan is in [docs/PLAN.md](docs/PLAN.md).
+detection and launch polish.
+
+**[The roadmap](docs/roadmap.md) is public** — what's built, what's next, and
+what we've decided not to build. That last section is the important one: no match
+scores, no auto-apply, no LinkedIn scraping, and nothing that invents experience
+you don't have. Architecture and phase detail live in [docs/PLAN.md](docs/PLAN.md).
 
 There is **no onboarding wizard yet**, so after first boot go to Settings and add
 a key. It's usable today; it is not finished.
