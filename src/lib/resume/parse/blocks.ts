@@ -57,6 +57,13 @@ export interface SourceDocument {
    * This is the haystack `scoreConfidence()` checks extracted fields against, so
    * it has to contain the document's words in the form the structurer will emit
    * them — which is why the dehyphenation below is applied here too.
+   *
+   * **It is built from `lines` *after* column re-ordering, and must stay that
+   * way.** On a sidebar layout a wrapped bullet is only a contiguous span once
+   * the columns have been separated; build this from raw baseline order and
+   * every such field stops being findable, so `scoreConfidence()` would flag
+   * perfectly verbatim text as inferred. The coupling is invisible from the
+   * structurer's side, which is why it is written down here.
    */
   text: string
 }
