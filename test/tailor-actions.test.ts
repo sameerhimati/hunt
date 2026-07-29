@@ -20,7 +20,10 @@ import type { TailorChange } from '@/lib/tailor/types'
  */
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 
-const { saveTailoredVersionAction } = await import('@/app/applications/[id]/tailor/actions')
+const { draftCoverLetterAction, saveTailoredVersionAction } = await import(
+  '@/app/applications/[id]/tailor/actions'
+)
+const { CoverLetterUnavailableError } = await import('@/lib/tailor/cover-letter')
 
 const FIXTURES = process.env.HUNT_FIXTURES_DIR ?? path.resolve(process.cwd(), 'gates/fixtures')
 const alexChen = parseResumeContent(
@@ -98,5 +101,27 @@ describe('saveTailoredVersionAction', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.skipped).toEqual([])
+  })
+})
+
+describe('draftCoverLetterAction', () => {
+  it('flags the keyless failure as data, so the tab never has to read the sentence', async () => {
+    for (const key of ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY']) delete process.env[key]
+    const { application, versionId } = await seed()
+
+    const result = await draftCoverLetterAction(application.id, versionId)
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.keyless).toBe(true)
+    expect(result.error).toBe(new CoverLetterUnavailableError().message)
+  })
+
+  it('does not flag a failure that has nothing to do with a key', async () => {
+    const result = await draftCoverLetterAction('no-such-application', 'no-such-version')
+
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.keyless).toBeUndefined()
   })
 })

@@ -789,6 +789,7 @@ export function TailorWorkspace({
               applicationId={applicationId}
               baseVersionId={saved?.id ?? base.id}
               job={job}
+              hasLlm={hasLlm}
             />
           </TabsContent>
         </Tabs>

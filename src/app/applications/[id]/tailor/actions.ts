@@ -9,6 +9,7 @@ import { parseResumeContent, type ResumeContent } from '@/lib/resume/schema'
 import { getVersion, saveVersion, versionContent } from '@/lib/resume/store'
 import { applyChangesWithReport, type SkippedChange } from '@/lib/tailor/apply'
 import {
+  CoverLetterUnavailableError,
   draftCoverLetter,
   loadCoverLetter,
   saveCoverLetter,
@@ -176,7 +177,17 @@ export async function saveTailoredVersionAction(
 
 export type CoverLetterResult =
   | { ok: true; draft: CoverLetterDraft | null }
-  | { ok: false; error: string }
+  | {
+      ok: false
+      error: string
+      /**
+       * True only for "there is no model configured" — the one failure the tab
+       * answers with a DegradedBanner instead of an error and a retry. It is a
+       * field rather than a sentence the tab pattern-matches: the wording is
+       * copy, and copy must be free to change without breaking a screen.
+       */
+      keyless?: boolean
+    }
 
 /** Slot for leaf P3.d — drafts the letter from the version the run produced. */
 export async function draftCoverLetterAction(
@@ -198,6 +209,9 @@ export async function draftCoverLetterAction(
 
     return { ok: true, draft }
   } catch (cause) {
+    if (cause instanceof CoverLetterUnavailableError) {
+      return { ok: false, error: cause.message, keyless: true }
+    }
     return { ok: false, error: reason(cause, 'Drafting the cover letter failed.') }
   }
 }
