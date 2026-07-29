@@ -1,6 +1,7 @@
 import { readAllMasked, readSetting } from '@/lib/settings/store'
 
-import { errorKey, PROVIDERS, requiredFields, settingKey } from './registry'
+import { envFallbackFor, requiredFields } from './fields'
+import { errorKey, PROVIDERS, settingKey } from './registry'
 import type { ProviderMeta, ProviderShipStatus, ProviderStatus } from './types'
 
 /** Where a configured value came from — surfaced so dev keys aren't mistaken for saved ones. */
@@ -28,12 +29,8 @@ export interface ProviderState {
  * key they never saved is showing as live.
  */
 function envValue(meta: ProviderMeta, fieldKey: string): string | null {
-  // Only the provider's primary secret has an env fallback; secondary fields
-  // (base URL, from-address) are cheap to set in the UI and stay explicit.
-  if (!meta.envFallback) return null
-  const primary = meta.fields.find((field) => field.secret)
-  if (!primary || primary.key !== fieldKey) return null
-  return process.env[meta.envFallback] ?? null
+  const name = envFallbackFor(meta, fieldKey)
+  return name ? (process.env[name] ?? null) : null
 }
 
 /**
