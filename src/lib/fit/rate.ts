@@ -2,6 +2,7 @@ import { isFitTier, type FitTier } from '@/lib/db/enums'
 import { asResolvedLlm, resolveLlm, type LlmLike } from '@/lib/llm'
 import { runPrompt } from '@/lib/llm/prompts'
 import { rateFitMessage, rateFitSystem, type FitJob } from '@/lib/llm/prompts/fit'
+import { modelRequired } from '@/lib/llm/unavailable'
 import { resolvePath, type ResumeContent } from '@/lib/resume/schema'
 
 /**
@@ -56,10 +57,7 @@ export interface RateFitInput {
 /** No model configured. The UI shows a DegradedBanner rather than a stack trace. */
 export class FitUnavailableError extends Error {
   constructor() {
-    super(
-      'Fit rating needs a language model. Add an Anthropic (or OpenAI-compatible) ' +
-        'key in Settings — everything else on this page works without one.',
-    )
+    super(modelRequired('Fit rating', 'everything else on this page works without one'))
     this.name = 'FitUnavailableError'
   }
 }

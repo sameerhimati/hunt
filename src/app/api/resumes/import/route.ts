@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { resolveLlm } from '@/lib/llm'
+import { modelRequired } from '@/lib/llm/unavailable'
 import { importResumePdf, ResumeImportError } from '@/lib/resume/import'
 
 export const dynamic = 'force-dynamic'
@@ -62,12 +63,10 @@ export async function POST(request: Request) {
 
   const llm = await resolveLlm()
   if (!llm) {
+    // Only `error` travels: the review screen renders that string and nothing
+    // else, so a `settingsHref` beside it was a link the user never got.
     return NextResponse.json(
-      {
-        error:
-          'Importing a PDF needs a model key. Add one in Settings, or start from a blank résumé.',
-        settingsHref: '/settings',
-      },
+      { error: modelRequired('Importing a PDF', 'you can start from a blank résumé instead') },
       { status: 428 },
     )
   }
