@@ -142,16 +142,68 @@ export function versionContent(version: { content: string }): ResumeContent {
 
 export async function listResumes() {
   return prisma.resume.findMany({
+    where: { archivedAt: null },
     orderBy: { updatedAt: 'desc' },
     include: { versions: { orderBy: { createdAt: 'asc' } } },
   })
 }
 
+/** The archived shelf, most recently archived first. Only `/resumes` reads this. */
+export async function listArchivedResumes() {
+  return prisma.resume.findMany({
+    where: { archivedAt: { not: null } },
+    orderBy: { archivedAt: 'desc' },
+    include: { versions: { orderBy: { createdAt: 'asc' } } },
+  })
+}
+
+/** How many résumés the user can pick from today. Archived ones don't count. */
+export async function countResumes(): Promise<number> {
+  return prisma.resume.count({ where: { archivedAt: null } })
+}
+
+/**
+ * Deliberately resolves archived résumés too. Archiving is a list filter, not a
+ * tombstone: an Application pinned to one of its versions still deep-links here,
+ * and a 404 on that link would break the provenance trail archiving exists to
+ * protect.
+ */
 export async function getResume(resumeId: string) {
   return prisma.resume.findUnique({
     where: { id: resumeId },
     include: { versions: { orderBy: { createdAt: 'asc' } } },
   })
+}
+
+/** Applications pinned to any version of this résumé — the reason not to delete. */
+export async function resumeApplicationCount(resumeId: string): Promise<number> {
+  return prisma.application.count({ where: { resumeVersion: { resumeId } } })
+}
+
+export async function archiveResume(resumeId: string) {
+  return prisma.resume.update({ where: { id: resumeId }, data: { archivedAt: new Date() } })
+}
+
+export async function restoreResume(resumeId: string) {
+  return prisma.resume.update({ where: { id: resumeId }, data: { archivedAt: null } })
+}
+
+/**
+ * The only true delete, and it refuses the case that would lie. Cascades take
+ * every `ResumeVersion` and `CheckResult` with them, and `Application
+ * .resumeVersionId` is `SetNull` — so deleting a referenced résumé would leave
+ * a sent, tailored application rendering as "Not yet tailored". Archive covers
+ * everything else; this exists only for the résumé nothing points at.
+ */
+export async function deleteResume(resumeId: string): Promise<void> {
+  const pinned = await resumeApplicationCount(resumeId)
+  if (pinned > 0) {
+    throw new Error(
+      `Can't delete this résumé: ${pinned} application${pinned === 1 ? '' : 's'} pin one of its versions. Archive it instead.`,
+    )
+  }
+
+  await prisma.resume.delete({ where: { id: resumeId } })
 }
 
 /**

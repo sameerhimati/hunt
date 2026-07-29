@@ -17,6 +17,11 @@ datasource db {
 model Resume {
   id        String          @id @default(cuid())
   name      String
+  /// Set when the user retires a résumé. Archived, never deleted: an Application
+  /// pins the exact ResumeVersion it sent, and dropping the row would null that
+  /// pin (`onDelete: SetNull`) — turning a tailored, sent application into
+  /// "Not yet tailored", which is a lie about something that happened.
+  archivedAt DateTime?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
   versions  ResumeVersion[]
