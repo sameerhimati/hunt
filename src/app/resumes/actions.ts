@@ -5,7 +5,10 @@ import { redirect } from 'next/navigation'
 
 import { parseResumeContent, emptyResume, type ResumeContent } from '@/lib/resume/schema'
 import {
+  archiveResume,
   createResume,
+  deleteResume,
+  restoreResume,
   saveVersion,
   updateVersionContent,
   versionTree,
@@ -41,6 +44,36 @@ export async function createResumeFromImport(name: string, content: unknown) {
 
   revalidatePath('/resumes')
   redirect(`/resumes/${resume.id}`)
+}
+
+/**
+ * Retiring a résumé is archive, not delete — see `deleteResume`. Bound with
+ * `.bind(null, id)` from a plain `<form>`, so it needs no client bundle and no
+ * confirm: nothing is lost, and Restore sits one disclosure away.
+ */
+export async function archiveResumeAction(resumeId: string): Promise<void> {
+  await archiveResume(resumeId)
+  revalidatePath('/resumes')
+}
+
+export async function restoreResumeAction(resumeId: string): Promise<void> {
+  await restoreResume(resumeId)
+  revalidatePath('/resumes')
+}
+
+/**
+ * The irreversible one. The store refuses when any application pins a version,
+ * so this returns the refusal rather than throwing it at the user as a 500.
+ */
+export async function deleteResumeAction(resumeId: string): Promise<{ error?: string }> {
+  try {
+    await deleteResume(resumeId)
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Could not delete this résumé.' }
+  }
+
+  revalidatePath('/resumes')
+  return {}
 }
 
 export interface SaveVersionRequest {
