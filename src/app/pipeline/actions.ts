@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { AdapterError } from '@/lib/adapters/types'
-import { createManualJob, ingestJobUrl } from '@/lib/jobs/ingest'
+import { createManualJob, ingestBoardPosting, ingestJobUrl } from '@/lib/jobs/ingest'
 import { createApplication, transitionApplication } from '@/lib/pipeline/status'
 
 /**
@@ -34,8 +34,14 @@ export async function ingestJobAction(url: string): Promise<MutationResult> {
   }
 
   try {
-    const job = await ingestJobUrl(trimmed)
-    await createApplication(job.id)
+    // Public boards first. Ashby, Greenhouse and Lever publish the posting as
+    // structured JSON for free, so asking Firecrawl to read the same page would
+    // charge the user a key for worse data. A non-board link returns null here
+    // and falls through to the scraper exactly as before.
+    if (!(await ingestBoardPosting(trimmed))) {
+      const job = await ingestJobUrl(trimmed)
+      await createApplication(job.id)
+    }
   } catch (error) {
     return { error: describe(error) }
   }

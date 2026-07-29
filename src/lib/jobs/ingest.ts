@@ -1,10 +1,14 @@
+import type { Application, Job } from '@/generated/prisma/client'
 import { createAdapter } from '@/lib/adapters/factory'
+import { parseBoardPostingUrl } from '@/lib/adapters/jobs/board-urls'
+import { fetchBoardPosting } from '@/lib/adapters/jobs/posting'
 import type { ScrapeAdapter, ScrapedPage } from '@/lib/adapters/scrape/types'
 import { AdapterError } from '@/lib/adapters/types'
 import { prisma } from '@/lib/db/client'
 import { asResolvedLlm, resolveLlm, type LlmLike } from '@/lib/llm'
 import { runPrompt } from '@/lib/llm/prompts'
 import { extractJobMessage, extractJobSystem } from '@/lib/llm/prompts/jobs'
+import { pullIntoPipeline } from '@/lib/sourcing/import'
 
 /**
  * Paste a URL, get a job.
@@ -17,6 +21,9 @@ import { extractJobMessage, extractJobSystem } from '@/lib/llm/prompts/jobs'
  * The LLM step is optional. With no key configured, the title/company are read
  * off the page title instead; degraded, clearly, but the pipeline still works.
  * That is the keyless floor the product promises.
+ *
+ * `ingestBoardPosting` sits *in front* of all that for the two thirds of pasted
+ * links that live on a public board — see its docblock.
  */
 
 export interface IngestDeps {
@@ -135,6 +142,41 @@ export async function ingestJobUrl(url: string, deps: IngestDeps = {}) {
   const { title: _title, company: _company, ...refreshable } = data
 
   return prisma.job.upsert({ where: { url }, create: data, update: refreshable })
+}
+
+/**
+ * The keyless paste path: Ashby, Greenhouse and Lever, straight from the board.
+ *
+ * Returns `null` — not an error — when the URL is not a board posting, which is
+ * the caller's signal to carry on to `ingestJobUrl` and the scraper. That split
+ * is the point of the whole thing: a board link needs no credential, and every
+ * other link keeps exactly the behaviour it had.
+ *
+ * Persistence is `pullIntoPipeline`'s, deliberately, rather than a second
+ * upsert written here. It already canonicalises `Job.url`, refuses to let a
+ * re-pull shrink a job description, and find-or-creates the Application — so a
+ * posting the user pastes and the same posting sourcing surfaces collapse onto
+ * one row instead of dealing two cards. The consequence to know about: the row
+ * records `source: 'api'`, because that is where the fields came from, even
+ * though the user got here by pasting.
+ *
+ * Nothing is written before the fetch returns. A retired posting throws
+ * `PostingGoneError` with no row created, which is the honest answer — falling
+ * back to a scrape of a 404 page would manufacture a job out of an error page.
+ */
+export async function ingestBoardPosting(
+  url: string,
+  fetchImpl?: typeof fetch,
+): Promise<{ job: Job; application: Application } | null> {
+  const ref = parseBoardPostingUrl(url)
+  if (!ref) return null
+
+  const listing = await fetchBoardPosting(ref, fetchImpl)
+
+  // Boards normally return their own canonical permalink; when one doesn't,
+  // the link the user pasted is better than no link at all, since `Job.url` is
+  // the identity every later re-pull dedupes on.
+  return pullIntoPipeline(listing.url ? listing : { ...listing, url: url.trim() })
 }
 
 export interface ManualJobInput {

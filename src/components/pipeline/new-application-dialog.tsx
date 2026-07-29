@@ -26,6 +26,12 @@ import { Textarea } from '@/components/ui/textarea'
  * the product promises. Someone with no Firecrawl key and no model key can
  * still run their entire search here, so it sits beside the paste box as an
  * equal, not behind an "advanced" disclosure.
+ *
+ * The paste box is only *partly* key-gated, and the helper text has to say
+ * which part: Ashby, Greenhouse and Lever postings come back as free structured
+ * JSON straight from the board, and those are most of the links people paste.
+ * Copy that implied every URL needed Firecrawl would send users to buy a key
+ * they mostly do not need.
  */
 export function NewApplicationDialog({ variant = 'default' }: { variant?: 'default' | 'secondary' }) {
   const [open, setOpen] = useState(false)
@@ -96,8 +102,9 @@ export function NewApplicationDialog({ variant = 'default' }: { variant?: 'defau
               onChange={(event) => setUrl(event.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              hunt scrapes the page and pulls out the role, company and description. The full text
-              is stored as written — it is the evidence tailoring cites later.
+              Ashby, Greenhouse and Lever links are read straight from the board — no key needed.
+              Anything else is scraped, which needs a Firecrawl key. Either way the full text is
+              stored as written — it is the evidence tailoring cites later.
             </p>
           </TabsContent>
 
