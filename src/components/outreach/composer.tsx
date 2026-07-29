@@ -1,3 +1,4 @@
+import { DegradedBanner } from '@/components/degraded-banner'
 import { MessageEditor } from '@/components/outreach/message-editor'
 import { SequenceTimeline } from '@/components/outreach/sequence-timeline'
 import type { ContactSource, OutreachStepView, SequenceView } from '@/lib/outreach/types'
@@ -17,7 +18,18 @@ import type { ContactSource, OutreachStepView, SequenceView } from '@/lib/outrea
  * finished, the last step stays on screen rather than the panel emptying: what
  * you actually sent is worth reading back.
  */
-export function Composer({ sequence }: { sequence: SequenceView | null }) {
+export interface ComposerProps {
+  sequence: SequenceView | null
+  /**
+   * True when the sequence on screen was just dealt from hunt's template
+   * because no model was configured. Required rather than defaulted: the
+   * silence is the bug this flag exists to fix, and a prop that can be
+   * forgotten is silence again.
+   */
+  templated: boolean
+}
+
+export function Composer({ sequence, templated }: ComposerProps) {
   if (!sequence) {
     return (
       <div className="flex h-full items-center justify-center p-6">
@@ -68,6 +80,21 @@ export function Composer({ sequence }: { sequence: SequenceView | null }) {
           )}
         </p>
       </header>
+
+      {/*
+        Outside the scrolling body on purpose: what the user is about to send
+        is not the model's writing, and that has to still be on screen when
+        they reach the send button.
+      */}
+      {templated ? (
+        <DegradedBanner
+          className="mx-6 mt-5 shrink-0"
+          feature="Drafting"
+          needs="an LLM key — Anthropic or an OpenAI-compatible endpoint"
+          stillWorks="These three messages are hunt’s template: no model read your résumé, and step 1 leaves the sentence about your own work in brackets for you to write. Editing, scheduling and sending all work exactly the same."
+          settingsSection="llm"
+        />
+      ) : null}
 
       <div className="flex min-h-0 flex-1 gap-[22px] overflow-y-auto p-6">
         <div className="w-[230px] shrink-0">

@@ -133,3 +133,16 @@ export interface SequenceView {
  * the mockup does, and editing one offset shifts everything after it.
  */
 export const FOLLOW_UP_OFFSETS = [0, 4, 5] as const
+
+/**
+ * How drafting tells the composer that the sequence it just dealt is hunt's
+ * keyless template and no model was involved. Declared here for the same reason
+ * everything else in this file is: two files agreeing on a literal string is a
+ * contract nothing enforces.
+ *
+ * A query marker rather than a stored column, because the claim it makes is
+ * about *this draft*. Persisted, it would go on calling a sequence "template"
+ * long after the user rewrote every word of it by hand — which is the same
+ * class of untrue statement this marker exists to prevent.
+ */
+export const TEMPLATE_DRAFT = { param: 'drafted', value: 'template' } as const

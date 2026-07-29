@@ -2,6 +2,7 @@ import { AppShell } from '@/components/app-shell'
 import { Composer } from '@/components/outreach/composer'
 import { OutreachQueue } from '@/components/outreach/outreach-queue'
 import { outreachQueue, sequenceView } from '@/lib/outreach/queue'
+import { TEMPLATE_DRAFT } from '@/lib/outreach/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +23,7 @@ export default async function OutreachPage({
   searchParams,
 }: {
   // Next 16: searchParams is async.
-  searchParams: Promise<{ contact?: string; application?: string }>
+  searchParams: Promise<{ contact?: string; application?: string; drafted?: string }>
 }) {
   const sp = await searchParams
 
@@ -43,7 +44,10 @@ export default async function OutreachPage({
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <Composer sequence={sequence} />
+          <Composer
+            sequence={sequence}
+            templated={sp[TEMPLATE_DRAFT.param] === TEMPLATE_DRAFT.value}
+          />
         </div>
       </div>
     </AppShell>

@@ -198,6 +198,8 @@ export function buildSequenceSteps(
  * than an error dialog: a real sequence, with the role filled in and the one
  * sentence only the user can write left to them. Nothing here claims anything
  * about their experience, so nothing here needs a citation.
+ *
+ * It also never arrives unlabelled — see `TEMPLATE_DRAFT` in `./types`.
  */
 export function templateSequenceSteps(context: SequenceContext): SequenceStepInput[] {
   const { job, contact } = context
