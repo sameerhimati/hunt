@@ -90,7 +90,10 @@ test.describe('Dashboard', () => {
   test('offers the first-run path into Settings', async ({ page }) => {
     await page.goto('/')
 
-    await expect(page.getByRole('heading', { name: /Nothing in your sights yet/i })).toBeVisible()
+    // First run is now zero *résumés*, not zero applications — the dashboard
+    // leads with the wedge. The path into Settings is still one click, and still
+    // the secondary action: keys are optional, not a gate.
+    await expect(page.getByRole('heading', { name: /Start with your résumé/i })).toBeVisible()
     await page.getByRole('link', { name: 'Set up your keys' }).click()
     await expect(page).toHaveURL(/\/settings/)
   })
