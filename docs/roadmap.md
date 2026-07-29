@@ -92,9 +92,16 @@ your own résumé, hunt refuses it and shows you the refusal in the place the te
 would have gone — with the option to write it yourself. That check is code that
 runs after the model, not an instruction inside a prompt.
 
-**Sending your data anywhere.** No accounts, no telemetry, no hosted backend.
-Your résumé and your job search stay on your machine and leave only through API
-calls you configure.
+**Telemetry, tracking, or an account you didn't ask for.** No analytics, no
+phone-home, no sign-up wall. Your résumé and your job search stay on your
+machine and leave only through API calls you configure.
+
+*Amended 2026-07-29.* This entry used to open "Sending your data anywhere" and
+promised "no hosted backend." That was a claim about a business model, not about
+your data, and it flatly contradicted the open question at the bottom of this
+file. A hosted version is undecided and stays undecided until people ask for
+one. Everything above is true either way, and the version you run yourself stays
+free, MIT and BYOK regardless of what gets decided.
 
 ---
 

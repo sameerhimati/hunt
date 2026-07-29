@@ -1,8 +1,8 @@
 # hunt
 
-The whole job hunt in one local app: resume → tailor → verify → find the human → outreach → track.
+The whole job hunt in one app: resume → tailor → verify → find the human → outreach → track. Every AI edit has to cite the line it came from.
 
-Job hunting today means Overleaf for the resume, a spreadsheet for tracking, LinkedIn for sourcing, some keyword tool for ATS anxiety, Apollo for finding recruiters, and Gmail for cold email. Six tabs, none of them talking to each other. hunt collapses that loop into one app that runs on your machine.
+Job hunting today means Overleaf for the resume, a spreadsheet for tracking, LinkedIn for sourcing, some keyword tool for ATS anxiety, Apollo for finding recruiters, and Gmail for cold email. Six tabs, none of them talking to each other. hunt collapses that loop into one app you run yourself — and holds it to a rule the rest of the category doesn't.
 
 ## It refuses to make things up
 
