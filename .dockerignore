@@ -10,5 +10,6 @@ coverage
 design
 *.md
 !README.md
+docs
 .env*
 src/generated

@@ -3,10 +3,7 @@ import { SmtpAdapter } from './email/smtp'
 import { AdzunaAdapter } from './jobs/adzuna'
 import { FreeBoardsAdapter } from './jobs/boards'
 import { JSearchAdapter } from './jobs/jsearch'
-import { LinkedInCookieAdapter } from './linkedin/cookie'
 import { ApolloAdapter } from './people/apollo'
-import { BrightDataPeopleAdapter } from './people/brightdata'
-import { BrightDataScrapeAdapter } from './scrape/brightdata'
 import { FirecrawlAdapter } from './scrape/firecrawl'
 import type { Adapter } from './types'
 
@@ -70,12 +67,6 @@ export async function createAdapter(providerId: string): Promise<Adapter | null>
       if (!host || !user || !password) return null
       return new SmtpAdapter({ host, port: Number(port ?? 465), user, password })
     }
-    case 'brightdata_scrape':
-      return new BrightDataScrapeAdapter()
-    case 'brightdata_people':
-      return new BrightDataPeopleAdapter()
-    case 'linkedin':
-      return new LinkedInCookieAdapter()
     default:
       return null
   }

@@ -62,19 +62,16 @@ test.describe('Settings — BYOK', () => {
     await expect(card.getByText('Not set')).toBeVisible()
   })
 
-  test('never claims a stubbed provider is configured', async ({ page }) => {
+  test('offers no provider that cannot do anything', async ({ page }) => {
     await page.goto('/settings')
 
-    const card = page.locator('section#brightdata_scrape')
-    await expect(card.getByText('stub in v1')).toBeVisible()
-    await expect(card.getByText('Not set')).toBeVisible()
-  })
-
-  test('shows the at-own-risk warning on the LinkedIn provider', async ({ page }) => {
-    await page.goto('/settings')
-
-    const card = await openCard(page, 'linkedin', /^LinkedIn/)
-    await expect(card.getByText(/Terms of Service/i)).toBeVisible()
+    // The three stubs were cut on 2026-07-28. LinkedIn in particular: a card
+    // asking for your li_at cookie, carrying a Terms-of-Service warning, for a
+    // feature that was never going to ship.
+    await expect(page.locator('section#linkedin')).toHaveCount(0)
+    await expect(page.locator('section#brightdata_scrape')).toHaveCount(0)
+    await expect(page.locator('section#brightdata_people')).toHaveCount(0)
+    await expect(page.getByText(/Terms of Service/i)).toHaveCount(0)
   })
 
   test('links straight to where each key is issued', async ({ page }) => {
@@ -93,7 +90,10 @@ test.describe('Dashboard', () => {
   test('offers the first-run path into Settings', async ({ page }) => {
     await page.goto('/')
 
-    await expect(page.getByRole('heading', { name: /Nothing in your sights yet/i })).toBeVisible()
+    // First run is now zero *résumés*, not zero applications — the dashboard
+    // leads with the wedge. The path into Settings is still one click, and still
+    // the secondary action: keys are optional, not a gate.
+    await expect(page.getByRole('heading', { name: /Start with your résumé/i })).toBeVisible()
     await page.getByRole('link', { name: 'Set up your keys' }).click()
     await expect(page).toHaveURL(/\/settings/)
   })

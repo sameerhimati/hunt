@@ -80,7 +80,6 @@ export const resumeContentSchema = z.object({
   custom: z.array(customSectionSchema).default([]),
 })
 
-export type Basics = z.infer<typeof basicsSchema>
 export type ExperienceEntry = z.infer<typeof experienceSchema>
 export type EducationEntry = z.infer<typeof educationSchema>
 export type SkillGroup = z.infer<typeof skillGroupSchema>

@@ -142,8 +142,8 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
               resumeName={application.resumeVersion?.resume.name}
               versionLabel={application.resumeVersion?.label}
             />
-            <ContactsCard />
-            <OutreachTimeline />
+            <ContactsCard applicationId={application.id} />
+            <OutreachTimeline applicationId={application.id} />
             <Milestones application={application} />
           </div>
         </div>

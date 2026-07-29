@@ -5,12 +5,16 @@ import { redirect } from 'next/navigation'
 
 import { parseResumeContent, emptyResume, type ResumeContent } from '@/lib/resume/schema'
 import {
+  archiveResume,
   createResume,
+  deleteResume,
+  restoreResume,
   saveVersion,
   updateVersionContent,
   versionTree,
   type VersionNode,
 } from '@/lib/resume/store'
+import { isTestMode } from '@/lib/testmode/env'
 
 /**
  * Server actions for the résumé editor. Mutations only — reads happen in the
@@ -22,7 +26,14 @@ export async function createResumeAction(formData: FormData) {
 
   // Seeding the name into `basics` means the first render is a real document
   // with the user's name on it, not an empty page they have to prime.
-  const resume = await createResume(name, emptyResume(name))
+  // In test mode the seed is a full fixture résumé instead, so gates can
+  // arrange through the product and still have something to tailor. Dynamic
+  // import so the fixture reader (and `fs`) never enters the production bundle.
+  const content = isTestMode()
+    ? (await import('@/lib/testmode/seed')).seededResumeContent(name)
+    : emptyResume(name)
+
+  const resume = await createResume(name, content)
 
   revalidatePath('/resumes')
   redirect(`/resumes/${resume.id}`)
@@ -33,6 +44,36 @@ export async function createResumeFromImport(name: string, content: unknown) {
 
   revalidatePath('/resumes')
   redirect(`/resumes/${resume.id}`)
+}
+
+/**
+ * Retiring a résumé is archive, not delete — see `deleteResume`. Bound with
+ * `.bind(null, id)` from a plain `<form>`, so it needs no client bundle and no
+ * confirm: nothing is lost, and Restore sits one disclosure away.
+ */
+export async function archiveResumeAction(resumeId: string): Promise<void> {
+  await archiveResume(resumeId)
+  revalidatePath('/resumes')
+}
+
+export async function restoreResumeAction(resumeId: string): Promise<void> {
+  await restoreResume(resumeId)
+  revalidatePath('/resumes')
+}
+
+/**
+ * The irreversible one. The store refuses when any application pins a version,
+ * so this returns the refusal rather than throwing it at the user as a 500.
+ */
+export async function deleteResumeAction(resumeId: string): Promise<{ error?: string }> {
+  try {
+    await deleteResume(resumeId)
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Could not delete this résumé.' }
+  }
+
+  revalidatePath('/resumes')
+  return {}
 }
 
 export interface SaveVersionRequest {

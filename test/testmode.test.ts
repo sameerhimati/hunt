@@ -54,15 +54,54 @@ describe('HUNT_TEST_MODE', () => {
   it('names the fixture to record when a kind has no script', async () => {
     const resolved = await resolveLlm()
 
+    // `parse_resume` is the stand-in for "not yet recorded": its fixtures are
+    // recorded model replies under resume/parse-response-*.txt, which the P1
+    // gate replays directly, so nothing scripts it through test mode. Any kind
+    // used here eventually gets a fixture — cover_letter did, in Phase 3.
     await expect(
       runPrompt({
         llm: resolved!.provider,
         model: resolved!.model,
-        kind: 'cover_letter',
+        kind: 'parse_resume',
         maxTokens: 256,
-        messages: [{ role: 'user', content: 'write one' }],
+        messages: [{ role: 'user', content: 'parse this' }],
       }),
-    ).rejects.toThrow(/no scripted response for promptKind 'cover_letter'/)
+    ).rejects.toThrow(/no scripted response for promptKind 'parse_resume'/)
+  })
+
+  it('dispatches a shared promptKind by its match discriminator', async () => {
+    const { pickScript } = await import('@/lib/testmode/llm')
+    const single = { file: 'rate-single.json', match: 'Rate this one job', reply: '{"tier":"strong"}' }
+    const batch = { file: 'rate-batch.json', match: 'Rate each listing', reply: '{"ratings":[]}' }
+    const request = {
+      model: 'fake',
+      maxTokens: 10,
+      messages: [{ role: 'user' as const, content: 'Rate each listing below.' }],
+    }
+
+    expect(pickScript('rate', [single, batch], request)).toBe(batch.reply)
+  })
+
+  it('refuses to guess when two fixtures claim one promptKind', async () => {
+    const { pickScript } = await import('@/lib/testmode/llm')
+    const request = {
+      model: 'fake',
+      maxTokens: 10,
+      messages: [{ role: 'user' as const, content: 'anything' }],
+    }
+
+    // Silently letting filename order decide is how a phase inherits another
+    // phase's fixture and debugs a parse error for an hour.
+    expect(() =>
+      pickScript(
+        'rate',
+        [
+          { file: 'rate-a.json', reply: '{}' },
+          { file: 'rate-b.json', reply: '{}' },
+        ],
+        request,
+      ),
+    ).toThrow(/rate-a\.json, rate-b\.json/)
   })
 
   it('reads the committed fixture set, ignoring any ambient override', () => {

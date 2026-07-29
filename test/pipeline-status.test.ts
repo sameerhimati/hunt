@@ -43,15 +43,16 @@ describe('transitionApplication', () => {
   it('stamps offer and rejection on the same decision timestamp', async () => {
     const offer = await seed(`Offer-${Math.random()}`)
     await transitionApplication(offer.id, 'offer')
-    expect(
-      (await prisma.application.findUniqueOrThrow({ where: { id: offer.id } })).decidedAt,
-    ).toBeInstanceOf(Date)
+    const offered = await prisma.application.findUniqueOrThrow({ where: { id: offer.id } })
+    expect(offered.decidedAt).toBeInstanceOf(Date)
+    // An offer is two facts, not one: it arrived, and it settled the application.
+    expect(offered.offeredAt).toBeInstanceOf(Date)
 
     const rejected = await seed(`Rejected-${Math.random()}`)
     await transitionApplication(rejected.id, 'rejected')
-    expect(
-      (await prisma.application.findUniqueOrThrow({ where: { id: rejected.id } })).decidedAt,
-    ).toBeInstanceOf(Date)
+    const decided = await prisma.application.findUniqueOrThrow({ where: { id: rejected.id } })
+    expect(decided.decidedAt).toBeInstanceOf(Date)
+    expect(decided.offeredAt).toBeNull()
   })
 
   it('names the legal vocabulary when handed something else', async () => {
@@ -71,6 +72,21 @@ describe('funnelStats', () => {
 
     expect(applied?.count).toBeGreaterThanOrEqual(1)
     expect(stats.byStatus.rejected).toBeGreaterThanOrEqual(1)
+  })
+
+  it('still counts an offer that was later declined or rescinded', async () => {
+    const application = await seed(`Rescinded-${Math.random()}`)
+    await transitionApplication(application.id, 'interview')
+    await transitionApplication(application.id, 'offer')
+
+    const withOffer = await funnelStats()
+    const before = withOffer.reached.find((stage) => stage.label === 'Offer')?.count ?? 0
+
+    // The offer is turned down; the card ends its life as a rejection.
+    await transitionApplication(application.id, 'rejected')
+
+    const after = await funnelStats()
+    expect(after.reached.find((stage) => stage.label === 'Offer')?.count).toBe(before)
   })
 
   it('reports a null conversion rather than 0% when a stage is empty', async () => {

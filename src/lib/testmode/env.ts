@@ -16,3 +16,11 @@ export function isTestMode(): boolean {
 
 /** The model id the scripted provider reports — recorded on rows, so keep it obvious. */
 export const TEST_MODEL = 'fake-1'
+
+/**
+ * The address the fake email adapter sends as. A configured email provider is
+ * two things — something that can send and someone it sends as — so the twin
+ * has to stand in for both, or the send path stops one step short of the
+ * behaviour it is meant to exercise. Obvious on sight, like `TEST_MODEL`.
+ */
+export const TEST_FROM_ADDRESS = 'you@hunt.local'

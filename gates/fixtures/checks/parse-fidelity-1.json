@@ -1,0 +1,91 @@
+{
+  "_comment": "What the FAKE ATS parser (src/lib/checks/parser-adapter.ts, Fake twin) returns when it re-parses the PDF rendered from resume/alex-chen.json — the input side of the parse-fidelity check. It is alex-chen content with exactly two degradations, the two a real open-source parser makes and the two SCREENS §7 and design/Application Detail.dc.html narrate verbatim: basics.url is null (the GitHub link came back as plain text, not a URL) and experience[1].start is null (the Plaid dates merged into one blob). Everything else round-trips, so parseFidelity({content, parsed}) must report dropped = [basics.url, experience[1].start] and a verdict that is not \"pass\". Keep it at exactly two: the mockup says \"2 of 14 fields dropped\" and the copy names these two.",
+  "parsed": {
+    "basics": {
+      "name": "Alex Chen",
+      "label": "Backend Engineer",
+      "email": "alex.chen@example.com",
+      "phone": "+1 (415) 555-0132",
+      "url": null,
+      "location": "San Francisco, CA",
+      "summary": "Backend engineer with six years building payment and platform infrastructure in Go and TypeScript."
+    },
+    "experience": [
+      {
+        "company": "Ramp",
+        "title": "Senior Backend Engineer",
+        "location": "San Francisco, CA",
+        "start": "2023-03",
+        "end": null,
+        "bullets": [
+          "Own the ledger service that settles $40M/month in card transactions across three processors",
+          "Designed idempotent retry semantics for webhook ingestion, cutting duplicate postings to zero over 9 months",
+          "Led migration of six services from REST polling to a Kafka event bus, removing 200k redundant calls per day",
+          "Reduced p99 from 210ms to 130ms after sharding the balance-read path by account cohort",
+          "Mentor two mid-level engineers and run the backend guild's weekly design review"
+        ]
+      },
+      {
+        "company": "Plaid",
+        "title": "Backend Engineer",
+        "location": "San Francisco, CA",
+        "start": null,
+        "end": "2023-02",
+        "bullets": [
+          "Built bank-linking retry orchestration in Go handling 1.2M link attempts per day",
+          "Cut institution-outage false positives 70% by replacing static thresholds with per-institution baselines",
+          "On-call owner for the transactions sync pipeline holding a 99.95% SLO"
+        ]
+      }
+    ],
+    "education": [
+      {
+        "institution": "University of Washington",
+        "degree": "B.S. Computer Science",
+        "start": "2014",
+        "end": "2018"
+      }
+    ],
+    "skills": [
+      {
+        "category": "Languages",
+        "items": [
+          "Go",
+          "TypeScript",
+          "Python",
+          "SQL"
+        ]
+      },
+      {
+        "category": "Infrastructure",
+        "items": [
+          "Kafka",
+          "Postgres",
+          "Redis",
+          "Kubernetes",
+          "Terraform",
+          "AWS"
+        ]
+      },
+      {
+        "category": "Practices",
+        "items": [
+          "Observability",
+          "Incident response",
+          "API design"
+        ]
+      }
+    ],
+    "projects": [
+      {
+        "name": "ledgerline",
+        "description": "Open-source double-entry ledger library for Postgres",
+        "url": "https://github.com/alexchen-dev/ledgerline",
+        "bullets": [
+          "1.8k GitHub stars; used in production by three fintech startups"
+        ]
+      }
+    ],
+    "custom": []
+  }
+}

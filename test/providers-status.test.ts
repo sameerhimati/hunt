@@ -83,11 +83,13 @@ describe('provider status', () => {
     expect(state.status).toBe('configured')
   })
 
-  it('never reports a stub as configured, even though all its fields are optional', async () => {
-    for (const id of ['brightdata_scrape', 'brightdata_people', 'linkedin']) {
-      const state = await readProviderState(getProvider(id)!)
-      expect(state.status, `${id} must not claim to be configured`).toBe('not-set')
-    }
+  it('registers no provider a user cannot actually use', async () => {
+    // Three stubs used to render Settings cards that threw NotWiredError if you
+    // ever reached them. They were cut on 2026-07-28: a card you can fill in and
+    // get nothing from is a promise the code does not keep, and they were three
+    // of the twelve decisions between a new user and the one key that matters.
+    expect(PROVIDERS.map((provider) => provider.id)).not.toContain('linkedin')
+    expect(PROVIDERS.every((provider) => provider.ship === 'live')).toBe(true)
   })
 
   it('leaves stubs out of the summary — they are not work the user can do', async () => {

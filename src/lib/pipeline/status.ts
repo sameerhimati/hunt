@@ -21,15 +21,21 @@ import {
 
 export * from './statuses'
 
-type MilestoneField = 'appliedAt' | 'repliedAt' | 'interviewAt' | 'decidedAt'
+type MilestoneField = 'appliedAt' | 'repliedAt' | 'interviewAt' | 'offeredAt' | 'decidedAt'
 
-/** The statuses that mark a real event in the search, and the column they stamp. */
-const MILESTONES: Partial<Record<ApplicationStatus, MilestoneField>> = {
-  applied: 'appliedAt',
-  replied: 'repliedAt',
-  interview: 'interviewAt',
-  offer: 'decidedAt',
-  rejected: 'decidedAt',
+/**
+ * The statuses that mark a real event in the search, and the columns they stamp.
+ *
+ * `offer` stamps two, because it is two facts: an offer arrived, and the
+ * application reached its answer. Recording only the decision is how a
+ * later-declined offer used to disappear from the funnel (see stats.ts).
+ */
+const MILESTONES: Partial<Record<ApplicationStatus, MilestoneField[]>> = {
+  applied: ['appliedAt'],
+  replied: ['repliedAt'],
+  interview: ['interviewAt'],
+  offer: ['offeredAt', 'decidedAt'],
+  rejected: ['decidedAt'],
 }
 
 export async function transitionApplication(applicationId: string, status: string) {
@@ -37,10 +43,12 @@ export async function transitionApplication(applicationId: string, status: strin
 
   const current = await prisma.application.findUniqueOrThrow({ where: { id: applicationId } })
 
-  const field = MILESTONES[status]
+  const now = new Date()
   // Only stamp a milestone the first time it happens: re-entering "replied"
   // after a second email shouldn't rewrite when the first reply arrived.
-  const stamp = field && !current[field] ? { [field]: new Date() } : {}
+  const stamp = Object.fromEntries(
+    (MILESTONES[status] ?? []).filter((field) => !current[field]).map((field) => [field, now]),
+  )
 
   return prisma.application.update({
     where: { id: applicationId },

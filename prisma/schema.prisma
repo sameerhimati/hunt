@@ -17,6 +17,11 @@ datasource db {
 model Resume {
   id        String          @id @default(cuid())
   name      String
+  /// Set when the user retires a résumé. Archived, never deleted: an Application
+  /// pins the exact ResumeVersion it sent, and dropping the row would null that
+  /// pin (`onDelete: SetNull`) — turning a tailored, sent application into
+  /// "Not yet tailored", which is a lie about something that happened.
+  archivedAt DateTime?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
   versions  ResumeVersion[]
@@ -92,6 +97,11 @@ model Application {
   appliedAt       DateTime?
   repliedAt       DateTime?
   interviewAt     DateTime?
+  /// When an offer arrived. Separate from `decidedAt` because an offer that is
+  /// later declined or rescinded still happened — the funnel counts this column,
+  /// never the current status, or a rescinded offer would vanish from the search.
+  offeredAt       DateTime?
+  /// When the application reached a terminal answer, offer or rejection alike.
   decidedAt       DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -135,7 +145,9 @@ model Outreach {
   dayOffset     Int       @default(0)
   subject       String
   body          String
-  /// draft | scheduled | sent | replied | bounced
+  /// draft | scheduled | sent | replied | bounced | halted
+  /// `halted` = a reply landed on an earlier step, so this one never sends.
+  /// The row survives so the sequence's history stays readable.
   status        String    @default("draft")
   sentAt        DateTime?
   threadRef     String?

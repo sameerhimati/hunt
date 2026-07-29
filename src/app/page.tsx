@@ -2,13 +2,16 @@ import Link from 'next/link'
 
 import { AppShell } from '@/components/app-shell'
 import { EmptyState } from '@/components/empty-state'
+import { FollowUpsPanel } from '@/components/dashboard/follow-ups'
 import { FunnelRow } from '@/components/dashboard/funnel-row'
 import { NewApplicationDialog } from '@/components/pipeline/new-application-dialog'
 import { StatusBadge } from '@/components/pipeline/status-badge'
 import { buttonVariants } from '@/components/ui/button'
 import { STATUS_LABELS, type ApplicationStatus } from '@/lib/pipeline/status'
 import { funnelStats, recentActivity } from '@/lib/pipeline/stats'
-import { readAllProviderStates, summarise } from '@/lib/providers/status'
+import { getProvider, requiredFields } from '@/lib/providers/registry'
+import { readAllProviderStates, type ProviderState } from '@/lib/providers/status'
+import { countResumes } from '@/lib/resume/store'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,10 +19,41 @@ export const dynamic = 'force-dynamic'
  * "What do I do right now?" — the funnel says whether the search is working,
  * the follow-ups queue is the action list, activity is the memory.
  *
- * Before there is anything to measure, a funnel of zeros is noise, so first run
- * gets the EmptyState instead (SCREENS §2). From the first card onwards the
- * numbers are real counts and stay on screen even when they read zero.
+ * One route, three faces (SCREENS §2). A funnel of zeros is noise, so the
+ * dashboard only draws itself once there is something to measure, and until
+ * then it answers the same question with the one thing that is actually next.
+ * What it routes on is what the user *has*, not just the application count:
+ * with no résumé, "add your first application" points past the wedge — the
+ * résumé is the thing every other screen consumes.
+ *
+ * Deliberately not a wizard and not a checklist: each face is a single
+ * EmptyState with real exits, and no step of it is required to move on.
  */
+
+/**
+ * The no-key case is a sentence on the other two faces, never a face of its own.
+ * A screen that led with "add a key" would say the app is gated on one, and it
+ * isn't: the résumé editor, the whole pipeline and public-board search all work
+ * keyless. Settings stays on offer as the secondary action, at default weight.
+ */
+const KEYLESS_NOTE =
+  ' You have no keys set, and none are needed for any of this — the résumé editor, the pipeline and public-board search all run without one. Keys add AI tailoring, scraping and outreach when you want them.'
+
+/**
+ * Providers the user actually had to supply something for.
+ *
+ * `free_boards` is live and declares no required field, so it reads as
+ * "configured" from the first boot — counting it told a user with zero keys they
+ * had one provider set up. Every number on this screen is a real count of
+ * something the user did (DESIGN.md §7), and this one wasn't.
+ */
+function configuredKeys(states: ProviderState[]): number {
+  return states.filter((state) => {
+    if (state.status !== 'configured') return false
+    const meta = getProvider(state.id)
+    return meta !== undefined && requiredFields(meta).length > 0
+  }).length
+}
 
 function relative(date: Date): string {
   const minutes = Math.round((Date.now() - date.getTime()) / 60_000)
@@ -30,30 +64,57 @@ function relative(date: Date): string {
 }
 
 export default async function Home() {
-  const [stats, activity, providers] = await Promise.all([
+  const [stats, activity, providerStates, resumeCount] = await Promise.all([
     funnelStats(),
     recentActivity(8),
-    readAllProviderStates().then(summarise),
+    readAllProviderStates(),
+    countResumes(),
   ])
 
   const occupied = Object.entries(stats.byStatus).filter(([, count]) => count > 0)
+  const keys = configuredKeys(providerStates)
+  const keyless = keys === 0 ? KEYLESS_NOTE : ''
 
-  if (stats.total === 0) {
+  if (resumeCount === 0) {
     return (
       <AppShell title="Dashboard">
         <EmptyState
-          title="Nothing in your sights yet"
-          body="hunt runs entirely on this machine. Paste a job posting to start the pipeline — or add the keys you want to use first; nothing leaves the machine either way."
+          title="Start with your résumé"
+          body={`Everything else here points at one: tailoring branches from it, and each application pins the exact version you sent. Import the PDF you already have, or start from a blank document.${keyless}`}
           action={
             <>
-              <Link href="/pipeline" className={buttonVariants({ size: 'sm' })}>
-                Add your first application
+              <Link href="/resumes" className={buttonVariants({ size: 'sm' })}>
+                Add your résumé
               </Link>
               <Link
                 href="/settings"
                 className={buttonVariants({ variant: 'outline', size: 'sm' })}
               >
                 Set up your keys
+              </Link>
+            </>
+          }
+        />
+      </AppShell>
+    )
+  }
+
+  if (stats.total === 0) {
+    return (
+      <AppShell title="Dashboard">
+        <EmptyState
+          title="Nothing in your sights yet"
+          body={`Your résumé is in. Paste a job posting and the pipeline starts — tailor to it, track it, follow up. It all runs on this machine.${keyless}`}
+          action={
+            <>
+              <Link href="/pipeline" className={buttonVariants({ size: 'sm' })}>
+                Add your first application
+              </Link>
+              <Link
+                href="/sourcing"
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                Search public boards
               </Link>
             </>
           }
@@ -69,7 +130,7 @@ export default async function Home() {
           <h2 className="font-serif text-lg font-semibold">This search</h2>
           <p className="font-mono text-xs text-faint">
             {stats.total} application{stats.total === 1 ? '' : 's'} tracked ·{' '}
-            {providers.configured} providers configured
+            {keys === 0 ? 'no keys set' : `${keys} key${keys === 1 ? '' : 's'} set`}
           </p>
         </div>
 
@@ -77,17 +138,7 @@ export default async function Home() {
 
         <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
           <div className="space-y-4">
-            <section className="rounded-lg border border-border bg-card p-4">
-              <div className="flex items-baseline justify-between gap-3">
-                <h3 className="text-sm font-medium">Follow-ups due today</h3>
-                <span className="font-mono text-xs text-faint">0</span>
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                Nothing to nudge. Once outreach sequences exist, everything due lands here with a
-                Send button beside it.
-              </p>
-              <p className="mt-2 font-mono text-xs text-faint">Outreach lands in Phase 4.</p>
-            </section>
+            <FollowUpsPanel />
 
             <section className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-baseline justify-between gap-3">
