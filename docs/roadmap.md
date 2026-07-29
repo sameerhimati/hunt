@@ -17,8 +17,10 @@ All of this works today, on your own machine.
 | **Semantic diff between any two versions** — what actually changed, not a text blob | no |
 | **Pipeline tracker** — board and table, eight statuses, the exact résumé version pinned to each application | no |
 | **Job search across public boards** — Greenhouse, Lever, Ashby, Remotive | no |
+| **Paste a job link from Greenhouse, Lever or Ashby** — the real posting, straight from the board | no |
 | **Four of the five honest checks** — parse fidelity, keyword coverage, format lint, AI-tell audit | no |
 | **Outreach sequences** — write them yourself, copy out, mark as sent | no |
+| **Archive a résumé** — never delete, so an application keeps the record of what you actually sent | no |
 | **AI tailoring with citations** — every edit traces to a path in your own résumé; unsupported claims are refused *and shown* | one LLM key |
 | **Cover letters** under the same citation guard | one LLM key |
 | **PDF résumé import** | one LLM key |
@@ -31,18 +33,28 @@ is optional and only widens what you already have.
 
 ## Next
 
-**Paste any job URL, no key.** Greenhouse, Lever and Ashby publish job data
-openly. Pasting one of their links should fetch the real posting — title,
-company, full description — without a scraping key. Roughly two thirds of real
-job links are on those three boards.
+*The three items that stood here — pasting board links with no key, a first run
+that can't fail quietly, and archiving résumés — all shipped on 2026-07-29 and
+moved up to Built.*
 
-**A first run that can't fail quietly.** Today you can save a half-configured
-provider and hunt will tell you it saved. That's being fixed: it names the field
-that's missing, and points at the exact card when a feature needs a key.
+**A notebook of facts about you.** Today hunt can only write what your résumé
+already says. When it can't trace a claim it refuses — which is honest, and a
+dead end: you get a gap where a sentence should be and no way forward. Next it
+asks instead. *"You wrote 'scaled the ingest pipeline' with no number — what was
+the throughput?"* Your answer becomes a fact you own, kept in one place, and
+every future résumé and cover letter can cite it the same way they cite your
+résumé today. The rule doesn't loosen — hunt still refuses anything you didn't
+say. It just stops pretending your résumé is the only place you've said things.
 
-**Archive résumés.** Right now you can create them and never remove them.
-Archive rather than delete, so an application never loses the record of what you
-actually sent.
+**Which résumé version actually works.** "v3 got 4 interviews from 11 sends; v1
+got 0." Every application already pins the exact version sent and stamps when a
+reply, interview or decision landed. This is one join away, and nobody in this
+space has it.
+
+**Know when your résumé runs long.** hunt renders your PDF but doesn't yet read
+the page count back — so tailoring, which only ever adds text, can quietly push
+you to a third page. Next: hunt notices, and when it has to cut, it cuts the
+line that is least relevant to *this* posting rather than the oldest one.
 
 ---
 
