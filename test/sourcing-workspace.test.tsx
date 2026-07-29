@@ -214,6 +214,13 @@ describe('sourcing workspace', () => {
     expect(screen.getByTestId('degraded-banner')).toBeTruthy()
     // Gated, never hidden — the user can see what a key would unlock.
     expect(screen.getByTestId('search-keywords')).toBeTruthy()
+
+    // The `jobs` heading also sits above the free-boards card, which needs no
+    // key and is already working. The link has to land on a card that is
+    // actually part of the remedy.
+    expect(screen.getByTestId('degraded-banner-link').getAttribute('href')).toBe(
+      '/settings#jsearch',
+    )
   })
 
   it('quotes an adapter failure inline and retries from the same screen', async () => {

@@ -354,6 +354,7 @@ export function CoverLetterTab({
           feature="Drafting a cover letter"
           needs="an LLM key — Anthropic or an OpenAI-compatible endpoint"
           stillWorks="The rest of this run works without one, and a letter you write here yourself saves the same way."
+          // Either LLM key unblocks this — see the workspace's banner.
           settingsSection="llm"
         />
       ) : null}

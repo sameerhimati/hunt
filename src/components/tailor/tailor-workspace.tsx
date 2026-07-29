@@ -812,6 +812,9 @@ export function TailorWorkspace({
               feature="Tailoring"
               needs="an LLM key — Anthropic or an OpenAI-compatible endpoint"
               stillWorks="Editing this résumé, saving versions, the format and parse checks, and the rest of the pipeline all work without one."
+              // No `settingsProvider`: either LLM key unblocks this, and the
+              // heading sits directly above both cards. Naming one would be
+              // recommending it.
               settingsSection="llm"
             />
           )}
