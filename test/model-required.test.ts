@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { prisma } from '@/lib/db/client'
@@ -81,21 +84,45 @@ describe('the keyless paths that report a message rather than throw', () => {
     expect(result.ok ? null : result.error).toBe(new TailorUnavailableError().message)
   })
 
-  it('answers a PDF import with the same sentence and no half-wired link', async () => {
+  /**
+   * Importing used to be the fifth member of this family and no longer is.
+   *
+   * It answered 428 "needs a language model", which put an API key in front of
+   * the first thing a new user does. Reading a résumé's structure out of its own
+   * typography needs no key, so that reply has been deleted rather than
+   * reworded — these two pin that it stays deleted.
+   */
+  it('imports a résumé with no key at all, and never asks for one', async () => {
+    const pdf = fs.readFileSync(path.join(process.cwd(), 'gates/fixtures/resume/sample-1.pdf'))
     const body = new FormData()
-    body.set('file', new File([new Uint8Array([1, 2, 3])], 'resume.pdf', { type: 'application/pdf' }))
+    body.set('file', new File([pdf], 'resume.pdf', { type: 'application/pdf' }))
 
-    const response = await POST(new Request('http://localhost/api/resumes/import', {
-      method: 'POST',
-      body,
-    }))
+    const response = await POST(
+      new Request('http://localhost/api/resumes/import', { method: 'POST', body }),
+    )
     const payload = await response.json()
 
-    expect(response.status).toBe(428)
-    expect(payload.error).toContain('needs a language model.')
-    expect(payload.error).toContain(MODEL_REMEDY)
-    // The client renders `error` and nothing else; a href nobody reads is a
-    // link the user never gets, dressed as one they do.
-    expect(payload.settingsHref).toBeUndefined()
+    expect(response.status).toBe(200)
+    expect(payload.parser).toBe('layout')
+    expect(payload.content.basics.name).toBe('Priya Raghavan')
+    expect(JSON.stringify(payload)).not.toContain('needs a language model')
+  })
+
+  it('names an unreadable file plainly rather than failing as a server error', async () => {
+    const body = new FormData()
+    body.set(
+      'file',
+      new File([new Uint8Array([1, 2, 3])], 'resume.pdf', { type: 'application/pdf' }),
+    )
+
+    const response = await POST(
+      new Request('http://localhost/api/resumes/import', { method: 'POST', body }),
+    )
+    const payload = await response.json()
+
+    // Without the reader wrapping pdf.js's own failure, this surfaced as a 500
+    // from library internals — a stack trace where a sentence belongs.
+    expect(response.status).toBe(422)
+    expect(payload.error).toContain('could not be read as a PDF')
   })
 })

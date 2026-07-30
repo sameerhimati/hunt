@@ -12,9 +12,14 @@ vi.mock('@/app/resumes/actions', () => ({
 const { ImportReview } = await import('@/components/resume/import-review')
 
 /**
- * Importing is the first thing a new user does, and until now it answered "no
- * key configured" with red text and no way forward — on a screen whose own
- * design doc calls for a PDF *drop*. Both of those are what these pin.
+ * Importing is the first thing a new user does, and it used to answer "no key
+ * configured" with red text and no way forward — on a screen whose own design
+ * doc calls for a PDF *drop*.
+ *
+ * It can no longer answer that at all: reading a résumé's layout needs no key,
+ * so the route has no "missing model" reply left to give. What is worth pinning
+ * now is that dropping works, that the screen says which parser read the
+ * document, and that a genuine failure still reads as one.
  */
 afterEach(cleanup)
 
@@ -36,10 +41,13 @@ const PDF = () => new File([new Uint8Array([37, 80, 68, 70])], 'resume.pdf', {
 
 describe('ImportReview', () => {
   it('offers a drop target, not a bare file input', () => {
-    render(<ImportReview />)
+    render(<ImportReview hasModel={false} />)
 
     expect(screen.getByTestId('import-dropzone')).toBeDefined()
-    expect(screen.getByText(/Drop your PDF here/)).toBeDefined()
+    expect(screen.getByText(/Drop your résumé here/)).toBeDefined()
+    // The keyless floor is the headline promise of this screen now.
+    expect(screen.getByText(/no API key needed/)).toBeDefined()
+    expect(screen.getByText(/PDF or \.docx/)).toBeDefined()
     // The input has to remain, and remain focusable, or the screen is
     // unreachable by keyboard — it is only visually hidden.
     const input = screen.getByTestId('import-file') as HTMLInputElement
@@ -48,34 +56,47 @@ describe('ImportReview', () => {
   })
 
   it('accepts a dropped file, not just a chosen one', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 428, json: async () => ({ error: 'x' }) })
+    fetchMock.mockResolvedValue({ ok: false, status: 422, json: async () => ({ error: 'x' }) })
 
-    render(<ImportReview />)
+    render(<ImportReview hasModel={false} />)
     drop(PDF())
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
     expect(fetchMock.mock.calls[0][0]).toBe('/api/resumes/import')
   })
 
-  it('answers a missing key with the banner that links to the fix', async () => {
-    // 428 is the route's designed "no model configured" reply.
+  it.each([
+    ['layout', 'read from the layout · no model'],
+    ['model', 'laid out by a model'],
+  ])('says when the parse came from the %s', async (parser, expected) => {
     fetchMock.mockResolvedValue({
-      ok: false,
-      status: 428,
-      json: async () => ({ error: 'Importing a PDF needs a language model.' }),
+      ok: true,
+      status: 200,
+      json: async () => ({
+        content: { basics: { name: 'Priya Raghavan' } },
+        fieldConfidence: { 'basics.name': 1 },
+        text: 'Priya Raghavan',
+        fileName: 'resume.pdf',
+        parser,
+      }),
     })
 
-    render(<ImportReview />)
+    render(<ImportReview hasModel={parser === 'model'} />)
     drop(PDF())
 
-    const link = (await waitFor(() =>
-      screen.getByTestId('degraded-banner-link'),
-    )) as HTMLAnchorElement
+    await waitFor(() => expect(screen.getByTestId('import-parser').textContent).toBe(expected))
+  })
 
-    // Lands on the LLM section rather than a specific card: either key works
-    // here, so naming one would be quietly recommending it.
-    expect(link.getAttribute('href')).toBe('/settings#section-llm')
-    expect(screen.getByText(/start from a blank résumé/i)).toBeDefined()
+  it('only promises a half-minute wait when a model will cause one', async () => {
+    // Reading the layout is instant; saying "around half a minute" with no model
+    // configured would describe a wait that is not going to happen.
+    fetchMock.mockReturnValue(new Promise(() => {}))
+
+    render(<ImportReview hasModel={false} />)
+    drop(PDF())
+
+    await waitFor(() => expect(screen.getByText(/reading your résumé…/)).toBeDefined())
+    expect(screen.queryByText(/half a minute/)).toBeNull()
   })
 
   it('still shows a real failure as a failure', async () => {
@@ -85,12 +106,9 @@ describe('ImportReview', () => {
       json: async () => ({ error: 'This PDF has no text layer — it looks like a scan.' }),
     })
 
-    render(<ImportReview />)
+    render(<ImportReview hasModel={false} />)
     drop(PDF())
 
     await waitFor(() => expect(screen.getByText(/no text layer/)).toBeDefined())
-    // A missing key is a state; an unreadable file is an error. Conflating them
-    // is what made the first screen look broken.
-    expect(screen.queryByTestId('degraded-banner-link')).toBeNull()
   })
 })

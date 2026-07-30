@@ -4,7 +4,6 @@ import { AlertTriangle, Upload } from 'lucide-react'
 import { useState, useTransition } from 'react'
 
 import { createResumeFromImport } from '@/app/resumes/actions'
-import { DegradedBanner } from '@/components/degraded-banner'
 import { StructuredEditor } from '@/components/resume/structured-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,25 +24,24 @@ import { cn } from '@/lib/utils'
 interface ImportResponse {
   content: ResumeContent
   fieldConfidence: Record<string, number>
-  /** The PDF's own text layer, so the review can be checked against something. */
+  /** The document's own text, so the review can be checked against something. */
   text: string
   fileName: string
+  /**
+   * Which parser read it. `layout` means the structure came from the document's
+   * own typography and no model was involved — a stronger claim than `model`,
+   * and one the user is entitled to see rather than infer.
+   */
+  parser: 'layout' | 'model'
 }
 
 const FLAG_BELOW = 1
 
-export function ImportReview() {
+export function ImportReview({ hasModel }: { hasModel: boolean }) {
   const [parsed, setParsed] = useState<ImportResponse | null>(null)
   const [content, setContent] = useState<ResumeContent | null>(null)
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
-  /**
-   * Distinct from `error` because it is not one. A missing key is a designed
-   * state with a remedy one click away, and the route already says so with a
-   * 428 — rendering it as red text made the first screen of the app look
-   * broken and left the user to find Settings themselves.
-   */
-  const [needsKey, setNeedsKey] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [showSource, setShowSource] = useState(false)
@@ -58,7 +56,6 @@ export function ImportReview() {
   const upload = async (file: File) => {
     setUploading(true)
     setError(null)
-    setNeedsKey(false)
 
     try {
       const body = new FormData()
@@ -68,13 +65,6 @@ export function ImportReview() {
       const payload = await response.json()
 
       if (!response.ok) {
-        // The route answers 428 for "no model configured" specifically, which is
-        // the whole discriminator needed here — the remedy travels as a status
-        // code, so no link has to survive the JSON round-trip.
-        if (response.status === 428) {
-          setNeedsKey(true)
-          return
-        }
         setError(payload?.error ?? `Import failed (${response.status}).`)
         return
       }
@@ -82,7 +72,7 @@ export function ImportReview() {
       const imported = payload as ImportResponse
       setParsed(imported)
       setContent(parseResumeContent(imported.content))
-      setName(imported.content.basics?.name || file.name.replace(/\.pdf$/i, ''))
+      setName(imported.content.basics?.name || file.name.replace(/\.(pdf|docx)$/i, ''))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Import failed.')
     } finally {
@@ -95,8 +85,9 @@ export function ImportReview() {
       <div className="mx-auto max-w-lg px-6 py-16 text-center">
         <h2 className="font-serif text-xl font-semibold">Import your résumé</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          hunt reads the PDF&rsquo;s text and turns it into structured fields you can edit and
-          version. You review the parse before anything is saved.
+          hunt reads your résumé&rsquo;s own layout and turns it into structured fields you can
+          edit and version — <span className="text-foreground">no API key needed</span>. You
+          review the parse before anything is saved.
         </p>
 
         {/*
@@ -131,7 +122,7 @@ export function ImportReview() {
         >
           <input
             type="file"
-            accept="application/pdf,.pdf"
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             data-testid="import-file"
             className="sr-only"
             disabled={uploading}
@@ -142,28 +133,20 @@ export function ImportReview() {
           />
           <Upload size={22} className="text-faint" aria-hidden="true" />
           <span className="text-sm font-medium">
-            {dragging ? 'Drop it here' : 'Drop your PDF here, or click to choose'}
+            {dragging ? 'Drop it here' : 'Drop your résumé here, or click to choose'}
           </span>
-          <span className="label-mono">PDF · up to 10 MB</span>
+          <span className="label-mono">PDF or .docx · up to 10 MB</span>
         </label>
 
         {uploading ? (
-          // Reading the PDF takes milliseconds; the model reading it back into
-          // fields is the ~30s the user is actually waiting on. Saying "reading
-          // your PDF" for all of it reads as a hang.
+          // Reading the layout takes milliseconds. A model re-reading it is the
+          // ~30s the user is actually waiting on — so only promise that wait
+          // when there is a model configured to cause it.
           <p className="mt-3 font-mono text-xs text-muted-foreground">
-            reading your PDF, then asking the model to lay it out as fields — around half a minute…
+            {hasModel
+              ? 'reading your résumé, then asking the model to lay it out as fields — around half a minute…'
+              : 'reading your résumé…'}
           </p>
-        ) : null}
-
-        {needsKey ? (
-          <DegradedBanner
-            className="mt-4 text-left"
-            feature="Importing a PDF"
-            needs="an LLM key — Anthropic or an OpenAI-compatible endpoint"
-            stillWorks="You can start from a blank résumé and fill it in by hand instead. The editor, the pipeline and public-board search never need a key."
-            settingsSection="llm"
-          />
         ) : null}
 
         {error ? (
@@ -192,13 +175,25 @@ export function ImportReview() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/*
+            Which parser ran is the user's business, not an implementation
+            detail: "no model was involved" is a materially different claim from
+            "a model laid this out", and this screen is where they are asked to
+            trust the result.
+          */}
+          <span className="label-mono" data-testid="import-parser">
+            {parsed.parser === 'layout' ? 'read from the layout · no model' : 'laid out by a model'}
+          </span>
+
           {flagged.size > 0 ? (
             <span className="flex items-center gap-1.5 text-xs text-warn">
               <AlertTriangle size={14} aria-hidden="true" />
-              {flagged.size} field{flagged.size === 1 ? '' : 's'} not found verbatim in the PDF
+              {flagged.size} field{flagged.size === 1 ? '' : 's'} not found verbatim in your résumé
             </span>
           ) : (
-            <span className="font-mono text-xs text-primary">every field matched the PDF</span>
+            <span className="font-mono text-xs text-primary">
+              every field matched your résumé
+            </span>
           )}
 
           <Button

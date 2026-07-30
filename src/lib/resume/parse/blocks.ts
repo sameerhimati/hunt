@@ -23,6 +23,8 @@
  * position and font turns most of those guesses into measurements.
  */
 
+import { ResumeImportError } from '../import-core'
+
 /** One visual line of the source document, with the typography that survived extraction. */
 export interface SourceLine {
   /** The line's visible text, re-joined from per-glyph runs, bullet glyph stripped. */
@@ -316,7 +318,16 @@ export async function readPdf(pdf: Buffer | Uint8Array): Promise<SourceDocument>
   // importing a résumé.
   const { getDocumentProxy } = await import('unpdf')
 
-  const document = await getDocumentProxy(new Uint8Array(pdf))
+  let document: Awaited<ReturnType<typeof getDocumentProxy>>
+  try {
+    document = await getDocumentProxy(new Uint8Array(pdf))
+  } catch (error) {
+    // Same wrapping as `extractPdfText()` in `../import.ts`, and for the same
+    // reason: without it a file that isn't really a PDF surfaces as a 500 from
+    // pdf.js internals instead of a sentence the user can act on.
+    throw new ResumeImportError('That file could not be read as a PDF.', { cause: error })
+  }
+
   const lines: SourceLine[] = []
 
   for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {

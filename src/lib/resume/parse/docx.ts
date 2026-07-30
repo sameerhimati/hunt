@@ -1,6 +1,6 @@
 import { inflateRawSync } from 'node:zlib'
 
-import { ResumeImportError } from '../import'
+import { ResumeImportError } from '../import-core'
 
 import type { SourceDocument, SourceLine } from './blocks'
 
