@@ -179,7 +179,42 @@ function findDateRange(text: string): DateRange | null {
 // ---------------------------------------------------------------------------
 
 const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/
-const URL = /(?:https?:\/\/|www\.)[^\s|·•]+/i
+
+/**
+ * Résumés write links bare. `github.com/you`, `linkedin.com/in/you`,
+ * `yourname.com` — a scheme is what a browser needs, not what a person types on
+ * a document meant to be read.
+ *
+ * Requiring `https://` or `www.` therefore missed the way the overwhelming
+ * majority of contact lines are actually written, and it failed *twice* on the
+ * same line: `isContactLine()` did not recognise the contact line as contact
+ * information, so `parseBasics` took it for the first non-contact line and filed
+ * the user's entire link list as their headline — while `basics.url` stayed
+ * empty for want of a match. One missing alternative, two wrong fields, and the
+ * headline is the more damaging of them because it is wrong rather than absent.
+ *
+ * The bare form is admitted through **an explicit TLD list** and not through
+ * `\.\w{2,}`, which is the shape that would have to be right about prose it has
+ * no business reading. `Node.js`, `Next.js`, `e.g.`, `U.S.` and `Ph.D.` all
+ * survive a list that does not contain `js`, `g`, `s` or `d`; none of them
+ * survives the general pattern. False negatives here cost a link the user can
+ * paste back in ten seconds — a false positive silently eats a span of their
+ * text, which is the error this file exists to avoid.
+ *
+ * `(?!-)` is there for `s3.us-east-1`. A TLD list long enough to be useful has
+ * to contain short country codes, and a hyphen straight after one means the
+ * match landed in the middle of an identifier rather than at the end of a host
+ * name. AWS regions are the case that turns up in engineering bullets; the rule
+ * is general.
+ */
+const TLD =
+  'com|org|net|io|dev|ai|co|me|app|xyz|tech|info|edu|gov|us|uk|ca|de|fr|nl|in|au|' +
+  'sh|gg|ly|so|to|cc|tv|fm|page|site|design|studio|blog|works|space|online'
+const URL = new RegExp(
+  `(?:https?://|www\\.)[^\\s|·•]+|\\b(?:[\\w-]+\\.)+(?:${TLD})\\b(?!-)(?:/[^\\s|·•]*)?`,
+  'i',
+)
+
 const PHONE = /\+?\d[\d\s().-]{6,}\d/
 
 /**
@@ -900,9 +935,19 @@ function parseBasics(banner: SourceLine[], summaryLines: SourceLine[]): ResumeCo
       basics.email = email[0]
       remainder = remainder.replace(email[0], ' ')
     }
-    const url = remainder.match(URL)
-    if (url) {
-      basics.url = url[0].replace(/[.,;]$/, '')
+    // **Every** link comes out, not just the one that becomes `url`. The schema
+    // holds one link and a contact line routinely carries three (a site, a
+    // GitHub, a LinkedIn) — so the extras are debris, and debris is what
+    // `location` reads at the end of this function. A leftover
+    // "github.com/danaokoye" is one word with no role word in it, which is
+    // precisely the shape the location heuristic accepts, and the user's city
+    // becomes their GitHub. Removing the first link only was survivable while
+    // links needed a scheme, because a bare-domain list never reached here at
+    // all; it stopped being survivable the moment it did.
+    for (;;) {
+      const url = remainder.match(URL)
+      if (!url) break
+      basics.url ??= url[0].replace(/[.,;]$/, '')
       remainder = remainder.replace(url[0], ' ')
     }
     const phone = remainder.match(PHONE)

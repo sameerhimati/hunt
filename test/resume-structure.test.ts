@@ -713,6 +713,59 @@ describe('structureResume degrades instead of throwing', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Bare-domain links. Every fixture above writes its links with a scheme, which
+// is a LaTeX-template habit and not how people write them — the first
+// real-world résumé put through this parser had none, and the banner came apart
+// on it.
+// ---------------------------------------------------------------------------
+
+/**
+ * A banner that writes its links the way a person does: no scheme, no `www.`,
+ * two of them, and the email on a separate baseline from the link list.
+ */
+const BARE_LINK_BANNER = documentOf([
+  line('Dana Okoye', 56.7, 205.6, 406.5, 24.79, 'f1'),
+  line('danaokoye.com · github.com/danaokoye · linkedin.com/in/danaokoye', 89.2, 94.6, 517.4, 9.96, 'f5'),
+  line('dana@example.com · Chicago, IL', 101.4, 94.6, 517.4, 9.96, 'f5'),
+  line('Experience', 157.6, 39.6, 107.7, 11.96, 'f1'),
+  line('Northwind 2022-01 – Present', 178.3, 39.6, 572.4, 10.91, 'f9'),
+  line('Platform Engineer', 191.8, 39.6, 572.4, 9.96, 'f11'),
+])
+
+describe('a banner whose links carry no scheme', () => {
+  it('does not file the link list as the headline', () => {
+    // The defect this pins: `isContactLine()` did not recognise a bare domain, so
+    // the link list was the first "non-contact" line and became `label`. A wrong
+    // headline is worse than an absent one — it renders into the PDF.
+    const basics = structureResume(BARE_LINK_BANNER).basics
+    expect(basics.label).toBeUndefined()
+  })
+
+  it('reads the first bare link as the URL', () => {
+    expect(structureResume(BARE_LINK_BANNER).basics.url).toBe('danaokoye.com')
+  })
+
+  it('still finds the email and the location beside the links', () => {
+    // The location is the regression risk in the fix, not the fix itself: once the
+    // link list counts as a contact line its links join the leftovers, and a
+    // one-word leftover with no role word in it is exactly what `location` looks
+    // for. Every link has to be removed, not just the one that became `url`.
+    const basics = structureResume(BARE_LINK_BANNER).basics
+    expect(basics.email).toBe('dana@example.com')
+    expect(basics.location).toBe('Chicago, IL')
+  })
+
+  it('keeps the name and the rest of the document intact', () => {
+    const content = structureResume(BARE_LINK_BANNER)
+    expect(content.basics.name).toBe('Dana Okoye')
+    expect(content.experience[0]).toMatchObject({
+      company: 'Northwind',
+      title: 'Platform Engineer',
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Known gaps, asserted so they cannot change silently in either direction
 // ---------------------------------------------------------------------------
 
