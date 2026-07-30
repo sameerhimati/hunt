@@ -13,6 +13,17 @@ import { ensureSchema } from './migrate'
  *
  * Cached on `globalThis` so Next's dev server doesn't leak a new client — and a
  * new file handle — on every HMR pass.
+ *
+ * The cache is unconditional, and that is the whole point. The usual Next idiom
+ * caches on `globalThis` in development only, because in production a
+ * module-level `const` is evaluated once and is itself the singleton. There is
+ * no such `const` here: construction is deferred behind the proxy below, so
+ * skipping the cache in production meant memoising *nothing*. Every property
+ * access on `prisma` — 82 call sites — ran `createClient()`, which re-scans and
+ * re-reads the entire migrations tree and opens another SQLite handle that is
+ * never closed. Invisible under `pnpm dev`, which is why it survived; it only
+ * appears under `next start` or Docker, i.e. exactly how someone following the
+ * README runs it.
  */
 const globalForPrisma = globalThis as unknown as { huntPrisma?: PrismaClient }
 
@@ -30,7 +41,7 @@ export function getPrisma(): PrismaClient {
   if (existing) return existing
 
   const client = createClient()
-  if (process.env.NODE_ENV !== 'production') globalForPrisma.huntPrisma = client
+  globalForPrisma.huntPrisma = client
   return client
 }
 

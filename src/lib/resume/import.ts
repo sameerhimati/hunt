@@ -2,11 +2,11 @@ import { asResolvedLlm, type LlmLike } from '@/lib/llm'
 import { parseResumeMessage, parseResumeSystem } from '@/lib/llm/prompts/resume'
 import { runPrompt } from '@/lib/llm/prompts'
 
+import { ResumeImportError, scoreConfidence, type ImportedResume } from './import-core'
 import { parseResumeContent, type ResumeContent } from './schema'
 
 /**
- * PDF import — the first thing a new user does, and the moment hunt earns or
- * loses their trust.
+ * The *model* import path — one of two, now.
  *
  * The pipeline is deliberately boring: extract the text layer, hand it to a
  * model with a copy-it-verbatim prompt, validate the JSON against the schema.
@@ -14,32 +14,18 @@ import { parseResumeContent, type ResumeContent } from './schema'
  * back against the PDF text, so the review screen can flag the fields the model
  * produced but the document doesn't literally contain. That is a fact we can
  * measure, unlike a model's self-reported confidence, which is a vibe.
+ *
+ * `parse/` is the keyless twin, which reads structure out of the document's own
+ * typography instead of asking a model to. It exists because requiring a key
+ * here put one in front of the first thing a new user does — and because a
+ * parser that only copies verbatim spans cannot invent, which this one can.
+ * Shared, model-free pieces live in `import-core.ts` so that path stays clean of
+ * the provider layer.
  */
 
-export interface ImportedResume {
-  content: ResumeContent
-  /**
-   * Leaf path -> 0..1. 1 means the value appears verbatim in the PDF text;
-   * lower means it was inferred or reformatted and deserves an amber flag.
-   */
-  fieldConfidence: Record<string, number>
-  /** The raw text layer, kept so the review screen can show the source. */
-  text: string
-}
-
-export class ResumeImportError extends Error {
-  constructor(message: string, options: { cause?: unknown } = {}) {
-    super(message, options)
-    this.name = 'ResumeImportError'
-  }
-}
-
-/** Confidence for a value the document doesn't literally contain. */
-const INFERRED_CONFIDENCE = 0.5
-/** Dates and short values get reformatted legitimately; don't cry wolf. */
-const REFORMATTED_CONFIDENCE = 0.8
-
-const DATE_KEYS = new Set(['start', 'end'])
+// Re-exported so the many call sites that import these from here keep working;
+// they moved to `import-core.ts` to get out of the LLM module graph.
+export { ResumeImportError, scoreConfidence, type ImportedResume } from './import-core'
 
 export async function extractPdfText(pdf: Buffer | Uint8Array): Promise<string> {
   // Lazily imported: unpdf pulls in the whole pdf.js worker, which has no
@@ -65,47 +51,6 @@ export async function extractPdfText(pdf: Buffer | Uint8Array): Promise<string> 
  */
 function dehyphenate(text: string): string {
   return text.replace(/(\p{Ll})-\n(\p{Ll})/gu, '$1$2')
-}
-
-/** Whitespace and typographic variants are noise when matching against a PDF. */
-function normalise(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[‘’]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/[‐-―]/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-/** Walks the parsed content and scores every leaf string against the source text. */
-function scoreConfidence(content: ResumeContent, text: string): Record<string, number> {
-  const haystack = normalise(text)
-  const scores: Record<string, number> = {}
-
-  const visit = (value: unknown, path: string, key: string) => {
-    if (Array.isArray(value)) {
-      value.forEach((item, index) => visit(item, `${path}[${index}]`, key))
-      return
-    }
-    if (value && typeof value === 'object') {
-      for (const [childKey, child] of Object.entries(value)) {
-        visit(child, path ? `${path}.${childKey}` : childKey, childKey)
-      }
-      return
-    }
-    if (typeof value !== 'string' || value === '') return
-
-    const needle = normalise(value)
-    if (haystack.includes(needle)) {
-      scores[path] = 1
-      return
-    }
-    scores[path] = DATE_KEYS.has(key) ? REFORMATTED_CONFIDENCE : INFERRED_CONFIDENCE
-  }
-
-  visit(content, '', '')
-  return scores
 }
 
 /** Models occasionally wrap JSON in prose or fences however firmly you ask. */

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { parseResumeContent, type ResumeContent } from '@/lib/resume/schema'
+import { cn } from '@/lib/utils'
 
 /**
  * Import review — the screen between "we parsed your PDF" and "this is now your
@@ -23,19 +24,26 @@ import { parseResumeContent, type ResumeContent } from '@/lib/resume/schema'
 interface ImportResponse {
   content: ResumeContent
   fieldConfidence: Record<string, number>
-  /** The PDF's own text layer, so the review can be checked against something. */
+  /** The document's own text, so the review can be checked against something. */
   text: string
   fileName: string
+  /**
+   * Which parser read it. `layout` means the structure came from the document's
+   * own typography and no model was involved — a stronger claim than `model`,
+   * and one the user is entitled to see rather than infer.
+   */
+  parser: 'layout' | 'model'
 }
 
 const FLAG_BELOW = 1
 
-export function ImportReview() {
+export function ImportReview({ hasModel }: { hasModel: boolean }) {
   const [parsed, setParsed] = useState<ImportResponse | null>(null)
   const [content, setContent] = useState<ResumeContent | null>(null)
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [dragging, setDragging] = useState(false)
   const [showSource, setShowSource] = useState(false)
   const [pending, startTransition] = useTransition()
 
@@ -64,7 +72,7 @@ export function ImportReview() {
       const imported = payload as ImportResponse
       setParsed(imported)
       setContent(parseResumeContent(imported.content))
-      setName(imported.content.basics?.name || file.name.replace(/\.pdf$/i, ''))
+      setName(imported.content.basics?.name || file.name.replace(/\.(pdf|docx)$/i, ''))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Import failed.')
     } finally {
@@ -75,32 +83,69 @@ export function ImportReview() {
   if (!parsed || !content) {
     return (
       <div className="mx-auto max-w-lg px-6 py-16 text-center">
-        <Upload size={26} className="mx-auto text-faint" aria-hidden="true" />
-        <h2 className="mt-4 font-serif text-xl font-semibold">Import your résumé</h2>
+        <h2 className="font-serif text-xl font-semibold">Import your résumé</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          hunt reads the PDF&rsquo;s text and turns it into structured fields you can edit and
-          version. You review the parse before anything is saved.
+          hunt reads your résumé&rsquo;s own layout and turns it into structured fields you can
+          edit and version — <span className="text-foreground">no API key needed</span>. You
+          review the parse before anything is saved.
         </p>
 
-        <div className="mt-6">
-          <Input
+        {/*
+          A label wrapping a visually-hidden input, rather than a bare file
+          input: the browser default renders an unstyled "Choose File" button
+          with the filename in a monospace box beside it, which reads as
+          unfinished on the first screen a new user meets. SCREENS.md §1 calls
+          for a PDF *drop*, so dropping has to actually work — and the input
+          stays focusable so this is still reachable by keyboard.
+        */}
+        <label
+          data-testid="import-dropzone"
+          onDragOver={(event) => {
+            event.preventDefault()
+            setDragging(true)
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(event) => {
+            event.preventDefault()
+            setDragging(false)
+            const file = event.dataTransfer.files?.[0]
+            if (file) void upload(file)
+          }}
+          className={cn(
+            'mt-6 flex flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-10 transition-colors',
+            uploading
+              ? 'pointer-events-none border-border opacity-60'
+              : 'cursor-pointer hover:border-faint hover:bg-card',
+            dragging ? 'border-primary bg-primary/5' : 'border-border',
+            'focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/40',
+          )}
+        >
+          <input
             type="file"
-            accept="application/pdf"
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             data-testid="import-file"
+            className="sr-only"
             disabled={uploading}
             onChange={(event) => {
               const file = event.target.files?.[0]
               if (file) void upload(file)
             }}
           />
-        </div>
+          <Upload size={22} className="text-faint" aria-hidden="true" />
+          <span className="text-sm font-medium">
+            {dragging ? 'Drop it here' : 'Drop your résumé here, or click to choose'}
+          </span>
+          <span className="label-mono">PDF or .docx · up to 10 MB</span>
+        </label>
 
         {uploading ? (
-          // Reading the PDF takes milliseconds; the model reading it back into
-          // fields is the ~30s the user is actually waiting on. Saying "reading
-          // your PDF" for all of it reads as a hang.
+          // Reading the layout takes milliseconds. A model re-reading it is the
+          // ~30s the user is actually waiting on — so only promise that wait
+          // when there is a model configured to cause it.
           <p className="mt-3 font-mono text-xs text-muted-foreground">
-            reading your PDF, then asking the model to lay it out as fields — around half a minute…
+            {hasModel
+              ? 'reading your résumé, then asking the model to lay it out as fields — around half a minute…'
+              : 'reading your résumé…'}
           </p>
         ) : null}
 
@@ -130,13 +175,25 @@ export function ImportReview() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/*
+            Which parser ran is the user's business, not an implementation
+            detail: "no model was involved" is a materially different claim from
+            "a model laid this out", and this screen is where they are asked to
+            trust the result.
+          */}
+          <span className="label-mono" data-testid="import-parser">
+            {parsed.parser === 'layout' ? 'read from the layout · no model' : 'laid out by a model'}
+          </span>
+
           {flagged.size > 0 ? (
             <span className="flex items-center gap-1.5 text-xs text-warn">
               <AlertTriangle size={14} aria-hidden="true" />
-              {flagged.size} field{flagged.size === 1 ? '' : 's'} not found verbatim in the PDF
+              {flagged.size} field{flagged.size === 1 ? '' : 's'} not found verbatim in your résumé
             </span>
           ) : (
-            <span className="font-mono text-xs text-primary">every field matched the PDF</span>
+            <span className="font-mono text-xs text-primary">
+              every field matched your résumé
+            </span>
           )}
 
           <Button

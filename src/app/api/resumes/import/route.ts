@@ -1,19 +1,28 @@
 import { NextResponse } from 'next/server'
 
 import { resolveLlm } from '@/lib/llm'
-import { modelRequired } from '@/lib/llm/unavailable'
-import { importResumePdf, ResumeImportError } from '@/lib/resume/import'
+import { importResumePdf } from '@/lib/resume/import'
+import { ResumeImportError } from '@/lib/resume/import-core'
+import { isLegacyDoc, parseResumeFile, readableKind } from '@/lib/resume/parse'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 /**
- * PDF upload → parsed résumé, for review.
+ * Résumé upload → parsed résumé, for review.
  *
  * A route handler, not a server action: server action bodies are capped at 1MB
  * and a résumé PDF with embedded fonts blows straight past that. Nothing is
  * written to the database here — the user confirms the parse on the review
  * screen first, so a bad import costs them a click, not a cleanup.
+ *
+ * **This used to answer 428 when no model was configured, which put an API key
+ * in front of the first thing a new user does.** It no longer can. Reading a
+ * document's structure out of its own typography needs no key, so that is the
+ * floor. A configured model is still used for PDFs, because on a messy
+ * real-world résumé it is likely to beat the heuristics — but it is now an
+ * attempt with a guaranteed fallback rather than a gate, so a model outage
+ * degrades the parse instead of blocking the import.
  */
 /**
  * A text résumé PDF is tens of KB; one with embedded fonts and a headshot is a
@@ -50,35 +59,49 @@ export async function POST(request: Request) {
   // knowable here. Both checks are cheap; neither is redundant.
   if (file.size > MAX_UPLOAD_BYTES) return tooLarge(file.size)
 
-  const looksLikePdf =
-    file.type === 'application/pdf' || /\.pdf$/i.test(file.name) || file.type === ''
-  if (!looksLikePdf) {
+  const bytes = new Uint8Array(await file.arrayBuffer())
+
+  // Sniffed from content rather than trusted from `file.type`, which browsers
+  // report inconsistently, or the extension, which is a claim not a fact.
+  if (isLegacyDoc(bytes)) {
     return NextResponse.json(
       {
-        error: `“${file.name}” is not a PDF. Export your résumé as a PDF, or start from a blank one.`,
+        error: `“${file.name}” is a legacy .doc. Open it and re-save as .docx or PDF, then import it.`,
       },
       { status: 415 },
     )
   }
 
-  const llm = await resolveLlm()
-  if (!llm) {
-    // Only `error` travels: the review screen renders that string and nothing
-    // else, so a `settingsHref` beside it was a link the user never got.
+  const kind = readableKind(bytes, file.name)
+  if (!kind) {
     return NextResponse.json(
-      { error: modelRequired('Importing a PDF', 'you can start from a blank résumé instead') },
-      { status: 428 },
+      {
+        error: `“${file.name}” is not a PDF or a .docx. Export your résumé as one of those, or start from a blank one.`,
+      },
+      { status: 415 },
     )
   }
 
   try {
-    const { content, fieldConfidence, text } = await importResumePdf(
-      Buffer.from(await file.arrayBuffer()),
-      llm,
-    )
-    // `text` ships too: the review screen asks the user to check a parse, and
-    // checking it against nothing is not a review. It never leaves this machine.
-    return NextResponse.json({ content, fieldConfidence, text, fileName: file.name })
+    // The keyless parse always runs: it is the floor, and it is also the only
+    // path for DOCX, which the model prompt has no text-extraction route for.
+    const layout = await parseResumeFile(bytes, file.name)
+
+    if (kind === 'docx') return ok(layout, file.name, 'layout')
+
+    const llm = await resolveLlm()
+    if (!llm) return ok(layout, file.name, 'layout')
+
+    try {
+      const model = await importResumePdf(Buffer.from(bytes), llm)
+      return ok(model, file.name, 'model')
+    } catch (error) {
+      // A key that is present but broken — expired, out of credit, wrong base
+      // URL — used to lose the whole import. There is a good parse in hand, so
+      // ship it and say which one it is.
+      if (!(error instanceof ResumeImportError)) throw error
+      return ok(layout, file.name, 'layout')
+    }
   } catch (error) {
     if (error instanceof ResumeImportError) {
       return NextResponse.json({ error: error.message }, { status: 422 })
@@ -88,4 +111,19 @@ export async function POST(request: Request) {
       { status: 500 },
     )
   }
+}
+
+/**
+ * `text` ships alongside the fields: the review screen asks the user to check a
+ * parse, and checking it against nothing is not a review. It never leaves this
+ * machine. `parser` ships so the screen can say which one read the document —
+ * "no model was involved" is a meaningfully different claim from "a model laid
+ * this out", and the user is the one being asked to trust it.
+ */
+function ok(
+  parsed: { content: unknown; fieldConfidence: Record<string, number>; text: string },
+  fileName: string,
+  parser: 'layout' | 'model',
+) {
+  return NextResponse.json({ ...parsed, fileName, parser })
 }

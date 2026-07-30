@@ -21,9 +21,9 @@ All of this works today, on your own machine.
 | **Four of the five honest checks** — parse fidelity, keyword coverage, format lint, AI-tell audit | no |
 | **Outreach sequences** — write them yourself, copy out, mark as sent | no |
 | **Archive a résumé** — never delete, so an application keeps the record of what you actually sent | no |
+| **Résumé import, PDF or .docx** — read from your document's own layout, so nothing is invented and every field traces to text you wrote | no |
 | **AI tailoring with citations** — every edit traces to a path in your own résumé; unsupported claims are refused *and shown* | one LLM key |
 | **Cover letters** under the same citation guard | one LLM key |
-| **PDF résumé import** | one LLM key |
 | **Fit ratings and outreach drafts** | one LLM key |
 
 Everything else — scraping, contact lookup, extra job sources, sending email —
@@ -128,4 +128,5 @@ Genuinely undecided. Opinions welcome — open an issue.
 - **Where reply detection stops.** Reading replies to messages *you sent through
   hunt* is clearly in scope. Reading your inbox more broadly is clearly not.
   The line between them needs to be drawn precisely before any code is written.
-- **DOCX import.** PDF works. DOCX is a small library away and keeps coming up.
+*DOCX import stood here as an open question and shipped on 2026-07-29, along
+with keyless import for both formats — see Built.*
