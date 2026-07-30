@@ -38,6 +38,7 @@ Instead of a score, you get four things that are actually measurable:
 
 More than you'd expect, and this is deliberate:
 
+- Importing the resume you already have, PDF or .docx — read from your document's own layout, so nothing is invented and every field traces back to text you wrote.
 - The full resume editor — structured fields, three LaTeX templates, live PDF, raw-LaTeX escape hatch, named versions, and a semantic diff between any two of them.
 - The whole pipeline — manual job entry, board and table views, statuses, the dashboard.
 - Job search across the four public boards above.
@@ -45,7 +46,8 @@ More than you'd expect, and this is deliberate:
 - Outreach sequences you write yourself, with copy-to-clipboard and mark-as-sent.
 
 **Adding one LLM key** — Anthropic, or any OpenAI-compatible endpoint — turns on
-tailoring, cover letters, PDF resume import, fit ratings, and outreach drafting.
+tailoring, cover letters, fit ratings, and outreach drafting. It also re-reads an
+imported PDF, which can help on an unusual layout; import works without it.
 Every other integration is optional and only widens what you already have.
 
 ## Status
