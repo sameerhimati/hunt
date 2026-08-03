@@ -38,6 +38,16 @@ export type RenderInput = TexInput
 export interface RenderResult {
   pdf: Buffer
   tex: string
+  /**
+   * How many pages came out. Read back from the compiled document rather than
+   * predicted from the content, because the only thing that knows where a page
+   * breaks is the typesetter that broke it.
+   *
+   * Tailoring only ever *adds* text, so without this the core loop can push a
+   * résumé onto a third page and say nothing — the class of defect where the UI
+   * asserts what the code never checked.
+   */
+  pages: number
 }
 
 /** A LaTeX failure the user can act on: the compiler's own words, not a stack. */
@@ -99,8 +109,38 @@ export async function renderToPdf(input: RenderInput): Promise<RenderResult> {
       throw new LatexRenderError(log)
     })
 
-    return { pdf, tex }
+    return { pdf, tex, pages: await countPages(pdf) }
   } finally {
     await fs.rm(dir, { recursive: true, force: true })
+  }
+}
+
+/**
+ * Pages in a compiled document, read by actually opening it.
+ *
+ * The cheap approaches were tried against real Tectonic output and neither
+ * works, which is worth recording so they are not tried again:
+ *
+ *  - **Scanning for `/Type /Page`** cannot work here. Tectonic writes
+ *    compressed object streams (`/ObjStm`), so the page objects are not in the
+ *    file as literal text at all and the scan finds nothing on every document.
+ *  - **Parsing the log** does not either. The `Output written on … (2 pages)`
+ *    line is a pdfTeX habit; Tectonic's XeTeX driver does not print it.
+ *
+ * So it opens the PDF. The worry that motivated the shortcuts — pulling pdf.js
+ * into the live preview path — was misplaced: that path already shells out to a
+ * full LaTeX compile per render, next to which parsing the result is nothing.
+ * Imported lazily all the same, so callers that never render pay nothing.
+ *
+ * Zero means "could not tell", and callers render nothing rather than a guess.
+ * A page count is a fact about the document or it is not shown; there is no
+ * useful middle where hunt asserts a number it had to estimate.
+ */
+export async function countPages(pdf: Buffer | Uint8Array): Promise<number> {
+  try {
+    const { getDocumentProxy } = await import('unpdf')
+    return (await getDocumentProxy(new Uint8Array(pdf))).numPages
+  } catch {
+    return 0
   }
 }

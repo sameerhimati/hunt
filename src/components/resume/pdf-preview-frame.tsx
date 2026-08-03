@@ -35,7 +35,18 @@ export function PdfPreviewFrame({
   const [url, setUrl] = useState<string | null>(null)
   const [rendering, setRendering] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [pages, setPages] = useState(0)
+  /**
+   * The page count of the first render in this frame. State rather than a ref
+   * because it is read while rendering, and growth is measured against the
+   * document the user started from — comparing against the previous keystroke
+   * would make a page that crept on over six edits look like it was always
+   * there, which is precisely the change worth noticing.
+   */
+  const [floor, setFloor] = useState<number | null>(null)
   const objectUrl = useRef<string | null>(null)
+
+  const grew = pages > 0 && floor !== null && pages > floor
 
   useEffect(() => {
     let cancelled = false
@@ -69,6 +80,13 @@ export function PdfPreviewFrame({
         objectUrl.current = URL.createObjectURL(blob)
         setUrl(objectUrl.current)
         setError(null)
+
+        // 0 means the renderer could not tell; show nothing rather than a guess.
+        const counted = Number(response.headers.get('x-hunt-pages') ?? 0)
+        if (counted > 0) {
+          setPages(counted)
+          setFloor((first) => first ?? counted)
+        }
       } catch (cause) {
         if (!cancelled) setError(cause instanceof Error ? cause.message : 'Render failed.')
       } finally {
@@ -108,6 +126,27 @@ export function PdfPreviewFrame({
             </Button>
           ))}
         </div>
+
+        {pages > 0 ? (
+          <span
+            data-testid="page-count"
+            data-pages={pages}
+            data-grew={grew ? 'true' : 'false'}
+            className={cn(
+              'shrink-0 font-mono text-[11px]',
+              grew ? 'text-warn' : 'text-muted-foreground',
+            )}
+          >
+            {/*
+              A count, and — when it has grown — what it grew from. Both are
+              facts about the compiled document. Deliberately not "your résumé
+              is too long": how many pages a résumé should be is a norm, and an
+              opinion dressed as an instrument is what this product refuses.
+            */}
+            {pages} {pages === 1 ? 'page' : 'pages'}
+            {grew ? ` · was ${floor}` : ''}
+          </span>
+        ) : null}
 
         <span
           className={cn(
