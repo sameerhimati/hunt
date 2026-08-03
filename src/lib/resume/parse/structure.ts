@@ -329,6 +329,31 @@ function matchVocabulary(line: SourceLine): Exclude<SectionKind, 'custom'> | nul
 const INDENT_TOLERANCE = 2
 
 /**
+ * How far right of its bullet a continuation may sit and still be one.
+ *
+ * Two bullet styles both occur, sometimes in the same document, and the
+ * difference is not the author's — it is whether the typesetter emitted the
+ * bullet glyph as its own text run:
+ *
+ *  - **Its own run.** `./blocks` drops it before measuring, so the bullet's `x`
+ *    is where its *words* start and a wrap lands on precisely that number.
+ *  - **Fused into the first run** (`"• Built document processing…"`). Nothing
+ *    can be dropped before measuring, so `x` is where the *glyph* sits — a dozen
+ *    points left of the words — while the wrap still aligns with the words.
+ *
+ * So the old test, exact equality with the bullet's `x`, silently held only for
+ * the first style. This band accepts both: a continuation is level with its
+ * bullet or a little right of it, never left. Twenty-four points is about two
+ * ems at résumé body size — wide enough for any hanging indent, and nowhere near
+ * the ~200pt jump between the columns of a two-column layout, which is the
+ * neighbouring line this must never swallow.
+ */
+const MAX_CONTINUATION_INDENT = 24
+
+/** Two lines are the same size when they round to the same tenth of a point. */
+const FONT_SIZE_TOLERANCE = 0.5
+
+/**
  * Re-joins bullets the typesetter broke across lines, before anything else runs.
  *
  * "…by rewriting the on-call" / "runbooks around service ownership" is one bullet
@@ -339,13 +364,19 @@ const INDENT_TOLERANCE = 2
  * downstream rule that treats "a non-bullet line after bullets" as the start of
  * the next entry would otherwise have to know about wrapping too.
  *
- * The test is that the line **shares its bullet's exact left edge** and carries no
- * glyph of its own. That works because `./blocks` measures a hanging bullet from
- * its text and not from the glyph in the margin, so a wrap lands on precisely the
- * same `x` (174.9 in sample 2, 245.8 and 46.0 in sample 3's two columns) while the
- * next entry's heading does not — sample 2's next job title sits at 162.9, twelve
- * points left, and sample 3's at 235.8, ten points left. Matching the font as well
- * costs nothing and blocks a heading that happens to align.
+ * The test is that the line **starts level with its bullet or a little right of
+ * it, never left**, at the same type size, and carries no glyph of its own.
+ * Left is what rules out the next entry's heading, which outdents — sample 2's
+ * next job title sits at 162.9 against its bullets' 174.9, twelve points left,
+ * and sample 3's at 235.8 against 245.8. Right is what admits a hanging indent
+ * whose bullet glyph was fused into the first text run, where `x` measures the
+ * glyph rather than the words (see `MAX_CONTINUATION_INDENT`).
+ *
+ * It was exact equality until 2026-08-03, which was a rule fitted to the three
+ * sample PDFs rather than to how PDFs are built: every one of them happened to
+ * emit the bullet as its own run. The first real-world résumé through this path
+ * did not, and a whole entry's bullets shredded into phantom company and title
+ * fields — the geometry was reporting the margin, not the text.
  *
  * **PDF only.** A DOCX "line" is a paragraph — logical, not visual — so a
  * 200-character bullet arrives whole and there is nothing to rejoin. Worse, the
@@ -369,11 +400,19 @@ function rejoinWrappedBullets(doc: SourceDocument): SourceLine[] {
       continue
     }
 
+    const indent = anchor === null ? 0 : line.x - anchor.x
+
     const continues =
       anchor !== null &&
       line.page === anchor.page &&
-      Math.abs(line.x - anchor.x) <= INDENT_TOLERANCE &&
-      line.fontName === anchor.fontName &&
+      indent >= -INDENT_TOLERANCE &&
+      indent <= MAX_CONTINUATION_INDENT &&
+      // Size, not face. One sentence of a bullet routinely spans three font
+      // objects — a bold term, an italic product name, the roman around them —
+      // so equality of `fontName` fails on any bullet with inline emphasis,
+      // which is most of them. Size is what actually separates body text from
+      // the heading this guard exists to keep out.
+      Math.abs(line.fontSize - anchor.fontSize) <= FONT_SIZE_TOLERANCE &&
       findDateRange(line.text) === null &&
       // A named section heading is never the tail of a bullet, whatever the
       // geometry says. On a document with one font and one indent — the flat text
@@ -566,35 +605,158 @@ function headingLines(chunk: SourceLine[]): SourceLine[] {
 }
 
 /**
+ * Field separators an author typed into a single heading line.
+ *
+ * A bullet or interpunct between fields is a deliberate act — nobody writes
+ * `Fundmore.ai ML Engineer • Toronto • June 2021 – January 2023` by accident —
+ * so unlike the comma and dash of `ROLE_ORG_SEPARATORS`, which have to be
+ * weighed against their use inside ordinary names, these can be split on
+ * unconditionally. A line without one splits to itself and nothing changes.
+ */
+const HEADING_FIELD_SEPARATOR = /\s*[•·|]\s*/
+
+/** Connectors inside a place name — `Chicago / Houston`, `Raleigh-Durham`. */
+const PLACE_CONNECTOR = /^[/&–—-]$/
+
+/**
+ * A field naming somewhere rather than something.
+ *
+ * `isLocation` wants a `City, ST` pair, which is the right bar for free text
+ * where a bare capitalised word is far more likely to be an employer. Inside an
+ * author-delimited field list the bar can drop, because the author has already
+ * told us where the boundaries are — but only for a field that is **not the
+ * first**. That restriction is the whole safety of this rule: in
+ * `Acme • Senior Engineer • 2020` the bare capitalised word is the employer and
+ * it leads, while in `Fundmore.ai ML Engineer • Toronto • …` the place sits
+ * where convention puts it, between the name and the dates.
+ */
+function looksLikePlace(field: string): boolean {
+  if (TITLE_WORDS.test(field) || /\d/.test(field)) return false
+
+  const parts = words(field)
+  if (parts.length === 0 || parts.length > 4) return false
+
+  return parts.every(
+    (part) => PLACE_CONNECTOR.test(part) || /^[(\p{Lu}]/u.test(part),
+  )
+}
+
+/**
+ * Prose under an entry heading — a sentence about the job, not another field of
+ * its name. "Bootstrapped and self-funded. Paid engagements building AI systems
+ * for businesses I already have direct access to…" is a paragraph; without this
+ * it is just another non-bullet line, and the two-span branch below files the
+ * whole sentence as the employer.
+ *
+ * **Not recognised by type size**, though the temptation is strong — a
+ * sub-description usually is set smaller. So is a job title: sample 1 sets
+ * "Senior Data Engineer Seattle, WA" smaller than the company above it, and a
+ * size rule eats the title along with the prose. Size says "subordinate", which
+ * both of these are.
+ *
+ * What separates them is being a *sentence*: it runs long, or it closes with a
+ * full stop while containing a word that isn't capitalised. A name field is
+ * title case and does not terminate — "Northwind — Platform Engineer",
+ * "B.Sc. Applied Statistics, Minor in Computer Science". "Acme Inc." ends in a
+ * stop but capitalises throughout, so it stays a name.
+ */
+const MAX_HEADING_WORDS = 14
+
+function isProse(text: string): boolean {
+  const parts = words(text)
+  if (parts.length > MAX_HEADING_WORDS) return true
+  if (!/[.!?]$/.test(text.trim())) return false
+
+  return parts.some((part) => /^\p{Ll}/u.test(part))
+}
+
+/**
  * Pulls the date and the location out of an entry's heading and returns what is
  * left: the spans that name the organisation and the role.
+ *
+ * `delimited` reports whether the author separated the fields themselves. It
+ * gates the fused organisation/role split downstream, which is guesswork
+ * everywhere else — see `splitFusedOrgAndRole`.
  */
 function dissectHeading(
   chunk: SourceLine[],
   anchor: RegExp,
-): { date: DateRange | null; location?: string; spans: string[] } {
+): {
+  date: DateRange | null
+  location?: string
+  spans: string[]
+  delimited: boolean
+  prose: string[]
+} {
   let date: DateRange | null = null
   let location: string | undefined
+  let delimited = false
   const spans: string[] = []
+  const prose: string[] = []
+  /** The line each `prose` entry last absorbed, for the wrap test below. */
+  const proseLines: SourceLine[] = []
 
-  for (const line of headingLines(chunk)) {
-    let text = line.text.trim()
-    if (!text) continue
+  const heading = headingLines(chunk)
+
+  for (const line of heading) {
+    if (!line.text.trim()) continue
+
+    // Kept, not dropped: it is text the user wrote about this job, and the
+    // entry has nowhere else to put it. The caller files it as a bullet, where
+    // it is visible and editable, rather than losing it to make the parse tidy.
+    //
+    // `rejoinWrappedBullets` cannot have joined these — it follows a bullet
+    // anchor and this paragraph has none — so a wrapped one arrives in pieces
+    // and the same left edge and type size that mean "continuation" there mean
+    // it here.
+    if (line !== heading[0] && isProse(line.text)) {
+      const last = proseLines[proseLines.length - 1]
+      if (
+        last &&
+        last.page === line.page &&
+        Math.abs(last.x - line.x) <= INDENT_TOLERANCE &&
+        Math.abs(last.fontSize - line.fontSize) <= FONT_SIZE_TOLERANCE
+      ) {
+        prose[prose.length - 1] = joinWrapped(prose[prose.length - 1], line.text)
+        proseLines[proseLines.length - 1] = line
+        continue
+      }
+
+      prose.push(line.text.trim())
+      proseLines.push(line)
+      continue
+    }
+
+    const fields = line.text
+      .split(HEADING_FIELD_SEPARATOR)
+      .map((field) => field.trim())
+      .filter(Boolean)
+    if (fields.length > 1) delimited = true
+
+    for (const [index, field] of fields.entries()) {
+      collectHeadingField(field, index > 0 && fields.length > 1)
+    }
+  }
+
+  return { date, location, spans, delimited, prose }
+
+  function collectHeadingField(field: string, mayBeBarePlace: boolean) {
+    let text = field
 
     if (!date) {
       const found = findDateRange(text)
       if (found) {
         date = found
-        // A fused line ("Convoy 2022-01 – Present") keeps what is left of it; a
-        // line that was only a date leaves nothing behind.
+        // A fused field ("Convoy 2022-01 – Present") keeps what is left of it; a
+        // field that was only a date leaves nothing behind.
         text = text.replace(found.span, ' ').replace(/\s+/g, ' ').trim()
-        if (!text) continue
+        if (!text) return
       }
     }
 
     if (!location && isLocation(text)) {
       location = text
-      continue
+      return
     }
 
     if (!location) {
@@ -602,14 +764,17 @@ function dissectHeading(
       if (split) {
         location = split.location
         spans.push(split.rest)
-        continue
+        return
       }
+    }
+
+    if (!location && mayBeBarePlace && looksLikePlace(text)) {
+      location = text
+      return
     }
 
     spans.push(text)
   }
-
-  return { date, location, spans }
 }
 
 /**
@@ -631,7 +796,69 @@ function dissectHeading(
  */
 const ROLE_ORG_SEPARATORS = [/,(?=[^,]*$)/, /\s+[—–]\s+/, /\s+\|\s+/, /\s+-\s+/]
 
-function splitRoleAndOrg(span: string): { role?: string; organisation?: string } {
+/**
+ * Words that lean on the role's head noun rather than naming an employer.
+ * `Technical` in "Fend Technical Co-founder" belongs to the title; `Office` in
+ * "Himathi Family Office Founder" belongs to the company. Only the first kind
+ * goes here.
+ */
+const TITLE_MODIFIERS = new Set([
+  'technical', 'senior', 'staff', 'principal', 'lead', 'chief', 'associate',
+  'assistant', 'junior', 'deputy', 'executive', 'global', 'regional', 'group',
+  'product', 'software', 'data', 'backend', 'frontend', 'fullstack', 'platform',
+  'research', 'design', 'security', 'infrastructure', 'machine', 'learning',
+])
+
+/** `ML Engineer`, `QA Lead`, `UX Designer` — an initialism binds to the title. */
+function attachesToTitle(word: string): boolean {
+  const bare = word.replace(/[^\p{L}]/gu, '')
+  if (!bare) return false
+  if (TITLE_MODIFIERS.has(bare.toLowerCase())) return true
+  return bare.length <= 3 && bare === bare.toUpperCase()
+}
+
+/**
+ * Splits `Fundmore.ai ML Engineer` into an employer and a role, with no
+ * separator to go on — only the vocabulary and where it sits.
+ *
+ * **Only ever called on an author-delimited heading** (`dissectHeading`'s
+ * `delimited`), and that gate is doing real work: `Software Engineer` and
+ * `Product Manager` are indistinguishable from `Fend Technical Co-founder` by
+ * shape alone, and splitting them would invent an employer called "Software".
+ * A line that carried explicit `•` fields has already told us it is packing
+ * several facts into one line, which is the only context where a fused pair is
+ * more likely than a plain job title.
+ *
+ * The cut is the **smallest** suffix that names a role while the prefix names
+ * none — "Himathi Family Office | Founder", not "Himathi | Family Office
+ * Founder" — then widened left across modifiers and initialisms that belong to
+ * the title, which is what turns "Fundmore.ai ML | Engineer" into
+ * "Fundmore.ai | ML Engineer". If widening consumes the prefix entirely the span
+ * was a bare title all along and no employer is claimed.
+ */
+function splitFusedOrgAndRole(span: string): { role?: string; organisation?: string } | null {
+  const parts = words(span)
+  if (parts.length < 2) return null
+
+  for (let index = parts.length - 1; index >= 1; index -= 1) {
+    const suffix = parts.slice(index).join(' ')
+    const prefix = parts.slice(0, index).join(' ')
+    if (!TITLE_WORDS.test(suffix) || TITLE_WORDS.test(prefix)) continue
+
+    let cut = index
+    while (cut > 0 && attachesToTitle(parts[cut - 1])) cut -= 1
+
+    if (cut === 0) return { role: span }
+    return { organisation: parts.slice(0, cut).join(' '), role: parts.slice(cut).join(' ') }
+  }
+
+  return null
+}
+
+function splitRoleAndOrg(
+  span: string,
+  delimited = false,
+): { role?: string; organisation?: string } {
   for (const separator of ROLE_ORG_SEPARATORS) {
     const found = span.match(separator)
     if (!found || found.index === undefined) continue
@@ -647,6 +874,12 @@ function splitRoleAndOrg(span: string): { role?: string; organisation?: string }
       return { role: after, organisation: before }
     }
   }
+
+  if (delimited) {
+    const fused = splitFusedOrgAndRole(span)
+    if (fused) return fused
+  }
+
   return TITLE_WORDS.test(span) ? { role: span } : { organisation: span }
 }
 
@@ -654,8 +887,8 @@ function parseExperience(lines: SourceLine[]): ExperienceEntry[] {
   const entries: ExperienceEntry[] = []
 
   for (const chunk of chunkEntries(lines)) {
-    const { date, location, spans } = dissectHeading(chunk, TITLE_WORDS)
-    const bullets = bulletsOf(chunk)
+    const { date, location, spans, delimited, prose } = dissectHeading(chunk, TITLE_WORDS)
+    const bullets = [...prose, ...bulletsOf(chunk)]
 
     let company = ''
     let title = ''
@@ -673,7 +906,7 @@ function parseExperience(lines: SourceLine[]): ExperienceEntry[] {
         company = spans.find((_, index) => index !== role) ?? ''
       }
     } else if (spans.length === 1) {
-      const { role, organisation } = splitRoleAndOrg(spans[0])
+      const { role, organisation } = splitRoleAndOrg(spans[0], delimited)
       title = role ?? ''
       company = organisation ?? ''
     }
@@ -702,13 +935,26 @@ function parseEducation(lines: SourceLine[]): EducationEntry[] {
       institution = split.institution ?? ''
       degree = split.degree
     } else {
-      const index = spans.findIndex((span) => DEGREE_WORDS.test(span))
-      if (index === -1) {
+      const degreeAt = spans.findIndex((span) => DEGREE_WORDS.test(span))
+      const namesSchool = spans.findIndex(
+        (span, at) => at !== degreeAt && INSTITUTION_WORDS.test(span),
+      )
+
+      if (degreeAt === -1) {
         institution = spans[0] ?? ''
         degree = spans[1]
+      } else if (namesSchool !== -1) {
+        degree = spans[degreeAt]
+        institution = spans[namesSchool]
       } else {
-        degree = spans[index]
-        institution = spans.find((_, at) => at !== index) ?? ''
+        // No other span names a school, so the degree span carries the school
+        // with it and the remaining spans are supplementary — a GPA, an honour.
+        // Taking "the other span" here is what filed `GPA 3.59/4.0` as the
+        // university: with an author-delimited heading there can be more than
+        // two fields, and "the other one" stops meaning anything.
+        const split = splitEducationSpan(spans[degreeAt])
+        degree = split.degree ?? spans[degreeAt]
+        institution = split.institution ?? ''
       }
     }
 
