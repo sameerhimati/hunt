@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -14,6 +14,7 @@ import { CitationChip } from '@/components/tailor/citation-chip'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { auditAiTellText } from '@/lib/checks/ai-tell'
 import type { CoverLetterDraft, CoverLetterParagraph } from '@/lib/tailor/cover-letter'
 import { cn } from '@/lib/utils'
 
@@ -492,7 +493,33 @@ interface ParagraphProps {
   onCut: () => void
 }
 
+/**
+ * The AI-tell audit, per paragraph, at render.
+ *
+ * Computed rather than stored, for two reasons. It is a pure function of the
+ * text, so persisting it would create a second copy that goes stale the moment
+ * the user types — and the user types constantly here, since the paragraph *is*
+ * the editable artifact. And the reading has to track the edit: a person who
+ * takes the suggestion and replaces "leverage" with "used" should watch the
+ * flag go away as they do it, which is the whole feedback loop. Cheap enough to
+ * run on every keystroke — a dozen word-bounded regexes over one paragraph —
+ * and `auditAiTellText` has no runtime imports, so pulling it into the client
+ * bundle costs the pattern list and nothing else.
+ *
+ * It runs on every paragraph regardless of `origin`, unlike the provenance flag
+ * beside it. Those two guards answer different questions. Provenance asks *did
+ * hunt author an uncited claim*, which is only ever hunt's business — the user
+ * may write what they like about their own life. A tell is style advice with a
+ * rewrite attached, and it has been offered on the user's own résumé text since
+ * the check shipped; withholding it on a paragraph they edited would make the
+ * instrument arbitrary.
+ */
 function Paragraph({ paragraph, onEdit, onCut }: ParagraphProps) {
+  const tells = useMemo(
+    () => auditAiTellText(paragraph.text, paragraph.id),
+    [paragraph.text, paragraph.id],
+  )
+
   return (
     <div data-testid="cover-letter-paragraph" data-origin={paragraph.origin} className="group">
       <Textarea
@@ -530,6 +557,25 @@ function Paragraph({ paragraph, onEdit, onCut }: ParagraphProps) {
             Cut
           </Button>
         </div>
+      ) : null}
+
+      {tells.length > 0 ? (
+        <ul data-testid="cover-letter-tells" className="mt-1.5 space-y-1 px-2.5">
+          {tells.map((tell, index) => (
+            <li
+              key={`${tell.phrase}-${index}`}
+              className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground"
+            >
+              <span aria-hidden="true" className="mt-px shrink-0 font-mono text-[10px]">
+                ~
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="font-medium text-foreground">“{tell.phrase}”</span> reads like
+                LLM boilerplate. {tell.suggestion}
+              </span>
+            </li>
+          ))}
+        </ul>
       ) : null}
 
       {paragraph.citations.length > 0 ? (

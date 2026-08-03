@@ -148,19 +148,43 @@ interface TextUnit {
  * check that flags a good résumé is worse than no check at all.
  */
 export function auditAiTell(content: ResumeContent): AiTellFlag[] {
+  return textUnits(content).flatMap(scanUnit)
+}
+
+/**
+ * The same instrument pointed at one loose piece of prose — the cover letter
+ * calls this per paragraph, with the paragraph id as the path.
+ *
+ * It is the *same* pattern list on purpose. A phrase that carries no information
+ * on a résumé carries none in a letter, and two drifting lists would mean hunt
+ * flagged "leverage" in one artifact and not the other, which is a bug the user
+ * would have to discover. Note the direction this points: the résumé is mostly
+ * the user's own writing, while the letter is the one artifact hunt generates
+ * end to end, so this is the surface where the check is auditing hunt's output
+ * rather than offering the user an opinion about theirs. The copy constraint in
+ * the module docblock still holds — the reading is "this pattern-matches LLM
+ * boilerplate", never "this looks AI-generated".
+ *
+ * Module-scope state is why this is safe to call in a loop: `scanUnit` resets
+ * every global regex before using it (see below), so callers cannot get a
+ * half-consumed `lastIndex` from the previous paragraph.
+ */
+export function auditAiTellText(text: string, path: string): AiTellFlag[] {
+  return text.trim() ? scanUnit({ path, text }) : []
+}
+
+function scanUnit(unit: TextUnit): AiTellFlag[] {
   const flags: AiTellFlag[] = []
 
-  for (const unit of textUnits(content)) {
-    for (const { pattern, suggestion } of PATTERNS) {
-      // These regexes are module-level and global: reset before every scan.
-      pattern.lastIndex = 0
-      for (const match of unit.text.matchAll(pattern)) {
-        flags.push({ path: unit.path, phrase: match[0], suggestion })
-      }
+  for (const { pattern, suggestion } of PATTERNS) {
+    // These regexes are module-level and global: reset before every scan.
+    pattern.lastIndex = 0
+    for (const match of unit.text.matchAll(pattern)) {
+      flags.push({ path: unit.path, phrase: match[0], suggestion })
     }
-
-    flags.push(...adverbStacks(unit))
   }
+
+  flags.push(...adverbStacks(unit))
 
   return flags
 }
