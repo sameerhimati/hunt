@@ -33,7 +33,16 @@ import { Textarea } from '@/components/ui/textarea'
  * Copy that implied every URL needed Firecrawl would send users to buy a key
  * they mostly do not need.
  */
-export function NewApplicationDialog({ variant = 'default' }: { variant?: 'default' | 'secondary' }) {
+export function NewApplicationDialog({
+  variant = 'default',
+  testId = 'new-application',
+  label = 'New application',
+}: {
+  variant?: 'default' | 'secondary'
+  /** The dashboard's empty state addresses this trigger as `empty-state-cta`. */
+  testId?: string
+  label?: string
+}) {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState('paste')
   const [url, setUrl] = useState('')
@@ -67,9 +76,9 @@ export function NewApplicationDialog({ variant = 'default' }: { variant?: 'defau
       }}
     >
       <DialogTrigger asChild>
-        <Button data-testid="new-application" variant={variant} size="sm">
+        <Button data-testid={testId} variant={variant} size="sm">
           <Plus size={15} aria-hidden="true" />
-          New application
+          {label}
         </Button>
       </DialogTrigger>
 

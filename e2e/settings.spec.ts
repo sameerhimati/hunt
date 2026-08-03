@@ -88,7 +88,16 @@ test.describe('Settings — BYOK', () => {
 
 test.describe('Dashboard', () => {
   test('offers the first-run path into Settings', async ({ page }) => {
+    // A cold boot lands in the wizard now, so getting to the dashboard means
+    // going through it — skipping every step, which is the path this test cares
+    // about anyway: someone who supplied nothing still reaches a usable app.
     await page.goto('/')
+    await expect(page).toHaveURL(/onboarding/)
+    await page.getByTestId('onboarding-continue').click()
+    await page.getByTestId('onboarding-skip-keys').click()
+    await page.getByTestId('onboarding-skip-import').click()
+    await page.getByTestId('onboarding-finish').click()
+    await expect(page).toHaveURL('/')
 
     // First run is now zero *résumés*, not zero applications — the dashboard
     // leads with the wedge. The path into Settings is still one click, and still
