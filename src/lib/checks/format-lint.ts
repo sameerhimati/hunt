@@ -40,6 +40,31 @@ const FIRST_PERSON = /^(i['’](m|ve|d|ll)|i|my|mine|me)\b/i
 
 const ONGOING = new Set(['present', 'current', 'now', 'ongoing', 'to date'])
 
+/**
+ * How long a résumé may end before now without reading as an unexplained hole.
+ *
+ * **Eighteen months**, which is deliberately generous. Six would be wrong: a
+ * person between jobs has a résumé that ends recently and that is the normal
+ * case, not a defect. What this rule is for is the résumé whose last date is
+ * years back — the reader cannot tell whether it is stale or whether something
+ * is missing, and they will not write to ask.
+ *
+ * The copy that goes with it matters as much as the threshold. A career break
+ * is not a problem to be fixed; being unable to tell a break from an unmaintained
+ * document is. So the rule reports the gap and names both readings, and never
+ * suggests the user account for their time.
+ */
+const STALE_END_MONTHS = 18
+
+/**
+ * Items in one skill group past which the group has stopped sorting anything.
+ * Alex Chen's largest real group holds six. A reader scanning for the two skills
+ * the role is about should not have to read twenty to find them — but which two
+ * those are is the user's call, not ours: hunt cannot rank them without
+ * inventing a proficiency the document never claimed.
+ */
+const MAX_SKILL_GROUP_ITEMS = 12
+
 type DateShape = 'iso' | 'month-name' | 'slashed' | 'other'
 
 const DATE_SHAPES: { shape: DateShape; test: RegExp; example: string }[] = [
@@ -59,7 +84,15 @@ interface DatedField {
   shape: DateShape
 }
 
-export function lintFormat(content: ResumeContent): FormatIssue[] {
+/**
+ * `now` is a parameter because one rule needs today's date, and a check that
+ * reads the wall clock is a check whose result changes without the document
+ * changing. That is fine in the app and poison in a fixture suite — a gate
+ * asserting a stale résumé would pass until some Tuesday and then fail with no
+ * commit behind it. So the clock is injected, defaulted here and threaded
+ * through `CheckRunInput.now`, and every test pins it.
+ */
+export function lintFormat(content: ResumeContent, now: Date = new Date()): FormatIssue[] {
   const bullets = collectBullets(content)
 
   return [
@@ -68,13 +101,15 @@ export function lintFormat(content: ResumeContent): FormatIssue[] {
     ...duplicateBullets(bullets),
     ...mixedTrailingPunctuation(bullets),
     ...mixedDateFormats(collectDates(content)),
+    ...staleEndDate(content, now),
+    ...undifferentiatedSkills(content),
     ...emptySections(content),
   ]
 }
 
 /** Runner slot: reports `clean` or `N issues`. */
 export function runFormatLint(input: CheckRunInput): Promise<CheckOutcome> {
-  const issues = lintFormat(input.version.content)
+  const issues = lintFormat(input.version.content, input.now ?? new Date())
   const details: FormatLintDetail = { issues }
 
   return Promise.resolve({
@@ -189,6 +224,87 @@ function mixedDateFormats(dates: DatedField[]): FormatIssue[] {
     }))
 }
 
+/**
+ * The résumé that stops years ago.
+ *
+ * A reader who reaches the last entry and finds it ended in 2021 has two
+ * readings available — the document is out of date, or the person has been doing
+ * something it does not mention — and no way to choose between them. They will
+ * not write and ask. Naming a break costs the user one line and removes the
+ * ambiguity entirely, which is the whole of the advice.
+ *
+ * Three conditions have to hold before this says anything, and each one exists
+ * to stop a false positive:
+ *
+ *  1. **No role is ongoing.** An absent `end`, or one reading "Present", means
+ *     the person is working now and the document ends today. This is the case
+ *     the clean fixture is in (`Ramp, 2023-03 → —`), and it is why that fixture
+ *     keeps linting to `[]` however long this repository lives.
+ *  2. **Some end date parsed.** A date this file cannot read is not evidence of
+ *     staleness, and guessing at `Summer '21` to raise a flag would be inventing
+ *     the finding. Unreadable dates are already `date-format-mixed`'s business.
+ *  3. **Experience only.** A degree that ended in 2018 is not a gap; education
+ *     is supposed to be in the past.
+ */
+function staleEndDate(content: ResumeContent, now: Date): FormatIssue[] {
+  let latest: { path: string; text: string; month: number } | null = null
+
+  for (const [index, entry] of content.experience.entries()) {
+    const text = entry.end?.trim()
+
+    // Ongoing — the document does not end here, so nothing to report anywhere.
+    if (!text || ONGOING.has(text.toLowerCase())) return []
+
+    // One unreadable date and the rule has to stop. Skipping it and reporting
+    // the newest date that *did* parse would name an older role as the most
+    // recent one — a true sentence about that entry, arranged into a false
+    // claim about the document.
+    const month = endMonthIndex(text)
+    if (month === null) return []
+    if (!latest || month > latest.month) {
+      latest = { path: `experience[${index}].end`, text, month }
+    }
+  }
+
+  if (!latest) return []
+
+  const months = monthIndex(now.getUTCFullYear(), now.getUTCMonth() + 1) - latest.month
+  if (months <= STALE_END_MONTHS) return []
+
+  return [
+    {
+      code: 'stale-end-date',
+      path: latest.path,
+      detail: `${latest.path} reads “${latest.text}”, about ${Math.floor(months / 12)} ${plural(Math.floor(months / 12), 'year')} ago, and no role is marked current. If it is current, say Present; if not, one line naming the break saves the reader guessing.`,
+    },
+  ]
+}
+
+/**
+ * One skill group carrying more items than it sorts.
+ *
+ * The complaint this answers is a reader's: handed twenty languages, they have
+ * to work out which one you would be hired for, and that is work you could have
+ * done for them. What hunt will not do is do it *for* you — ranking these into
+ * expert and passing would be a proficiency claim the document never made, and
+ * inventing one is the same fabrication the tailor validator exists to refuse.
+ * So the reading is a count, the fix is the user's, and the suggestion is to
+ * split rather than to rate.
+ */
+function undifferentiatedSkills(content: ResumeContent): FormatIssue[] {
+  return content.skills.flatMap((group, index) => {
+    if (group.items.length <= MAX_SKILL_GROUP_ITEMS) return []
+
+    return [
+      {
+        code: 'skills-undifferentiated',
+        path: `skills[${index}]`,
+        detail: `skills[${index}] (${group.category || 'untitled group'}) lists ${group.items.length} items in one group; splitting it, or cutting to the ones this role is about, tells a reader which ones you would be hired for.`,
+      },
+    ]
+  })
+}
+
 /** A heading with nothing under it is a hole in the page, not a style choice. */
 function emptySections(content: ResumeContent): FormatIssue[] {
   const issues: FormatIssue[] = []
@@ -280,6 +396,42 @@ function shapeOf(text: string): DateShape {
 
 function exampleOf(shape: DateShape): string {
   return DATE_SHAPES.find((candidate) => candidate.shape === shape)?.example ?? shape
+}
+
+const MONTH_NAMES = [
+  'jan', 'feb', 'mar', 'apr', 'may', 'jun',
+  'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+]
+
+/** Months since year 0 — the only arithmetic this file needs dates to support. */
+function monthIndex(year: number, month: number): number {
+  return year * 12 + (month - 1)
+}
+
+/**
+ * An end date as a comparable month, or null when it cannot be read.
+ *
+ * A year with no month (`2021`) resolves to **December**, because that is the
+ * reading most favourable to the user: a résumé that says `2021` might have
+ * ended that January, and assuming so would age it eleven months for free and
+ * raise a flag the document does not support.
+ */
+function endMonthIndex(text: string): number | null {
+  const trimmed = text.trim()
+
+  const iso = /^(\d{4})(?:-(\d{1,2}))?$/.exec(trimmed)
+  if (iso) return monthIndex(Number(iso[1]), iso[2] ? Number(iso[2]) : 12)
+
+  const slashed = /^(\d{1,2})\/(\d{4})$/.exec(trimmed)
+  if (slashed) return monthIndex(Number(slashed[2]), Number(slashed[1]))
+
+  const named = /^([A-Za-z]{3,9})\.?\s+(\d{4})$/.exec(trimmed)
+  if (named) {
+    const month = MONTH_NAMES.indexOf(named[1].slice(0, 3).toLowerCase())
+    if (month !== -1) return monthIndex(Number(named[2]), month + 1)
+  }
+
+  return null
 }
 
 function countWords(text: string): number {

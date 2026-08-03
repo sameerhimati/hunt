@@ -70,6 +70,13 @@ export interface CheckRunInput {
   llm?: LlmLike | null
   /** parse_fidelity only; defaults to the configured parser adapter. */
   parser?: ResumeParser | null
+  /**
+   * format_lint only; defaults to the wall clock. Injected so that "this résumé
+   * ends years ago" is a fact about the fixture and not about the day the suite
+   * ran — otherwise a gate turns red on a calendar boundary with no commit
+   * behind it.
+   */
+  now?: Date
 }
 
 /** One issue from `lintFormat`. Codes the gate requires: `bullet-too-long`, `date-format-mixed`, `first-person`. */
