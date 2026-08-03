@@ -15,12 +15,20 @@ else lives in `docs/` too — only README, AGENTS and CLAUDE stay at root.
   pipeline, tailoring + checks, outreach, sourcing. Current branch is `wave-2`.
 - **Phase 6 (LinkedIn) is cancelled** — decided 2026-07-26. Its gates stay
   committed and RED, never promoted. Don't build against them.
-- **Phase 7 is reply detection**, and the research says **IMAP + an app password,
-  not Gmail OAuth**: Gmail's API cannot search `In-Reply-To`/`References`, while
+- **Phase 7 (reply detection) is cut from v1** — decided 2026-08-03. Reply-marking
+  is manual and the UI says so honestly, so nothing lies without it, and it is
+  the only remaining v1 item whose gate needs a live Gmail account. Its gates stay
+  committed and RED like Phase 6's; `gates/DONE` skips 7. It stays on the roadmap
+  under *Later*, and the research still stands: **IMAP + an app password, not
+  Gmail OAuth** — Gmail's API cannot search `In-Reply-To`/`References`, while
   IMAP's `SEARCH HEADER References <id>` matches exactly the message hunt sent
-  (`Outreach.threadRef`). Three setup steps instead of eight, and no OAuth
-  subsystem. Put it behind an adapter + Fake twin so an OAuth adapter can drop in
-  if Google ever kills app passwords.
+  (`Outreach.threadRef`).
+- **Phase 8 is the whole remaining v1 bar, and it is narrowed** (PLAN.md §Phase 8):
+  forkable + a first run that teaches + trust, each already encoded as a gate, plus
+  three fixes on the stranger's own path (the two parser defects, re-extract with a
+  model, page-count detection). Launch marketing — GIF, docs site, PH assets — is
+  explicitly **not** in the definition of done. **Done = `pnpm gate 8` green and
+  promoted.**
 - `docs/DESIGN.md` / `docs/SCREENS.md` / `docs/TAILORING-DIFF.md` +
   `design/*.dc.html` are committed ground truth — build UI against them, don't
   invent layout. Source docblocks cite these by bare filename (`see DESIGN.md
