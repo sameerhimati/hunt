@@ -37,6 +37,11 @@ interface ImportResponse {
 
 const FLAG_BELOW = 1
 
+/** Recorded alongside the source text so the re-read action can name the file type. */
+function kindOf(fileName: string): string {
+  return /\.docx$/i.test(fileName) ? 'docx' : 'pdf'
+}
+
 export function ImportReview({ hasModel }: { hasModel: boolean }) {
   const [parsed, setParsed] = useState<ImportResponse | null>(null)
   const [content, setContent] = useState<ResumeContent | null>(null)
@@ -212,7 +217,13 @@ export function ImportReview({ hasModel }: { hasModel: boolean }) {
             disabled={pending}
             onClick={() =>
               startTransition(async () => {
-                await createResumeFromImport(name, content)
+                // The source text rides along so the résumé can be read again
+                // with a model later; without it a keyless import dead-ends.
+                await createResumeFromImport(
+                  name,
+                  content,
+                  parsed ? { text: parsed.text, kind: kindOf(parsed.fileName) } : undefined,
+                )
               })
             }
           >

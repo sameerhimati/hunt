@@ -22,6 +22,21 @@ model Resume {
   /// pin (`onDelete: SetNull`) — turning a tailored, sent application into
   /// "Not yet tailored", which is a lie about something that happened.
   archivedAt DateTime?
+  /// The text layer of the document this résumé was imported from.
+  ///
+  /// Kept for one reason: a keyless import is the default, and without the
+  /// source there is no way to act on "I have a key now, read it again" — the
+  /// upgrade path dead-ends at a file the user may no longer have. Null for a
+  /// résumé started from scratch, which is how the re-read action knows not to
+  /// offer itself.
+  ///
+  /// Text, not the original bytes. The model path reads the text layer anyway
+  /// (`extractPdfText`), so bytes would cost megabytes per résumé to enable
+  /// nothing the model can use. The keyless parser does need geometry, which is
+  /// why re-reading is a model action and not a general re-parse.
+  sourceText String?
+  /// `pdf` or `docx` — what the source was, for the copy on the re-read action.
+  sourceKind String?
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
   versions  ResumeVersion[]

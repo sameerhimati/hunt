@@ -3,12 +3,18 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+import { resolveLlm } from '@/lib/llm'
+import { modelRequired } from '@/lib/llm/unavailable'
+import { importResumeText } from '@/lib/resume/import'
+import { ResumeImportError, type ImportedResume } from '@/lib/resume/import-core'
 import { parseResumeContent, emptyResume, type ResumeContent } from '@/lib/resume/schema'
 import {
   archiveResume,
   createResume,
   deleteResume,
+  latestVersion,
   restoreResume,
+  resumeSource,
   saveVersion,
   updateVersionContent,
   versionTree,
@@ -39,11 +45,92 @@ export async function createResumeAction(formData: FormData) {
   redirect(`/resumes/${resume.id}`)
 }
 
-export async function createResumeFromImport(name: string, content: unknown) {
-  const resume = await createResume(name.trim() || 'Imported résumé', parseResumeContent(content))
+export async function createResumeFromImport(
+  name: string,
+  content: unknown,
+  source?: { text: string; kind?: string },
+) {
+  const resume = await createResume(name.trim() || 'Imported résumé', parseResumeContent(content), {
+    // Stored so the keyless import has an upgrade path — see `Resume.sourceText`
+    // and `reReadWithModelAction`. Without it, "I have a key now" has nothing to
+    // act on but the file, which the user may no longer have.
+    sourceText: source?.text,
+    sourceKind: source?.kind,
+  })
 
   revalidatePath('/resumes')
   redirect(`/resumes/${resume.id}`)
+}
+
+/**
+ * Read the stored source again, this time with a model.
+ *
+ * The point of the whole feature: a keyless import is the floor, not the
+ * ceiling, and until now there was no way to say *"I have a key now, try
+ * again."* The heuristics read typography and cannot invent; a model reads
+ * prose and often does better on a messy document — and can invent, which is
+ * why the result lands as **a new version rather than a replacement**. The old
+ * parse stays on the tree, the semantic diff shows exactly what changed, and
+ * the user accepts it by using it. Nothing is overwritten on their behalf.
+ *
+ * `fieldConfidence` comes back with it, and it is a measured thing, not a
+ * model's opinion of itself: every extracted string is checked back against the
+ * source text, so a field the model produced that the document does not contain
+ * is visible as such. That check matters more here than at import, because this
+ * is the path where a model is second-guessing a parse the user already has.
+ */
+export async function reReadWithModelAction(resumeId: string): Promise<{
+  versionId?: string
+  tree?: VersionNode[]
+  lowConfidence?: string[]
+  error?: string
+}> {
+  const source = await resumeSource(resumeId)
+  if (!source) {
+    return { error: 'This résumé has no stored source document to read again.' }
+  }
+
+  const llm = await resolveLlm()
+  if (!llm) {
+    return {
+      error: modelRequired('Reading your résumé again', 'the import you already have is unaffected'),
+    }
+  }
+
+  let imported: ImportedResume
+  try {
+    imported = await importResumeText(source.text, llm)
+  } catch (error) {
+    return {
+      error:
+        error instanceof ResumeImportError
+          ? error.message
+          : 'The model could not read this résumé. The version you have is unchanged.',
+    }
+  }
+
+  const parent = await latestVersion(resumeId)
+  const version = await saveVersion({
+    resumeId,
+    content: imported.content,
+    label: `Re-read with ${llm.model}`,
+    parentVersionId: parent?.id ?? null,
+    templateId: parent?.templateId ?? undefined,
+  })
+
+  revalidatePath(`/resumes/${resumeId}`)
+  revalidatePath('/resumes')
+
+  return {
+    versionId: version.id,
+    tree: await versionTree(resumeId),
+    // Named, not counted: "3 fields need checking" sends the user hunting, and
+    // these are exactly the fields where the model may have written something
+    // the document never said.
+    lowConfidence: Object.entries(imported.fieldConfidence)
+      .filter(([, score]) => score < 1)
+      .map(([path]) => path),
+  }
 }
 
 /**

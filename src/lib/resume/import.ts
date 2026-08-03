@@ -83,6 +83,31 @@ export async function importResumePdf(
     )
   }
 
+  return importResumeText(text, llm, options)
+}
+
+/**
+ * The model path over text that has already been extracted.
+ *
+ * Split out of `importResumePdf` for the re-read action, which works from
+ * `Resume.sourceText` because the original upload is not kept. It is the same
+ * pipeline either way — the prompt has only ever seen the text layer, so
+ * re-reading a stored source is not a degraded version of importing the file,
+ * it is the identical call with the extraction step already done.
+ *
+ * The one thing it cannot do is re-run the *keyless* parser, which reads
+ * typography and needs the bytes. That asymmetry is why the action is worded as
+ * reading it again with a model rather than as a general re-import.
+ */
+export async function importResumeText(
+  text: string,
+  llm: LlmLike,
+  options: { maxTokens?: number } = {},
+): Promise<ImportedResume> {
+  if (!text.trim()) {
+    throw new ResumeImportError('There is no stored text for this résumé to read.')
+  }
+
   const { provider, model } = asResolvedLlm(llm)
 
   const response = await runPrompt({
