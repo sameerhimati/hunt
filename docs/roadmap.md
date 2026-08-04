@@ -56,6 +56,13 @@ bullet. What it must never become is a bank of claims the model dips into
 unsupervised — the fact still has to be one you wrote down, and the citation
 still has to resolve. It widens where provenance can point, not whether it has to.
 
+*Designed 2026-08-04 — see `docs/NOTEBOOK.md`.* Facts are atomic so that drawing
+on them is selection rather than extraction; intake is the refusal itself, which
+today names a problem and offers no move; "why this company" is a field on the
+application rather than a fact about you, because it expires; and a
+forward-looking claim has to cite both halves of its bridge, the work you did and
+what the posting says they need.
+
 **More than one way to reach someone.** Outreach assumes a single shape: a cold
 email to a recruiter or hiring manager, three steps, four days apart and then
 five. That is one path, and until now hunt presented it as *the* path. The copy
