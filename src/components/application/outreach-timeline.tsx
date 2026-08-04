@@ -82,7 +82,8 @@ export async function OutreachTimeline({ applicationId }: { applicationId: strin
       {steps.length === 0 ? (
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           No messages yet. Add a contact and draft a sequence, and each step shows up here with its
-          day offset and send date — halting automatically if they reply.
+          day offset and send date. hunt cannot see your inbox, so tell it when they reply and the
+          rest of the sequence stops.
         </p>
       ) : (
         <ol className="mt-3 flex flex-col">

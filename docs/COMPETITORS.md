@@ -32,7 +32,7 @@ them. What survives is the honest-AI stance and the résumé editor.
 | Pipeline tracking | ✅ 8-status board | offline HTML report | ✅ | terminal dashboard | ✅ + tasks/time | ✗ | ✅ |
 | Keyless job search | ✅ company boards | DK portals + LinkedIn public | JobSpy, Glassdoor | **150+ portals** | Greenhouse/Lever | ✗ | — |
 | Outreach + sequences | **✅ unique** | ✗ | ✗ | ✗ | ✗ | ✗ | — |
-| Email reply detection | P7 planned | ✗ | ✗ (top HN ask) | ✗ | ✗ | ✗ | — |
+| Email reply detection | ✗ cut from v1, mark by hand | ✗ | ✗ (top HN ask) | ✗ | ✗ | ✗ | — |
 | Cover letter | ✅ cited | ✅ LaTeX, 1 page | ✗ | ✗ | ✗ | ✅ | — |
 | Interview prep | ✗ | **✅ `/interview`, STAR** | ✗ | ✗ | ✗ | ✅ | — |
 | Accounts required | none | none | none | none | **yes** | none | **yes** |

@@ -61,6 +61,19 @@ describe('OutreachTimeline (application detail card)', () => {
     expect(screen.queryByRole('link')).toBeNull()
   })
 
+  it('never claims it notices a reply on its own', async () => {
+    mocked.mockResolvedValue(null)
+    await renderCard()
+
+    // The sibling rail in sequence-timeline.tsx was corrected in wave-2; this
+    // card kept saying "halting automatically if they reply" because nothing
+    // guarded it. Phase 7 is cut, so a reply is marked by hand — the empty
+    // state must promise the halt it can perform and not the one it cannot.
+    const card = screen.getByTestId('application-outreach-timeline').textContent ?? ''
+    expect(card).not.toMatch(/automatic/i)
+    expect(card).toMatch(/cannot see your inbox/i)
+  })
+
   it('treats a sequence with no steps as empty (contact exists, nothing drafted)', async () => {
     mocked.mockResolvedValue(view([]))
     await renderCard()
