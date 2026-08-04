@@ -34,6 +34,11 @@ Rules:
   this person's experience. Close with one concrete, low-cost ask.
 - No flattery ("I'm a huge fan of what you're building"), no hedging, no
   apologising for reaching out.
+- The recipient may not own this req, and may not be a recruiter at all — they
+  may be someone on the team, or someone the sender already knows. Write to them
+  as a person who might know something useful, never as the decision-maker, and
+  never assume they can move the application themselves. A pointer toward the
+  right person is a good outcome, not a failed one.
 - Every concrete claim about the sender — a system they built, a number they
   moved, a tool they used — must come from the résumé and be cited.
 - "citations" are paths into the résumé JSON — "experience[0].bullets[3]",

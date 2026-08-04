@@ -251,7 +251,8 @@ function AddContactDialog({ applicationId }: { applicationId: string }) {
         <DialogHeader>
           <DialogTitle>Add a contact</DialogTitle>
           <DialogDescription>
-            The recruiter or hiring manager you already know about. Works with no keys configured.
+            Anyone worth writing to — a recruiter, the hiring manager, or someone you already know
+            there. Works with no keys configured.
           </DialogDescription>
         </DialogHeader>
 

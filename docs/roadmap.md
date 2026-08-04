@@ -56,6 +56,17 @@ bullet. What it must never become is a bank of claims the model dips into
 unsupervised — the fact still has to be one you wrote down, and the citation
 still has to resolve. It widens where provenance can point, not whether it has to.
 
+**More than one way to reach someone.** Outreach assumes a single shape: a cold
+email to a recruiter or hiring manager, three steps, four days apart and then
+five. That is one path, and until now hunt presented it as *the* path. The copy
+says otherwise as of 2026-08-04; the defaults still don't. A referral, a former
+colleague, an alum, someone on the team who would forward a résumé — those are
+different messages on different cadences, and hunt has nowhere to record which
+one it is holding. `Contact.source` stores where a name came from, not how you
+know them, and `Outreach` has no channel field at all, so email is the only way a
+message can exist. Next: a relationship on the contact, a channel on the message,
+and cadences that follow from both — a warm intro does not need three nudges.
+
 **Which résumé version actually works.** "v3 got 4 interviews from 11 sends; v1
 got 0." Every application already pins the exact version sent and stamps when a
 reply, interview or decision landed. This is one join away, and nobody in this

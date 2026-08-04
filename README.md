@@ -45,7 +45,7 @@ Instead of a score, you get four things that are actually measurable:
 - **Tailoring you can audit.** Tailoring against a job description produces a new version shown as a diff — every change annotated with why, every claim traceable back to your base resume, every refusal visible.
 - **Paste a job URL**, get the posting and company scraped into your pipeline. Or type it in by hand.
 - **Search real job boards.** Greenhouse, Lever, Ashby and Remotive, with no key at all.
-- **Find the human.** Look up the recruiter or hiring manager, draft outreach and follow-up sequences, send from your own email. hunt never sends anything on its own — it prepares, you click send.
+- **Find the human.** Look up a recruiter or hiring manager, or add someone you already know there — a former colleague, an alum, anyone on the team. Draft outreach and follow-up sequences, send from your own email. hunt never sends anything on its own — it prepares, you click send. Cold email is one way in, not the way in.
 - **Track everything.** Pipeline board with the exact resume version pinned to every application, funnel stats, and a follow-ups-due queue.
 
 ## What works with no API keys at all
