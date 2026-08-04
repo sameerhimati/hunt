@@ -4,9 +4,23 @@ The whole job hunt in one app: resume → tailor → verify → find the human �
 
 Job hunting today means Overleaf for the resume, a spreadsheet for tracking, LinkedIn for sourcing, some keyword tool for ATS anxiety, Apollo for finding recruiters, and Gmail for cold email. Six tabs, none of them talking to each other. hunt collapses that loop into one app you run yourself — and holds it to a rule the rest of the category doesn't.
 
+## Quickstart
+
+```sh
+npx hunt-app
+# or
+git clone https://github.com/sameerhimati/hunt && cd hunt && docker compose up
+```
+
+Open <http://localhost:3000>. First boot walks you through setup — and every
+step of it is skippable, because none of it is required: importing your resume,
+the editor, the pipeline and public-board search all work with no API key at
+all.
+
 ## It refuses to make things up
 
-Every other tool in this space gives you a number — an "ATS match score", a
+**There is no fake ATS score anywhere in hunt.** Every other tool in this space
+gives you a number — an "ATS match score", a
 "resume grade", a compatibility percentage. Nobody outside an ATS vendor knows
 how Workday actually scores a resume, so those numbers are invented. hunt does
 not have one, anywhere, and there is nowhere in the data model to put one.
@@ -53,16 +67,16 @@ Every other integration is optional and only widens what you already have.
 ## Status
 
 Pre-alpha, building in public. Phases 0–5 are built and gated: resume core,
-pipeline, tailoring and checks, outreach, and sourcing. What's left is reply
-detection and launch polish.
+pipeline, tailoring and checks, outreach, and sourcing, plus the first-run
+wizard. What's left is launch polish. Automatic reply detection is cut from v1 —
+you mark replies yourself, and the app says so rather than implying otherwise.
 
 **[The roadmap](docs/roadmap.md) is public** — what's built, what's next, and
 what we've decided not to build. That last section is the important one: no match
 scores, no auto-apply, no LinkedIn scraping, and nothing that invents experience
 you don't have. Architecture and phase detail live in [docs/PLAN.md](docs/PLAN.md).
 
-There is **no onboarding wizard yet**, so after first boot go to Settings and add
-a key. It's usable today; it is not finished.
+It's usable today; it is not finished.
 
 ## Principles
 
@@ -81,6 +95,9 @@ Next.js / TypeScript / Tailwind / SQLite + Prisma / Tectonic (LaTeX → PDF). Sh
 docker compose up
 # or, if something already has port 3000:
 HUNT_PORT=3300 docker compose up
+
+# without Docker — needs Node 22
+npx hunt-app
 ```
 
 Then open <http://localhost:3000> and add your keys under Settings. The image

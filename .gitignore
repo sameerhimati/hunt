@@ -55,3 +55,4 @@ next-env.d.ts
 # scratch worktrees created by parallel agents — transient, and the wave
 # preflight refuses to build on a dirty tree
 /.claude/worktrees/
+/.e2e-data-firstrun
