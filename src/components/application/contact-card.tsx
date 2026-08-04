@@ -98,11 +98,17 @@ export function ContactCard({
 }) {
   const [open, setOpen] = useState(defaultOpen)
   const [error, setError] = useState<string | null>(null)
-  const [pending, startTransition] = useTransition()
+  // One transition per action, each gating only its own control — the wave-2
+  // convention (docs/reviews/wave-2.md §3), which this card had not adopted.
+  // Sharing one flag meant Remove went dead while Draft was in flight, and a
+  // click on a disabled button is discarded rather than queued: no handler, no
+  // error, nothing. `ContactActions` below splits its two for the same reason.
+  const [drafting, startDrafting] = useTransition()
+  const [removing, startRemoving] = useTransition()
 
   const draft = () => {
     setError(null)
-    startTransition(async () => {
+    startDrafting(async () => {
       // On success the action redirects into the composer and nothing below runs.
       const result = await draftOutreachAction(applicationId, contact.id)
       if (result?.error) setError(result.error)
@@ -111,7 +117,7 @@ export function ContactCard({
 
   const remove = () => {
     setError(null)
-    startTransition(async () => {
+    startRemoving(async () => {
       const result = await deleteContactAction(contact.id)
       if (result?.error) setError(result.error)
     })
@@ -167,25 +173,27 @@ export function ContactCard({
             ) : null}
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" aria-busy={drafting || removing || undefined}>
             <Button
               type="button"
               size="sm"
               data-testid="draft-outreach"
-              disabled={pending}
+              disabled={drafting}
+              aria-busy={drafting || undefined}
               onClick={draft}
             >
-              {pending ? 'Writing…' : 'Draft outreach'}
+              {drafting ? 'Writing…' : 'Draft outreach'}
             </Button>
             <Button
               type="button"
               size="sm"
               variant="ghost"
               data-testid="delete-contact"
-              disabled={pending}
+              disabled={removing}
+              aria-busy={removing || undefined}
               onClick={remove}
             >
-              Remove
+              {removing ? 'Removing…' : 'Remove'}
             </Button>
           </div>
 
@@ -321,6 +329,7 @@ export function ContactActions({
   const [reason, setReason] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<string[]>([])
+  const [savingKey, setSavingKey] = useState<string | null>(null)
 
   // Two transitions, not one. `isPending` for an async transition does not fall
   // back to false in the commit that paints the awaited state — React only
@@ -345,6 +354,10 @@ export function ContactActions({
 
   const keep = (hit: PersonHit) => {
     setError(null)
+    // Which hit is in flight, so the button that was clicked is the one that
+    // says so. `saving` alone cannot tell them apart, and on a cold app this
+    // wait is seconds of route compilation rather than the 40ms it costs warm.
+    setSavingKey(hitKey(hit))
     startSaving(async () => {
       const key = hitKey(hit)
       const result = await saveContactAction({
@@ -356,6 +369,7 @@ export function ContactActions({
         linkedinUrl: hit.linkedinUrl,
         source: hit.source,
       })
+      setSavingKey(null)
       if (result?.error) {
         setError(result.error)
         return
@@ -386,7 +400,7 @@ export function ContactActions({
       </div>
 
       {hits && hits.length > 0 ? (
-        <ul data-testid="contact-hits" className="space-y-1.5">
+        <ul data-testid="contact-hits" className="space-y-1.5" aria-busy={saving || undefined}>
           {hits.map((hit) => (
             <li
               key={hitKey(hit)}
@@ -404,9 +418,14 @@ export function ContactActions({
                 variant="ghost"
                 data-testid="save-found-contact"
                 disabled={saving || saved.includes(hitKey(hit))}
+                aria-busy={savingKey === hitKey(hit) || undefined}
                 onClick={() => keep(hit)}
               >
-                {saved.includes(hitKey(hit)) ? 'Saved' : 'Save'}
+                {saved.includes(hitKey(hit))
+                  ? 'Saved'
+                  : savingKey === hitKey(hit)
+                    ? 'Saving…'
+                    : 'Save'}
               </Button>
             </li>
           ))}

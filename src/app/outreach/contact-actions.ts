@@ -46,6 +46,36 @@ export interface ContactMutationResult {
   contact?: ContactView
 }
 
+/** Past this, a person has stopped believing their click registered. */
+const SLOW_ACTION_MS = 1_000
+
+/**
+ * How long a contact mutation really took, logged when it crosses that line.
+ *
+ * The phase-8 golden path flaked once on a cold machine, with Save disabled and
+ * nothing on screen to say why. The explanation on record was routes still
+ * compiling, and that cannot be it: the gates run `next start` against a
+ * production build, which has no on-demand compilation. What a cold gate server
+ * *does* have is an empty data directory — and the schema migrates itself on the
+ * first query (`src/lib/db/migrate.ts`) behind a lazily constructed client, once
+ * per boot, which is the shape of a seconds-long first action and nothing after.
+ *
+ * That is a candidate, not a conclusion, which is exactly why this measures
+ * instead of asserting. No timeout was raised and nothing is retried: the next
+ * slow run names the action and the number (docs/reviews/wave-2.md §3).
+ */
+async function timed<T>(action: string, run: () => Promise<T>): Promise<T> {
+  const started = Date.now()
+  try {
+    return await run()
+  } finally {
+    const durationMs = Date.now() - started
+    if (durationMs >= SLOW_ACTION_MS) {
+      console.warn(`[contacts] ${action} took ${durationMs}ms, past ${SLOW_ACTION_MS}ms`)
+    }
+  }
+}
+
 export interface ContactLookupPayload {
   hits: PersonHit[]
   /** Non-null when there is something to say about an empty result. */
@@ -110,15 +140,17 @@ export async function saveContactAction(
 
   let contact: ContactView
   try {
-    contact = await saveContact({
-      applicationId: input.applicationId,
-      name,
-      title: input.title,
-      company: input.company,
-      email: input.email,
-      linkedinUrl: input.linkedinUrl,
-      source: contactSource(input.source),
-    })
+    contact = await timed('save', () =>
+      saveContact({
+        applicationId: input.applicationId,
+        name,
+        title: input.title,
+        company: input.company,
+        email: input.email,
+        linkedinUrl: input.linkedinUrl,
+        source: contactSource(input.source),
+      }),
+    )
   } catch (error) {
     return { error: describe(error) }
   }
@@ -136,7 +168,7 @@ export async function deleteContactAction(contactId: string): Promise<ContactMut
     // Already gone is the outcome the user asked for, not an error to report.
     if (!contact) return {}
 
-    await deleteContact(contactId)
+    await timed('delete', () => deleteContact(contactId))
     if (contact.applicationId) revalidateContacts(contact.applicationId)
   } catch (error) {
     return { error: describe(error) }
@@ -151,7 +183,7 @@ export async function deleteContactAction(contactId: string): Promise<ContactMut
  */
 export async function findContactsAction(applicationId: string): Promise<ContactLookupPayload> {
   try {
-    return await findContactsFor(applicationId)
+    return await timed('find', () => findContactsFor(applicationId))
   } catch (error) {
     return { hits: [], reason: null, error: describe(error) }
   }

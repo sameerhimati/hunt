@@ -241,14 +241,26 @@ panels) · `Popover` · `DropdownMenu` · `Command` (⌘K) · `Tooltip` · `Sepa
 
 ---
 
-## 8. States (design every screen for all four)
+## 8. States (design every screen for all five)
 
 - **Populated** — the happy path, realistic density.
 - **Empty / first-run** — EmptyState with one action; hunt-metaphor copy allowed here.
 - **Key-missing / degraded** — DegradedBanner naming the exact key + deep link;
   the feature is visible but clearly gated, never hidden.
+- **Busy / in flight** — a control that is disabled says a different word while it
+  waits ("Save" → "Saving…"), or carries a `Loader2` spinner, and its container
+  takes `aria-busy`. A disabled control is one whose click React *discards*, so
+  disabling one without an affordance is a click the user believes they made and
+  did not — the wave-2 defect (docs/reviews/wave-2.md §3). Two rules follow: one
+  `useTransition` per action, each gating only its own control; and never disable
+  a control because something unrelated is in flight. Skeletons cover the arrival
+  of content; this covers the wait after a click.
 - **Error** — inline, specific, recoverable ("Firecrawl returned 402 — check your
   plan"); never a raw stack, never a crash.
+
+*This section listed four states through Phase 8. The busy state was missing while
+five components each solved it differently, which is how the Contacts row ended up
+with a spinner on one button, a changed label on another and nothing on two more.*
 
 ---
 

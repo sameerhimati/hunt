@@ -124,6 +124,30 @@ describe('ContactCard', () => {
     await waitFor(() => expect(draftOutreachAction).toHaveBeenCalledWith('app-1', 'contact-1'))
   })
 
+  it('leaves Remove alive while a draft is in flight, and says when it is removing', async () => {
+    // Draft and Remove shared one transition, so drafting killed Remove with no
+    // indication — and a click on a disabled button is discarded, not queued
+    // (docs/reviews/wave-2.md §3). One transition per action, each gating its own.
+    let release!: (value: { error?: string }) => void
+    draftOutreachAction.mockReturnValueOnce(new Promise((resolve) => (release = resolve)))
+
+    render(
+      <ContactCard contact={contact} applicationId="app-1" draftNotice={pinnedNotice} defaultOpen />,
+    )
+    fireEvent.click(screen.getByTestId('draft-outreach'))
+
+    const removeButton = screen.getByTestId('delete-contact')
+    await waitFor(() => expect(screen.getByTestId('draft-outreach').textContent).toBe('Writing…'))
+    expect(removeButton.hasAttribute('disabled')).toBe(false)
+
+    fireEvent.click(removeButton)
+    await waitFor(() => expect(removeButton.textContent).toBe('Removing…'))
+    expect(removeButton.getAttribute('aria-busy')).toBe('true')
+
+    release({})
+    await waitFor(() => expect(deleteContactAction).toHaveBeenCalledWith('contact-1'))
+  })
+
   it('surfaces a failed draft in the card instead of losing it', async () => {
     draftOutreachAction.mockResolvedValueOnce({ error: 'Anthropic: 429 — rate limited' })
 
@@ -207,6 +231,34 @@ describe('ContactActions', () => {
         expect.objectContaining({ name: 'Dana Whitfield', source: 'apollo' }),
       ),
     )
+  })
+
+  it('says which hit it is saving, rather than going quiet and disabled', async () => {
+    // The cold golden path clicks this button, and the wait there is seconds
+    // rather than the 40ms it costs warm. Disabled with an unchanged label is
+    // indistinguishable from a click that never landed.
+    findContactsAction.mockResolvedValueOnce({
+      hits: [
+        { name: 'Dana Whitfield', title: 'Technical Recruiter', source: 'apollo' },
+      ],
+      reason: null,
+    })
+    let release!: (value: { error?: string }) => void
+    saveContactAction.mockReturnValueOnce(new Promise((resolve) => (release = resolve)))
+
+    render(<ContactActions applicationId="app-1" apolloReady />)
+    fireEvent.click(screen.getByTestId('find-contacts'))
+    await waitFor(() => expect(screen.getByText('Dana Whitfield')).toBeTruthy())
+
+    const save = screen.getByTestId('save-found-contact')
+    fireEvent.click(save)
+
+    await waitFor(() => expect(save.textContent).toBe('Saving…'))
+    expect(save.getAttribute('aria-busy')).toBe('true')
+    expect(screen.getByTestId('contact-hits').getAttribute('aria-busy')).toBe('true')
+
+    release({})
+    await waitFor(() => expect(save.textContent).toBe('Saved'))
   })
 
   it('reports a provider failure verbatim instead of an empty list', async () => {
