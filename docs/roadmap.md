@@ -63,6 +63,22 @@ application rather than a fact about you, because it expires; and a
 forward-looking claim has to cite both halves of its bridge, the work you did and
 what the posting says they need.
 
+**Paste a posting hunt cannot fetch.** *Half shipped 2026-08-04.* Work at a
+Startup and Workday are behind a login, most company career pages are neither a
+board nor worth a Firecrawl call, and a description forwarded by mail has no URL
+at all. Manual entry used to make you retype the role and the company that the
+text you were pasting already stated. Now the description leads the form and hunt
+reads what it can out of it — with no key, no network and no model — filling
+fields you can correct before anything is saved. It prefills; it never decides,
+and a rule that is not confident leaves the field blank, because a wrong company
+name gets quoted back in a cover letter.
+
+What is left is the other half: **once you have a model key, read the posting
+properly.** The heuristics handle the conventional shapes and give up on the rest,
+and the pattern to follow already exists — résumé import does a keyless structural
+parse first and re-extracts with a model once a key is present. Same pipeline,
+different document.
+
 **More than one way to reach someone.** Outreach assumes a single shape: a cold
 email to a recruiter or hiring manager, three steps, four days apart and then
 five. That is one path, and until now hunt presented it as *the* path. The copy

@@ -1,7 +1,7 @@
 'use client'
 
 import { Plus } from 'lucide-react'
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 
 import { createManualJobAction, ingestJobAction } from '@/app/pipeline/actions'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { readPosting, type PostingFields } from '@/lib/jobs/read-posting'
 
 /**
  * The two ways a job enters hunt: paste the link, or type it in.
@@ -32,6 +33,17 @@ import { Textarea } from '@/components/ui/textarea'
  * JSON straight from the board, and those are most of the links people paste.
  * Copy that implied every URL needed Firecrawl would send users to buy a key
  * they mostly do not need.
+ *
+ * **The description leads manual entry, and the fields follow from it.** It used
+ * to come last, in a four-row box under Role, Company and Location — so a posting
+ * hunt cannot fetch (Work at a Startup and Workday are behind a login; a mailed
+ * description has no URL at all) meant retyping two fields the pasted text
+ * already states. Now the paste box is the first thing in the tab, `readPosting`
+ * fills what it can read underneath it, and the inputs stay exactly as they were:
+ * still editable, still the fallback when nothing is parseable, still the only
+ * things `createManualJob` requires. Nothing is written until the user submits,
+ * which is what makes prefilling safe — see the note in `read-posting.ts` on why
+ * an empty field beats a confident wrong one.
  */
 export function NewApplicationDialog({
   variant = 'default',
@@ -49,6 +61,27 @@ export function NewApplicationDialog({
   const [manual, setManual] = useState({ title: '', company: '', location: '', jdText: '' })
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  /** What the last read filled in, so a correction survives the next paste. */
+  const filled = useRef<PostingFields>({ title: null, company: null, location: null })
+
+  /**
+   * Re-reads on every keystroke because paste *is* a change event and there is no
+   * cheaper signal for it. `readPosting` is a handful of regexes over the first
+   * twenty lines, so this costs nothing worth measuring.
+   */
+  const pastePosting = (jdText: string) => {
+    const read = readPosting(jdText)
+    setManual((current) => {
+      const next = { ...current, jdText }
+      for (const field of ['title', 'company', 'location'] as const) {
+        // Anything the user typed stands. Anything hunt filled is hunt's to replace.
+        if (current[field] && current[field] !== (filled.current[field] ?? '')) continue
+        next[field] = read[field] ?? ''
+      }
+      filled.current = read
+      return next
+    })
+  }
 
   const ingest = () => {
     setError(null)
@@ -118,6 +151,23 @@ export function NewApplicationDialog({
           </TabsContent>
 
           <TabsContent value="manual" className="space-y-3 pt-3">
+            <div className="space-y-2">
+              <Label htmlFor="manual-jd">Paste the posting</Label>
+              <Textarea
+                id="manual-jd"
+                data-testid="manual-jd"
+                rows={6}
+                placeholder="Paste the whole description — for a posting behind a login, or anywhere hunt cannot reach."
+                value={manual.jdText}
+                onChange={(event) => pastePosting(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Stored exactly as you paste it — it is the evidence tailoring and the checks cite
+                later. hunt reads the role, company and location out of it below; correct anything
+                it got wrong, and type anything it left blank.
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="manual-title">Role</Label>
@@ -149,17 +199,6 @@ export function NewApplicationDialog({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="manual-jd">Job description</Label>
-              <Textarea
-                id="manual-jd"
-                data-testid="manual-jd"
-                rows={4}
-                placeholder="Paste the description — tailoring and checks read it."
-                value={manual.jdText}
-                onChange={(event) => setManual({ ...manual, jdText: event.target.value })}
-              />
-            </div>
           </TabsContent>
         </Tabs>
 
