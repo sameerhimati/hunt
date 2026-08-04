@@ -46,6 +46,16 @@ every future résumé and cover letter can cite it the same way they cite your
 résumé today. The rule doesn't loosen — hunt still refuses anything you didn't
 say. It just stops pretending your résumé is the only place you've said things.
 
+The notebook is bigger than any one résumé on purpose, which raises the question
+of what to draw from it for a given job. A person who has shipped ML pipelines,
+run a family office and framed houses is not three résumés — they are one person
+whose relevant half changes per posting. So the notebook is **the whole store,
+and each application draws a slice of it**: hunt proposes which facts earn their
+place against this posting, and you decide, the same way you decide on a tailored
+bullet. What it must never become is a bank of claims the model dips into
+unsupervised — the fact still has to be one you wrote down, and the citation
+still has to resolve. It widens where provenance can point, not whether it has to.
+
 **Which résumé version actually works.** "v3 got 4 interviews from 11 sends; v1
 got 0." Every application already pins the exact version sent and stamps when a
 reply, interview or decision landed. This is one join away, and nobody in this
