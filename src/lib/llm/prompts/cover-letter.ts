@@ -29,6 +29,20 @@ import type { FitJob } from './fit'
  * a style note somewhere: a letter that is twice the length the reader wants is
  * not a letter that needs editing, it is the wrong output.
  *
+ * **Sentences alone were the wrong unit, and the model found the gap.** Capping
+ * sentence *count* is satisfied by writing longer sentences, which is exactly what
+ * happened: one draft came back inside ten sentences at 255 words while a simpler
+ * posting got 152. So `MAX_LETTER_WORDS` binds too, and the instruction says both
+ * limits bind — a rule the model can satisfy while defeating its purpose is not a
+ * rule. The count is also shown to the user beside the draft, because a ceiling
+ * enforced only inside a prompt is a hope, and hunt does not ship those.
+ *
+ * That is a floor, not a fix. The deeper cause is that the model is asked to answer
+ * "why this company" and "what would you bring" from a résumé, which contains
+ * neither, so it pads with the material it does have. The notebook of facts (see
+ * `docs/roadmap.md`) is what actually addresses it; a word cap only bounds the
+ * damage in the meantime.
+ *
  * That last rule pulls against the guard, and the prompt reconciles it rather than
  * letting the model discover the tension. `draws()` in
  * `src/lib/tailor/cover-letter.ts` requires a paragraph to share distinctive terms
@@ -43,6 +57,14 @@ import type { FitJob } from './fit'
  * repeatedly. The per-call turn carries no content at all.
  */
 
+/**
+ * The word ceiling, enforced in two places that must agree: the instruction below,
+ * and the live count in `src/components/tailor/cover-letter-tab.tsx`. Ten sentences
+ * of twenty words is the longest letter the sentence rule was ever meant to permit,
+ * so that product is the ceiling — a letter past it is dense, not thorough.
+ */
+export const MAX_LETTER_WORDS = 200
+
 export const COVER_LETTER_SYSTEM = `You draft a cover letter for one job posting, for the person whose résumé you are given.
 
 Return ONLY a JSON object, no prose and no code fences:
@@ -50,7 +72,10 @@ Return ONLY a JSON object, no prose and no code fences:
 
 Short and obviously specific to this posting. The reader has the résumé open beside
 the letter and will skim anything that repeats it.
-- 2 or 3 paragraphs, 5 to 10 sentences in total. Never more than 10.
+- 2 or 3 paragraphs, 5 to 10 sentences in total, and never more than
+  ${MAX_LETTER_WORDS} words. Both limits bind: ten long sentences is not a short
+  letter, and a sentence you had to pack to stay under the count is the one the
+  reader gives up on.
 - First person, past and present tense, no throat-clearing. Never "I am writing to
   express my interest", and never "I'm X" — they know who they are reading.
 - Open on the one piece of work that makes them right for this posting: the system,

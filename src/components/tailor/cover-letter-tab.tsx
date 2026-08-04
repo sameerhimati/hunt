@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { auditAiTellText } from '@/lib/checks/ai-tell'
+import { MAX_LETTER_WORDS } from '@/lib/llm/prompts/cover-letter'
 import type { CoverLetterDraft, CoverLetterParagraph } from '@/lib/tailor/cover-letter'
 import { cn } from '@/lib/utils'
 
@@ -131,6 +132,19 @@ export function retainedFraction(written: string, edited: string): number {
   }
 
   return kept / original.length
+}
+
+/**
+ * The letter's live word count, summed over the paragraphs as they currently read.
+ *
+ * Counted here rather than stored on the draft because the number has to survive
+ * an edit: a count written at draft time is wrong the moment the user cuts a
+ * sentence, and the store reconstructs a reloaded letter from markdown without
+ * ever passing through the parser (`cover-letter-store.ts`), so a stored field
+ * would come back missing as well. Recomputing is exact and costs nothing.
+ */
+export function letterWords(paragraphs: Array<{ text: string }>): number {
+  return paragraphs.reduce((total, paragraph) => total + (paragraph.text.match(WORDS)?.length ?? 0), 0)
 }
 
 export function CoverLetterTab({
@@ -287,6 +301,9 @@ export function CoverLetterTab({
   }, [actions, adopt, applicationId, draft, job.company, job.title, receive])
 
   const flagged = draft?.paragraphs.filter((paragraph) => paragraph.flag) ?? []
+  /** Shown always, warned on past the ceiling — the prompt asks for it, this is the check. */
+  const words = letterWords(draft?.paragraphs ?? [])
+  const overLong = words > MAX_LETTER_WORDS
   /** Prose of the user's own that a regenerate would replace. Blank lines are nothing to lose. */
   const handwritten =
     draft?.paragraphs.filter((paragraph) => paragraph.origin === 'user' && paragraph.text.trim())
@@ -304,6 +321,10 @@ export function CoverLetterTab({
             {draft ? (
               <>
                 {draft.paragraphs.length} paragraphs
+                {' · '}
+                <span className={cn(overLong && 'text-warn')}>
+                  {words} words{overLong ? ` · past ${MAX_LETTER_WORDS}` : ''}
+                </span>
                 {flagged.length > 0 ? (
                   <>
                     {' · '}

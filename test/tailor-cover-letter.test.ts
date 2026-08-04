@@ -8,11 +8,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
   CoverLetterTab,
+  letterWords,
   retainedFraction,
   type CoverLetterActions,
 } from '@/components/tailor/cover-letter-tab'
 import { FakeLlmProvider } from '@/lib/llm'
 import { promptKindOf } from '@/lib/llm/prompts'
+import { COVER_LETTER_SYSTEM, MAX_LETTER_WORDS } from '@/lib/llm/prompts/cover-letter'
 import { parseResumeContent } from '@/lib/resume/schema'
 import {
   CoverLetterResponseError,
@@ -443,6 +445,31 @@ describe('the line between rewriting a claim and touching it', () => {
   })
 })
 
+describe('the length ceiling', () => {
+  it('counts the letter as it currently reads, across paragraphs', () => {
+    expect(
+      letterWords([
+        { text: 'I own the ledger service.' },
+        { text: "It settles $40M a month, and it hasn't dropped a posting." },
+      ]),
+    ).toBe(16)
+    expect(letterWords([])).toBe(0)
+  })
+
+  it('binds the prompt to the same number the UI checks', () => {
+    // The two enforcement points drifting apart is the failure this guards:
+    // an instruction asking for one ceiling while the count warns at another
+    // would make the warning look like a bug to the person reading it.
+    expect(COVER_LETTER_SYSTEM).toContain(`${MAX_LETTER_WORDS} words`)
+  })
+
+  it('asks for words as well as sentences, because sentence count alone was gameable', () => {
+    // A draft came back inside the ten-sentence rule at 255 words. Capping
+    // sentences is satisfied by writing longer ones, so both limits must bind.
+    expect(COVER_LETTER_SYSTEM).toMatch(/both limits bind/i)
+  })
+})
+
 describe('the cover letter tab', () => {
   const savedDraft: CoverLetterDraft = {
     applicationId: 'app1',
@@ -497,6 +524,36 @@ describe('the cover letter tab', () => {
     expect(actions.draft).not.toHaveBeenCalled()
     expect(screen.getByTestId('cover-letter-citations').textContent).toContain(
       'experience[0].bullets[0]',
+    )
+  })
+
+  it('prints the word count, and marks it once the letter runs past the ceiling', async () => {
+    mount()
+    await waitFor(() => expect(screen.getAllByTestId('cover-letter-paragraph')).toHaveLength(2))
+
+    // A ceiling enforced only inside the prompt is unverifiable from the outside,
+    // so the count the user sees is the same number the rule names.
+    const summary = screen.getByTestId('cover-letter-summary')
+    expect(summary.textContent).toContain(`${letterWords(savedDraft.paragraphs)} words`)
+    expect(summary.textContent).not.toContain('past')
+
+    cleanup()
+    const long = 'A sentence of some length about the ledger service and its throughput. '.repeat(20)
+    mount({
+      load: vi.fn(async () => ({
+        ok: true as const,
+        draft: {
+          applicationId: 'app1',
+          savedAt: null,
+          paragraphs: [{ id: 'p1', text: long, citations: [], origin: 'user' as const }],
+        },
+      })),
+    })
+
+    await waitFor(() =>
+      expect(screen.getByTestId('cover-letter-summary').textContent).toContain(
+        `past ${MAX_LETTER_WORDS}`,
+      ),
     )
   })
 
