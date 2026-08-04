@@ -12,38 +12,48 @@ them. What survives is the honest-AI stance and the résumé editor.
 
 ## 1. The field
 
-| | **hunt** | **ai-job-search** | **JobOps** | **career-ops** | **JobSync** | **Resume Matcher** |
-|---|---|---|---|---|---|---|
-| Traction | pre-launch | **28.5k ★, 9.4k forks in 4 months** | HN post | niche | small | 27.9k ★ |
-| Licence | MIT | MIT | — | MIT | MIT | Apache 2.0 |
-| Résumé import | PDF | PDF, LinkedIn export, interview | PDF | local files | **PDF + DOCX** | **PDF + DOCX** |
-| **Live editor + PDF preview** | **✅ Tectonic** | ✗ (no UI at all) | generates only | generates only | Tiptap, 2 templates | builder, drag-drop |
-| **Real LaTeX typesetting** | **✅** | **✅ moderncv** | ✗ | ✗ | ✗ | ✗ (CSS imitation) |
-| **Version tree + semantic diff** | **✅** | ✗ | archives sent version | ✗ | multiple résumés | ✗ |
-| **Tailoring cited to your résumé** | **✅ validator-enforced** | prompt-level only | ✗ | ✗ | ✗ | ✗ |
-| **Refuses uncited claims, shows refusal** | **✅ unique** | gaps named, not enforced | ✗ | ✗ | ✗ | post-hoc diff guard |
-| Fake composite score | **refuses, by design** | fit score on postings; no ATS score | — | 1.0–5.0 rubric | match scores | ATS score /100 |
-| Verifies the *compiled PDF* | **✅ parse-fidelity diff** | ✅ `pdftotext` checklist | ✗ | ✗ | ✗ | ✗ |
-| Page-overflow / layout check | ⚠️ **gap** | **✅ compile-and-inspect loop** | ✗ | ✗ | ✗ | ✗ |
-| JD frozen at apply time | ⚠️ **gap** | archives submission | **✅** | ✗ | ✗ | ✗ |
-| Which résumé version performs best | ⚠️ **data exists, unbuilt** | ✗ (`/outcome` is per-application) | ✗ (asked for on HN) | ✗ | ✗ | ✗ |
-| Drafts open-ended application answers | ⚠️ **gap** | ✗ | ✗ | **✅ Greenhouse/Ashby/Lever** | ✗ | ✗ |
-| Guided enrichment instead of inventing | ⚠️ **gap** | **✅ `/expand`** | ✗ | ✗ | ✗ | **✅** |
-| Pipeline tracking | ✅ 8-status board | offline HTML report | ✅ | terminal dashboard | ✅ + tasks/time | ✗ |
-| Keyless job search | ✅ company boards | DK portals + LinkedIn public | JobSpy, Glassdoor | **150+ portals** | Greenhouse/Lever | ✗ |
-| Outreach + sequences | **✅ unique** | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Email reply detection | P7 planned | ✗ | ✗ (top HN ask) | ✗ | ✗ | ✗ |
-| Cover letter | ✅ cited | ✅ LaTeX, 1 page | ✗ | ✗ | ✗ | ✅ |
-| Interview prep | ✗ | **✅ `/interview`, STAR** | ✗ | ✗ | ✗ | ✅ |
-| Accounts required | none | none | none | none | **yes** | none |
-| Install | pnpm / dev server | **Claude Code + Python + Bun + full TeX** | Docker | **an AI coding CLI** | Docker | Docker |
-| Business model | none | Ko-fi | none | sponsors | none | none |
+| | **hunt** | **ai-job-search** | **JobOps** | **career-ops** | **JobSync** | **Resume Matcher** | **Huntr** |
+|---|---|---|---|---|---|---|---|
+| Traction | pre-launch | **28.5k ★, 9.4k forks in 4 months** | HN post | niche | small | 27.9k ★ | **250–500k users, self-reported** |
+| Licence | MIT | MIT | — | MIT | MIT | Apache 2.0 | **closed** |
+| Résumé import | PDF | PDF, LinkedIn export, interview | PDF | local files | **PDF + DOCX** | **PDF + DOCX** | — |
+| **Live editor + PDF preview** | **✅ Tectonic** | ✗ (no UI at all) | generates only | generates only | Tiptap, 2 templates | builder, drag-drop | — |
+| **Real LaTeX typesetting** | **✅** | **✅ moderncv** | ✗ | ✗ | ✗ | ✗ (CSS imitation) | — |
+| **Version tree + semantic diff** | **✅** | ✗ | archives sent version | ✗ | multiple résumés | ✗ | — |
+| **Tailoring cited to your résumé** | **✅ validator-enforced** | prompt-level only | ✗ | ✗ | ✗ | ✗ | claimed in copy, no citation |
+| **Refuses uncited claims, shows refusal** | **✅ unique** | gaps named, not enforced | ✗ | ✗ | ✗ | post-hoc diff guard | ✗ (**but claims it in copy**) |
+| Fake composite score | **refuses, by design** | fit score on postings; no ATS score | — | 1.0–5.0 rubric | match scores | ATS score /100 | **match score + résumé score, every tier** |
+| Verifies the *compiled PDF* | **✅ parse-fidelity diff** | ✅ `pdftotext` checklist | ✗ | ✗ | ✗ | ✗ | — |
+| Page-overflow / layout check | ⚠️ **gap** | **✅ compile-and-inspect loop** | ✗ | ✗ | ✗ | ✗ | — |
+| JD frozen at apply time | ⚠️ **gap** | archives submission | **✅** | ✗ | ✗ | ✗ | — |
+| Which résumé version performs best | ⚠️ **data exists, unbuilt** | ✗ (`/outcome` is per-application) | ✗ (asked for on HN) | ✗ | ✗ | ✗ | — |
+| Drafts open-ended application answers | ⚠️ **gap** | ✗ | ✗ | **✅ Greenhouse/Ashby/Lever** | ✗ | ✗ | ✗ (autofill maps structured fields) |
+| Guided enrichment instead of inventing | ⚠️ **gap** | **✅ `/expand`** | ✗ | ✗ | ✗ | **✅** | — |
+| Pipeline tracking | ✅ 8-status board | offline HTML report | ✅ | terminal dashboard | ✅ + tasks/time | ✗ | ✅ |
+| Keyless job search | ✅ company boards | DK portals + LinkedIn public | JobSpy, Glassdoor | **150+ portals** | Greenhouse/Lever | ✗ | — |
+| Outreach + sequences | **✅ unique** | ✗ | ✗ | ✗ | ✗ | ✗ | — |
+| Email reply detection | ✗ cut from v1, mark by hand | ✗ | ✗ (top HN ask) | ✗ | ✗ | ✗ | — |
+| Cover letter | ✅ cited | ✅ LaTeX, 1 page | ✗ | ✗ | ✗ | ✅ | — |
+| Interview prep | ✗ | **✅ `/interview`, STAR** | ✗ | ✗ | ✗ | ✅ | — |
+| Accounts required | none | none | none | none | **yes** | none | **yes** |
+| Install | pnpm / dev server | **Claude Code + Python + Bun + full TeX** | Docker | **an AI coding CLI** | Docker | Docker | **hosted + Chrome extension** |
+| Business model | none | Ko-fi | none | sponsors | none | none | **$40/mo, subscription-only** |
 
-**Six tools, ~zero revenue, all technical-user.** That segment is saturated and
-pays nothing. The unserved audience is the non-technical one — sign in, upload,
-paste a job — and nobody is there because hosting, auth, support and inference
-costs are the hard part. If that's ever pursued: OSS core + optional hosted
-version (Cal.com / Supabase model), not a rewrite.
+`—` in the Huntr column means *not assessed*, not *absent*. It is closed source
+and hosted, so only what they publish and what users report is checkable; we are
+not inferring the rest.
+
+**Six of the seven, ~zero revenue, all technical-user.** That segment is
+saturated and pays nothing. The unserved audience is the non-technical one — sign
+in, upload, paste a job — and nobody is there because hosting, auth, support and
+inference costs are the hard part. If that's ever pursued: OSS core + optional
+hosted version (Cal.com / Supabase model), not a rewrite.
+
+*Amended 2026-07-30.* "Nobody is there" was wrong. Huntr is there, with a
+self-reported 250–500k users and a $40/mo subscription — which is the evidence
+for the second half of the sentence, not against it: the costs are real and
+somebody is covering them by charging. The segment that is genuinely unserved is
+the *open-source, BYOK* half of it.
 
 ### ai-job-search, added 2026-07-29 — the entrant that changes the picture
 
@@ -64,6 +74,40 @@ that line changed. Second, the 33% fork ratio is the install mechanism, not
 enthusiasm: every user sits on a permanent divergent branch, which is why the
 README needs a "Staying up to date" section. **Do not copy fork-as-install.**
 
+### huntr.co, added 2026-07-30 — the paid incumbent, and it already says our sentence
+
+Founded ~2020. Self-reported 250–500k users, though **the figure is inconsistent
+across their own pages** — treat it as an order of magnitude, not a number.
+Chrome extension, ~1.3k reviews at 4.8★. **$40/mo, subscription-only.** Closed
+source, hosted, no BYOK. Funding is contradictory across sources ($620k seed vs.
+self-funded) and Crunchbase returns 403, so it is **unverified and stays
+unverified**; we are not picking one.
+
+**The scoring point is a business-model constraint, not a product gap.** They
+ship a match score *and* a résumé score on every tier, and sell advanced scoring
+as the upsell. `roadmap.md` § "What we won't build" rules out any match score,
+ATS score, résumé grade or percentage — there is nowhere in our data model to put
+one. A company whose price ladder rests on scoring cannot adopt "refuse the claim
+and show the refusal" without knocking a rung out of it. That is structural. It
+is not something they close next quarter.
+
+**They are already using our words.** Their résumé-tailor page says the output is
+"grounded in what you did… it doesn't invent" and that it "can't invent titles,
+numbers, or skills." Underneath that is a prompt instruction plus a human-review
+rationale — no source citation, no validator, no refusal surface — and their own
+reviews report output that is "generic, repetitive, or occasionally inaccurate."
+**The mechanism is unoccupied; the claim is not.** Same trap as "local-first":
+the sentence is commoditised, so it cannot be the pitch. What nobody else can
+show is the failure mode — hunt putting the refusal in the place the text would
+have gone. Nobody advertises their refusals. **That is the demo, not the
+tagline.**
+
+**Verdict.** Too late to compete on "job tracker with autofill"; that is Huntr's
+and its clones'. Not too late on citation-grounded generation. Their autofill is
+structured-field mapping, not grounded drafting of free-text answers, so the
+"draft the application form" item in `roadmap.md` survives — but only the half
+that needs citations.
+
 ---
 
 ## 2. What we are actually differentiated on
@@ -73,6 +117,11 @@ README needs a "Staying up to date" section. **Do not copy fork-as-install.**
    Resume Matcher shows an ATS score out of 100 with red/yellow/green. Nobody
    else refuses an uncited claim *and shows the refusal*. Enforced by a validator
    with a gate behind it, not by prompt text. **Do not dilute this.**
+   *Amended 2026-07-30:* still true, with one correction to how we say it. Huntr
+   ships a match score and a résumé score on every tier — but Huntr also already
+   writes "it doesn't invent" and "it can't invent titles, numbers, or skills" in
+   its own marketing. The claim is taken; only the mechanism is free. So lead
+   with the refusal itself, shown in place, and never with the sentence about it.
 2. **Real typesetting — now a two-horse race.** Resume Matcher's "LaTeX" template
    is CSS imitating LaTeX, screenshotted to PDF by headless Chromium; there is no
    TeX engine in that repo. Our Tectonic output is genuine kerning, hyphenation
@@ -180,6 +229,11 @@ the provenance stays legible:
   not fandom: every user is on a divergent branch that can never cleanly take an
   upgrade, which is why their README needs a "Staying up to date" section. Data
   in a database beats profile-in-markdown-you-forked for the audience we want.
+- **Per-ATS autofill selector maintenance.** Huntr's extension owns "job tracker
+  with autofill" and its clones own the rest of it. Chasing form selectors across
+  Greenhouse/Ashby/Lever releases is permanent unpaid maintenance for a feature
+  we would arrive at last. Draft the *answers* with citations (Take 6 above);
+  leave the field-mapping alone.
 - **LinkedIn scraping.** Decided 2026-07-26 — see session handoff.
 - **Auto-submit / one-click apply.** hunt and career-ops share the stance:
   prepare everything, the human clicks send. Auto-apply is how tools blast
@@ -225,6 +279,9 @@ pattern, so **reimplement in our own style and there is nothing to track.**
 ---
 
 ## Sources
+- [huntr.co](https://huntr.co/) — marketing site (résumé-tailor and pricing
+  pages), Chrome Web Store listing, reviewed 2026-07-30. Funding **unverified**:
+  sources disagree ($620k seed vs. self-funded) and Crunchbase returned 403.
 - [MadsLorentzen/ai-job-search](https://github.com/MadsLorentzen/ai-job-search) —
   README + repo metadata, reviewed 2026-07-29
 - [srbhr/Resume-Matcher](https://github.com/srbhr/Resume-Matcher) — deep source

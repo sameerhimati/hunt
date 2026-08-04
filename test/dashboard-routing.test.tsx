@@ -14,15 +14,23 @@ const funnelStats = vi.hoisted(() => vi.fn<() => Promise<FunnelStats>>())
 const recentActivity = vi.hoisted(() => vi.fn(async () => []))
 const readAllProviderStates = vi.hoisted(() => vi.fn<() => Promise<ProviderState[]>>())
 const countResumes = vi.hoisted(() => vi.fn<() => Promise<number>>())
+/**
+ * These cases are all about the *returning* user, so onboarding is done for
+ * every one of them. The first-run redirect that guards this page is asserted
+ * on its own below, where it is the subject rather than a precondition.
+ */
+const onboardingComplete = vi.hoisted(() => vi.fn(async () => true))
 
 vi.mock('@/lib/pipeline/stats', () => ({ funnelStats, recentActivity }))
 vi.mock('@/lib/providers/status', () => ({ readAllProviderStates }))
 vi.mock('@/lib/resume/store', () => ({ countResumes }))
+vi.mock('@/lib/onboarding/state', () => ({ onboardingComplete }))
 // Both are real screens of their own with their own I/O; the dashboard only
 // slots them in.
 vi.mock('@/components/dashboard/follow-ups', () => ({ FollowUpsPanel: () => null }))
 vi.mock('@/components/pipeline/new-application-dialog', () => ({
-  NewApplicationDialog: () => null,
+  NewApplicationDialog: ({ testId }: { testId?: string }) =>
+    testId ? <button data-testid={testId} type="button" /> : null,
 }))
 // The shell contributes the nav rail's links to the document; stubbing it keeps
 // every href in these assertions one the dashboard itself chose to offer.
@@ -92,7 +100,10 @@ describe('dashboard routing', () => {
     await renderDashboard()
 
     expect(screen.getByText('Nothing in your sights yet')).toBeTruthy()
-    expect(hrefs()).toContain('/pipeline')
+    // The primary action opens the new-application dialog in place rather than
+    // linking to /pipeline, which only got the user to a screen where they had
+    // to press New application again. The secondary exit is unchanged.
+    expect(screen.getByTestId('empty-state-cta')).toBeTruthy()
     expect(hrefs()).toContain('/sourcing')
     expect(screen.queryByTestId('funnel-stats')).toBeNull()
   })
@@ -149,5 +160,34 @@ describe('the keyless floor', () => {
     expect(hrefs()).toContain('/settings')
     expect(hrefs()[0]).toBe('/resumes')
     expect(screen.queryByText(/add a key|add your keys/i)).toBeNull()
+  })
+})
+
+/**
+ * The first-run guard. Separate from the routing cases above because it decides
+ * whether that page renders at all, and because the failure it prevents is the
+ * one worth naming: inferring "new user" from having no data would throw a
+ * long-standing user back into onboarding the day they archive their last
+ * résumé. Completion is a recorded fact, so these two states are independent.
+ */
+describe('first-run redirect', () => {
+  it('sends a user who has never finished onboarding to the wizard', async () => {
+    onboardingComplete.mockResolvedValue(false)
+    funnelStats.mockResolvedValue(stats(0))
+    readAllProviderStates.mockResolvedValue(freeBoardsOnly())
+    countResumes.mockResolvedValue(0)
+
+    await expect(renderDashboard()).rejects.toThrow(/NEXT_REDIRECT/)
+  })
+
+  it('leaves a finished user on the dashboard even with nothing in it', async () => {
+    onboardingComplete.mockResolvedValue(true)
+    funnelStats.mockResolvedValue(stats(0))
+    readAllProviderStates.mockResolvedValue(freeBoardsOnly())
+    countResumes.mockResolvedValue(0)
+
+    await renderDashboard()
+
+    expect(screen.getByText('Start with your résumé')).toBeTruthy()
   })
 })

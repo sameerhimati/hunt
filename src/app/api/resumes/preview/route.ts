@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { pdf } = await renderToPdf({
+    const { pdf, pages } = await renderToPdf({
       content: parseResumeContent(content),
       templateId,
       rawLatexOverride,
@@ -38,6 +38,10 @@ export async function POST(request: Request) {
         'content-type': 'application/pdf',
         // The preview is regenerated on every edit; caching it would show stale paper.
         'cache-control': 'no-store',
+        // A header because the body is the PDF itself. The editor shows this
+        // back to the user: tailoring only adds text, and a résumé that has
+        // quietly grown a page should say so while it can still be fixed.
+        'x-hunt-pages': String(pages),
       },
     })
   } catch (error) {

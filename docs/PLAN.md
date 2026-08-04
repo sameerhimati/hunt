@@ -128,13 +128,66 @@ Job-API adapter (JSearch/Adzuna, + free/no-key boards Greenhouse/Lever/Ashby/Rem
 
 **What survives:** `src/lib/adapters/linkedin/{cookie,types}.ts` as a dormant, unregistered seam (no Settings card, `createAdapter` can't build it); `Contact.linkedinUrl`; the `paste|api|linkedin` and `apollo|linkedin|manual|brightdata` source vocabularies. `gates/unit/phase-6/` and `gates/e2e/phase-6/` stay committed, RED, and never promoted — `gates/DONE` skips 6.
 
-### Phase 7 — Gmail (IMAP + app password)
-Settings flow for a Gmail app password (docs with screenshots); send via SMTP as today; **reply detection over IMAP** — `SEARCH HEADER References "<threadRef>"` finds the reply to exactly the message we sent → auto-flip status to `replied`, advance/halt sequences; the closed loop, closed. No OAuth, no Google Cloud project — see *Gmail without OAuth* above for why the API can't do this.
-**Exit gate:** integration tests against a fake IMAP server; manual smoke test with a real personal Gmail documented in a runbook; sequence-halt-on-reply unit-tested.
+### ~~Phase 7 — Gmail (IMAP + app password)~~ — **CUT FROM v1 2026-08-03**
+*Would have been:* Settings flow for a Gmail app password; **reply detection over
+IMAP** — `SEARCH HEADER References "<threadRef>"` finds the reply to exactly the
+message we sent → auto-flip status to `replied`, advance/halt sequences.
 
-### Phase 8 — Launch polish
-Onboarding (first-run wizard: keys → import resume → first job); empty states, error states, key-missing states everywhere; README with GIF demo, architecture diagram, honest-AI section; docs site or thorough `/docs`; `npx` runner and/or one-line install script alongside Docker; license + CONTRIBUTING + issue templates; Product Hunt assets (tagline, gallery, first-comment); security pass (keys encrypted at rest, no key ever logged, CSP).
-**Exit gate:** full Playwright run of the end-goal script (steps 1–6 above) with fake adapters; two cold-start tests on clean machines (Docker path + npx path); README review by fresh-eyes agent.
+**Why it's cut from v1,** shortest reason first:
+1. **Nothing lies without it.** Reply-marking is manual today and the UI says so.
+   The wave-2 finding — `sequence-timeline.tsx` promising "halts automatically
+   when they reply" while `markRepliedAction` had zero callers — is fixed, so the
+   honest version already ships. A phase that removes a manual click is not what
+   stands between this repo and a stranger running it.
+2. **It is the only remaining v1 item that needs a live third-party account to
+   test.** Its gate demands a real personal Gmail and a documented runbook; every
+   other v1 gate runs on fakes.
+3. The research still holds and nothing here is wasted — IMAP over the Gmail API
+   for the reason in *Gmail without OAuth* above, behind an adapter + Fake twin.
+
+**Status:** `gates/unit/phase-7/` stays committed, RED, and unpromoted, exactly
+as Phase 6's does. `gates/DONE` skips 7. This is a v1 cut, not a cancellation:
+reply detection stays on the roadmap under *Later*.
+
+### Phase 8 — Ship it (the v1 Definition of Done)
+**Narrowed 2026-08-03.** v1 is *forkable + a first run that teaches*, and nothing
+else. Product Hunt assets, a docs site, a GIF demo and an architecture diagram
+are launch marketing, not done — they moved out of this phase and off the v1 bar.
+
+Three things, each already encoded as a gate:
+
+1. **Forkable** (`gates/unit/phase-8/packaging.gate.test.ts`) — `hunt-app` bin +
+   launcher; `engines.node >= 22` so `better-sqlite3` installs from prebuilds
+   rather than compiling on a stranger's machine; `scripts/coldstart-docker.sh`
+   and `scripts/coldstart-npx.sh`; README leading with the quickstart and the
+   honest-AI story; `CONTRIBUTING.md`; `.github/ISSUE_TEMPLATE`.
+2. **A first run that teaches** (`gates/e2e/phase-8/golden-path.gate.spec.ts`) —
+   cold start redirects to `/onboarding`; a welcome step that says nothing leaves
+   the machine; a keys step naming the one key worth adding; then import → first
+   job → tailor → contact, the whole stranger script in one pass. The copy comes
+   from `ProviderMeta` (`powers`, `getKeyUrl`, `steps`, `freeTier`,
+   `degradation`), which a test already refuses to let ship empty — the wizard is
+   a UI over content that exists.
+3. **Trust** (`gates/e2e/phase-8/trust.gate.spec.ts`) — a CSP header on every
+   page, and nothing leaving the machine during normal use.
+
+Plus three fixes that sit on the stranger's own path and are therefore v1, not
+roadmap:
+
+- **The two résumé-parser defects** (`src/lib/resume/parse/structure.ts`). Import
+  is step 3 — the first thing anyone does with their own document.
+- **Re-extract with a model.** Keyless import is the default and currently has no
+  upgrade path: once imported, there is no way to say *"I have a key now, try
+  again."* A dead end in the core loop, not a missing nicety.
+- **Page-count awareness.** Tailoring only ever adds text and hunt never reads
+  the count back, so the core loop can push a résumé to a third page and say
+  nothing — the wave-2 "UI asserts what the code doesn't substantiate" class.
+  **Detection only for v1**: notice it and say so. Cutting the least-relevant
+  line for *this* posting stays on the roadmap.
+
+**Exit gate:** `pnpm gate 8` green and promoted into `gates/DONE` — the full
+Playwright run of the end-goal script (steps 1–6 above) on fake adapters, both
+cold-start scripts passing on clean machines, and the packaging assertions above.
 
 ---
 

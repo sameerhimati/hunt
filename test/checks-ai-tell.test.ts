@@ -3,7 +3,7 @@ import path from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { auditAiTell, runAiTell } from '@/lib/checks/ai-tell'
+import { auditAiTell, auditAiTellText, runAiTell } from '@/lib/checks/ai-tell'
 import type { AiTellDetail } from '@/lib/checks/types'
 import { parseResumeContent, type ResumeContent } from '@/lib/resume/schema'
 
@@ -128,5 +128,54 @@ describe('runAiTell', () => {
     expect(outcome).not.toHaveProperty('score')
     expect(outcome).not.toHaveProperty('total')
     expect(outcome).not.toHaveProperty('percentage')
+  })
+})
+
+/**
+ * The cover letter surface. The property that matters is that this is the *same*
+ * instrument as the résumé one — a phrase hunt flags in a bullet has to be
+ * flagged in a paragraph, or the two artifacts disagree about the same words.
+ */
+describe('auditAiTellText', () => {
+  it('flags in a paragraph exactly what it flags in a résumé bullet', () => {
+    const phrase = 'Leveraged Kafka to remove 200k calls per day'
+
+    expect(auditAiTellText(phrase, 'p1').map((flag) => flag.phrase)).toEqual(
+      auditAiTell(withBullet(phrase)).map((flag) => flag.phrase),
+    )
+  })
+
+  it('reports the paragraph id as the path, so the UI can place the flag', () => {
+    const [flag] = auditAiTellText('I utilized Postgres.', 'p3')
+
+    expect(flag.path).toBe('p3')
+    expect(flag.phrase).toBe('utilized')
+    expect(flag.suggestion).toBe('Say “used”.')
+  })
+
+  it('says nothing about a paragraph written in plain words', () => {
+    expect(
+      auditAiTellText(
+        'I rebuilt the payments ledger at Plaid and cut reconciliation from 40 minutes to 3.',
+        'p1',
+      ),
+    ).toEqual([])
+  })
+
+  it('returns nothing for the empty paragraph a new letter starts with', () => {
+    expect(auditAiTellText('', 'p1')).toEqual([])
+    expect(auditAiTellText('   \n ', 'p1')).toEqual([])
+  })
+
+  /**
+   * The regexes are module-level and global. If a scan ever forgets to reset
+   * `lastIndex`, the second call silently starts mid-string and the user sees a
+   * flag on one paragraph and not the identical one below it.
+   */
+  it('gives the same answer on the second call as the first', () => {
+    const text = 'I leveraged the platform to leverage the team.'
+
+    expect(auditAiTellText(text, 'p2')).toEqual(auditAiTellText(text, 'p2'))
+    expect(auditAiTellText(text, 'p2')).toHaveLength(2)
   })
 })

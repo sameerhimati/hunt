@@ -37,7 +37,29 @@ interface ImportResponse {
 
 const FLAG_BELOW = 1
 
-export function ImportReview({ hasModel }: { hasModel: boolean }) {
+/** Recorded alongside the source text so the re-read action can name the file type. */
+function kindOf(fileName: string): string {
+  return /\.docx$/i.test(fileName) ? 'docx' : 'pdf'
+}
+
+interface ImportReviewProps {
+  hasModel: boolean
+  /**
+   * Called instead of creating the résumé and navigating away. The onboarding
+   * wizard passes this so confirming the import advances the wizard rather than
+   * dropping the user into the résumé editor mid-first-run; `/resumes/import`
+   * leaves it unset and keeps the redirect it has always done.
+   */
+  onImported?: (input: { name: string; content: ResumeContent; text: string; kind: string }) => void
+  /** The wizard's gate addresses this input by its own name. */
+  fileInputTestId?: string
+}
+
+export function ImportReview({
+  hasModel,
+  onImported,
+  fileInputTestId = 'import-file',
+}: ImportReviewProps) {
   const [parsed, setParsed] = useState<ImportResponse | null>(null)
   const [content, setContent] = useState<ResumeContent | null>(null)
   const [name, setName] = useState('')
@@ -123,7 +145,7 @@ export function ImportReview({ hasModel }: { hasModel: boolean }) {
           <input
             type="file"
             accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            data-testid="import-file"
+            data-testid={fileInputTestId}
             className="sr-only"
             disabled={uploading}
             onChange={(event) => {
@@ -159,7 +181,7 @@ export function ImportReview({ hasModel }: { hasModel: boolean }) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div data-testid="import-review" className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="flex items-center gap-3">
           <Label htmlFor="import-name" className="text-xs text-muted-foreground">
@@ -212,7 +234,18 @@ export function ImportReview({ hasModel }: { hasModel: boolean }) {
             disabled={pending}
             onClick={() =>
               startTransition(async () => {
-                await createResumeFromImport(name, content)
+                // The source text rides along so the résumé can be read again
+                // with a model later; without it a keyless import dead-ends.
+                const source = parsed
+                  ? { text: parsed.text, kind: kindOf(parsed.fileName) }
+                  : undefined
+
+                if (onImported) {
+                  onImported({ name, content, text: source?.text ?? '', kind: source?.kind ?? 'pdf' })
+                  return
+                }
+
+                await createResumeFromImport(name, content, source)
               })
             }
           >

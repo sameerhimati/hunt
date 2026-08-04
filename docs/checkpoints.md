@@ -28,8 +28,8 @@ a *worse* install story than ours (Claude Code + Python + Bun + a full TeX
 distribution). What it had that we don't is the README's second section: the
 author's own funnel — 69 applications, 20 first interviews, one signed contract,
 hired as an AI engineer in June 2026. Features didn't buy that; the receipt did.
-**CP3 is the only thing in this file that generates one.** See the sequencing
-note below.
+**CP3 is the only thing in this file that generates one**, and it runs in
+parallel — CP2 does not wait for it. See the sequencing note below.
 
 **Cold-start / onboarding run.** CP1-C routes `/` by state, which is not the same
 thing. `docs/SCREENS.md §1` specs a real first-run flow — welcome → keys →
@@ -49,8 +49,11 @@ Brother sells done-for-you tailoring; he runs hunt, delivers the PDF. Answers
 application with a résumé version pinned and its outcome stamped — which is
 already the shape of the story CP2 is missing. It only exists if CP3 has been
 running for weeks before launch, so it starts *now*, in parallel, not after CP2.
-**Open call for Sameer:** whether CP2 waits on real numbers or launches on the
-product alone. Waiting is stronger and slower.
+**Decided 2026-07-29: CP2 does not wait for it.** It launches on the product
+alone; the receipt strengthens the story whenever it lands. Waiting is stronger
+and slower, and slower is the worse trade — *even if 3 people use it, it's good,
+as long as we can scale up/down based on demand.* This file used to leave the
+call open.
 
 **CP4 — hosted go/no-go · ~day 25**
 Decide on *rate and source*, not raw count: 1000 from one post is a spike, 1000

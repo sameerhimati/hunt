@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 
 import { AppShell } from '@/components/app-shell'
 import { EmptyState } from '@/components/empty-state'
@@ -8,6 +9,7 @@ import { NewApplicationDialog } from '@/components/pipeline/new-application-dial
 import { StatusBadge } from '@/components/pipeline/status-badge'
 import { buttonVariants } from '@/components/ui/button'
 import { STATUS_LABELS, type ApplicationStatus } from '@/lib/pipeline/status'
+import { onboardingComplete } from '@/lib/onboarding/state'
 import { funnelStats, recentActivity } from '@/lib/pipeline/stats'
 import { getProvider, requiredFields } from '@/lib/providers/registry'
 import { readAllProviderStates, type ProviderState } from '@/lib/providers/status'
@@ -27,7 +29,12 @@ export const dynamic = 'force-dynamic'
  * résumé is the thing every other screen consumes.
  *
  * Deliberately not a wizard and not a checklist: each face is a single
- * EmptyState with real exits, and no step of it is required to move on.
+ * EmptyState with real exits, and no step of it is required to move on. That
+ * still holds, and is not contradicted by the first-run wizard this page
+ * redirects to: the wizard runs **once**, on a cold boot, and answers "what is
+ * this and what do I give it?". These faces run forever and answer "what is
+ * missing right now?" — which is the question a user who skipped the import, or
+ * archived their last résumé two months in, still needs answered.
  */
 
 /**
@@ -64,6 +71,11 @@ function relative(date: Date): string {
 }
 
 export default async function Home() {
+  // First boot lands in the wizard. Only this route redirects: a stranger opens
+  // the app at its root, and guarding every route with middleware would trap
+  // someone who deliberately deep-linked to Settings to add a key mid-setup.
+  if (!(await onboardingComplete())) redirect('/onboarding')
+
   const [stats, activity, providerStates, resumeCount] = await Promise.all([
     funnelStats(),
     recentActivity(8),
@@ -83,7 +95,11 @@ export default async function Home() {
           body={`Everything else here points at one: tailoring branches from it, and each application pins the exact version you sent. Import the PDF you already have, or start from a blank document.${keyless}`}
           action={
             <>
-              <Link href="/resumes" className={buttonVariants({ size: 'sm' })}>
+              <Link
+                href="/resumes"
+                data-testid="empty-state-cta"
+                className={buttonVariants({ size: 'sm' })}
+              >
                 Add your résumé
               </Link>
               <Link
@@ -107,9 +123,13 @@ export default async function Home() {
           body={`Your résumé is in. Paste a job posting and the pipeline starts — tailor to it, track it, follow up. It all runs on this machine.${keyless}`}
           action={
             <>
-              <Link href="/pipeline" className={buttonVariants({ size: 'sm' })}>
-                Add your first application
-              </Link>
+              {/*
+                The dialog itself, not a link to the screen that holds it: this
+                is the one action the empty state exists for, and bouncing the
+                user to /pipeline so they can press New application again is a
+                step that buys nothing.
+              */}
+              <NewApplicationDialog testId="empty-state-cta" label="Add your first application" />
               <Link
                 href="/sourcing"
                 className={buttonVariants({ variant: 'outline', size: 'sm' })}

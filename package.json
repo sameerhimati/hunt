@@ -2,6 +2,9 @@
   "name": "hunt",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "hunt-app": "bin/hunt-app.mjs"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

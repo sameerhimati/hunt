@@ -21,6 +21,10 @@ function codesFor(content: ResumeContent): string[] {
   return lintFormat(content).map((issue) => issue.code)
 }
 
+function codesAt(content: ResumeContent, now: Date): string[] {
+  return lintFormat(content, now).map((issue) => issue.code)
+}
+
 describe('lintFormat on a real résumé', () => {
   it('finds nothing to say about the clean fixture', () => {
     expect(lintFormat(alexChen)).toEqual([])
@@ -162,5 +166,138 @@ describe('runFormatLint', () => {
     expect(outcome.verdict).toBe('warn')
     expect(outcome.summary).toBe(`${issues.length} issues`)
     expect(issues.every((issue) => issue.detail.includes(issue.path))).toBe(true)
+  })
+})
+
+/**
+ * The clock is pinned in every one of these. The rule's whole subject is elapsed
+ * time, so a test that used the real date would assert something different every
+ * month it ran.
+ */
+describe('stale-end-date', () => {
+  const NOW = new Date('2026-08-03T00:00:00Z')
+
+  /** Ends every role, so the document has a last date rather than a current one. */
+  function ending(end: string): ResumeContent {
+    const content = clone()
+    content.experience[0].end = end
+    content.experience[1].end = '2020-05'
+    return content
+  }
+
+  it('says nothing about the clean fixture, whose latest role is ongoing', () => {
+    expect(lintFormat(alexChen, NOW)).toEqual([])
+  })
+
+  it('is silent however far in the future the clock runs, while a role is current', () => {
+    expect(lintFormat(alexChen, new Date('2044-01-01T00:00:00Z'))).toEqual([])
+  })
+
+  it('flags a résumé whose last role ended years ago', () => {
+    const [issue] = lintFormat(ending('2021-03'), NOW).filter(
+      (found) => found.code === 'stale-end-date',
+    )
+
+    expect(issue.path).toBe('experience[0].end')
+    expect(issue.detail).toContain('2021-03')
+    expect(issue.detail).toContain('5 years ago')
+  })
+
+  it('names the latest end date, not the first or last entry in the array', () => {
+    const content = clone()
+    content.experience[0].end = '2019-01'
+    content.experience[1].end = '2021-06'
+
+    const [issue] = lintFormat(content, NOW).filter((found) => found.code === 'stale-end-date')
+
+    expect(issue.path).toBe('experience[1].end')
+    expect(issue.detail).toContain('2021-06')
+  })
+
+  it('never suggests the user account for the gap, only that they name it', () => {
+    const [issue] = lintFormat(ending('2021-03'), NOW).filter(
+      (found) => found.code === 'stale-end-date',
+    )
+
+    expect(issue.detail).toMatch(/saves the reader guessing/)
+    expect(issue.detail).not.toMatch(/employment gap|explain|unemployed|why/i)
+  })
+
+  it('holds its tongue inside the grace window', () => {
+    // Eighteen months back to the month: recent enough to be an ordinary search.
+    expect(codesAt(ending('2025-02'), NOW)).not.toContain('stale-end-date')
+    expect(codesAt(ending('2025-01'), NOW)).toContain('stale-end-date')
+  })
+
+  it.each(['Present', 'present', 'current', 'Ongoing', ''])(
+    'treats %o as a role still in progress',
+    (end) => {
+      expect(codesAt(ending(end), NOW)).not.toContain('stale-end-date')
+    },
+  )
+
+  it.each([
+    ['June 2021', 'month-name'],
+    ['Jun. 2021', 'abbreviated month'],
+    ['06/2021', 'slashed'],
+    ['2021-06', 'iso'],
+  ])('reads %o (%s) as the same date', (end) => {
+    expect(codesAt(ending(end), NOW)).toContain('stale-end-date')
+  })
+
+  it('reads a bare year as December, the reading kindest to the user', () => {
+    // Dec 2024 is 20 months before Aug 2026 and flags; Dec 2025 is 8 and does not.
+    expect(codesAt(ending('2024'), NOW)).toContain('stale-end-date')
+    expect(codesAt(ending('2025'), NOW)).not.toContain('stale-end-date')
+  })
+
+  it('does not guess at a date it cannot read', () => {
+    expect(codesAt(ending("Summer '21"), NOW)).not.toContain('stale-end-date')
+  })
+
+  it('does not count education, which is supposed to be in the past', () => {
+    const content = clone()
+    content.education[0].end = '2011'
+
+    expect(codesAt(content, NOW)).not.toContain('stale-end-date')
+  })
+})
+
+describe('skills-undifferentiated', () => {
+  it('leaves the clean fixture alone — six items in a group sorts fine', () => {
+    expect(codesFor(alexChen)).not.toContain('skills-undifferentiated')
+  })
+
+  it('flags one group carrying more than it sorts', () => {
+    const content = clone()
+    content.skills[0].items = Array.from({ length: 18 }, (_, index) => `Lang${index}`)
+
+    const [issue] = lintFormat(content).filter(
+      (found) => found.code === 'skills-undifferentiated',
+    )
+
+    expect(issue.path).toBe('skills[0]')
+    expect(issue.detail).toContain('18 items')
+    expect(issue.detail).toContain('Languages')
+  })
+
+  /** Ranking them would be a proficiency claim the document never made. */
+  it('asks the user to split or cut, never telling them which they are expert in', () => {
+    const content = clone()
+    content.skills[0].items = Array.from({ length: 18 }, (_, index) => `Lang${index}`)
+
+    const [issue] = lintFormat(content).filter(
+      (found) => found.code === 'skills-undifferentiated',
+    )
+
+    expect(issue.detail).toMatch(/splitting it, or cutting/)
+    expect(issue.detail).not.toMatch(/expert|proficien|advanced|beginner|rate/i)
+  })
+
+  it('counts each group on its own, not the document total', () => {
+    const content = clone()
+    content.skills = content.skills.map((group) => ({ ...group, items: group.items.slice(0, 5) }))
+
+    expect(codesFor(content)).not.toContain('skills-undifferentiated')
   })
 })

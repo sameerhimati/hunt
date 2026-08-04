@@ -65,13 +65,21 @@ export interface SaveVersionInput {
 export async function createResume(
   name: string,
   content: ResumeContent,
-  options: { templateId?: string; label?: string } = {},
+  options: {
+    templateId?: string
+    label?: string
+    /** The imported document's text layer — see `Resume.sourceText`. */
+    sourceText?: string
+    sourceKind?: string
+  } = {},
 ) {
   await ensureTemplates()
 
   return prisma.resume.create({
     data: {
       name,
+      sourceText: options.sourceText ?? null,
+      sourceKind: options.sourceKind ?? null,
       versions: {
         create: {
           label: options.label ?? BASE_VERSION_LABEL,
@@ -229,4 +237,33 @@ export async function updateVersionContent(
 
   await prisma.resume.update({ where: { id: version.resumeId }, data: { updatedAt: new Date() } })
   return version
+}
+
+/**
+ * The stored source document for a résumé, or null when there is none.
+ *
+ * Null covers two cases the UI has to tell apart from "something went wrong":
+ * a résumé started from scratch, which never had a source, and one imported
+ * before `sourceText` existed, whose source was not kept. Neither is an error
+ * and neither can be repaired from disk — re-importing the file is what fills
+ * this in — so the caller hides the re-read action rather than failing it.
+ */
+export async function resumeSource(
+  resumeId: string,
+): Promise<{ text: string; kind: string | null } | null> {
+  const resume = await prisma.resume.findUnique({
+    where: { id: resumeId },
+    select: { sourceText: true, sourceKind: true },
+  })
+
+  if (!resume?.sourceText?.trim()) return null
+  return { text: resume.sourceText, kind: resume.sourceKind }
+}
+
+/** The version a re-read should hang off: the newest one on the résumé. */
+export async function latestVersion(resumeId: string) {
+  return prisma.resumeVersion.findFirst({
+    where: { resumeId },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+  })
 }

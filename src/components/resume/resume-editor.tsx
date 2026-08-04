@@ -1,10 +1,14 @@
 'use client'
 
-import { GitCompare, Save, X } from 'lucide-react'
+import { GitCompare, Save, Sparkles, X } from 'lucide-react'
 import { useMemo, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
-import { saveVersionAction, updateVersionAction } from '@/app/resumes/actions'
+import {
+  reReadWithModelAction,
+  saveVersionAction,
+  updateVersionAction,
+} from '@/app/resumes/actions'
 import { DiffRow } from '@/components/resume/diff-row'
 import { PdfPreviewFrame } from '@/components/resume/pdf-preview-frame'
 import { StructuredEditor } from '@/components/resume/structured-editor'
@@ -42,13 +46,23 @@ import { cn } from '@/lib/utils'
 interface ResumeEditorProps {
   resume: { id: string; name: string }
   versions: VersionNode[]
+  /**
+   * Whether a stored source document exists to read again. False for a résumé
+   * started from scratch and for one imported before the source was kept —
+   * neither is an error, so the action hides rather than failing when pressed.
+   */
+  canReRead: boolean
 }
 
 function contentOf(version: VersionNode): ResumeContent {
   return parseResumeContent(JSON.parse(version.content))
 }
 
-export function ResumeEditor({ resume, versions: initialVersions }: ResumeEditorProps) {
+export function ResumeEditor({
+  resume,
+  versions: initialVersions,
+  canReRead,
+}: ResumeEditorProps) {
   const [versions, setVersions] = useState(initialVersions)
   const [currentId, setCurrentId] = useState(initialVersions[0].id)
 
@@ -64,6 +78,50 @@ export function ResumeEditor({ resume, versions: initialVersions }: ResumeEditor
   const [comparing, setComparing] = useState(false)
   const [compareFrom, setCompareFrom] = useState(initialVersions[0].id)
   const [pending, startTransition] = useTransition()
+
+  const [rereading, setRereading] = useState(false)
+
+  /**
+   * Read the stored source again with a model, then *show the difference*.
+   *
+   * The result is a new version, never a replacement, so the honest thing to do
+   * with it is put it side by side with what the user already had rather than
+   * swap the document under them. Landing straight in compare mode — new version
+   * selected, the parse it came from on the left — makes accepting it an act
+   * rather than a default, which is the same posture the tailor diff takes.
+   */
+  const reRead = () => {
+    setRereading(true)
+
+    void reReadWithModelAction(resume.id)
+      .then((result) => {
+        if (result.error || !result.versionId || !result.tree) {
+          toast.error(result.error ?? 'That did not work.')
+          return
+        }
+
+        // Compare against what the user had before this ran, not against the
+        // new version's parent — they are the same row today, and saying so
+        // here keeps that true if lineage ever changes.
+        const from = currentId
+
+        setVersions(result.tree)
+        setCurrentId(result.versionId)
+        setDraft(parseResumeContent(JSON.parse(
+          result.tree.find((version) => version.id === result.versionId)?.content ?? '{}',
+        )))
+        setDirty(false)
+        setCompareFrom(from)
+        setComparing(true)
+        toast.success(
+          result.lowConfidence?.length
+            ? `Read again. ${result.lowConfidence.length} field${result.lowConfidence.length === 1 ? '' : 's'} the document does not say verbatim — check ${result.lowConfidence.slice(0, 3).join(', ')}.`
+            : 'Read again. Every field appears verbatim in your document.',
+        )
+      })
+      .catch(() => toast.error('That did not work.'))
+      .finally(() => setRereading(false))
+  }
 
   const switchTo = (versionId: string) => {
     const target = versions.find((version) => version.id === versionId)
@@ -157,7 +215,7 @@ export function ResumeEditor({ resume, versions: initialVersions }: ResumeEditor
           ))}
         </ul>
 
-        <div className="border-t border-border p-2">
+        <div className="space-y-0.5 border-t border-border p-2">
           <Button
             type="button"
             variant="ghost"
@@ -169,6 +227,21 @@ export function ResumeEditor({ resume, versions: initialVersions }: ResumeEditor
             <GitCompare size={14} aria-hidden="true" />
             {comparing ? 'Close compare' : 'Compare two →'}
           </Button>
+
+          {canReRead ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              data-testid="re-read-with-model"
+              disabled={rereading}
+              className="w-full justify-start text-muted-foreground"
+              onClick={reRead}
+            >
+              <Sparkles size={14} aria-hidden="true" />
+              {rereading ? 'Reading…' : 'Re-read with a model'}
+            </Button>
+          ) : null}
         </div>
       </aside>
 

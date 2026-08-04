@@ -206,8 +206,9 @@ backend engineer* — applying to Stripe, Linear, Notion, etc. Replace with real
   email-found state, and — when the user recorded one on a manual contact — a
   LinkedIn profile link that opens out to their profile.
 - **SequenceTimeline:** Step 1 + N follow-ups with `day +N` offsets; states sent /
-  due / scheduled; "+ add step"; note that the sequence **halts automatically on
-  reply**. The editing step is highlighted.
+  due / scheduled; "+ add step"; a "they replied" control, and copy saying **hunt
+  cannot see your inbox** — marking the reply is the user's, and it halts every
+  remaining step. The editing step is highlighted.
 - **Message editor:** subject + body, drafted from the role + résumé highlights;
   cited highlights are underlined (hover → source); Regenerate / Save draft / Send
   now.
@@ -215,8 +216,8 @@ backend engineer* — applying to Stripe, Linear, Notion, etc. Replace with real
   the queue integrates with the dashboard's follow-ups-due. Drafting works without
   Apollo (manual contact) and without email config (save draft, send manually).
 - **States:** no email key → composer works, "Send" becomes "Copy / mark as sent
-  manually." Replied → sequence halted, contact moves to Active/replied, application
-  flips to Replied.
+  manually." Replied (marked by the user — nothing detects it) → sequence halted,
+  contact moves to Active/replied, application flips to Replied.
 - **Interactions:** edit any step; day-offset editable; send advances the sequence.
 
 ---

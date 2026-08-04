@@ -46,6 +46,34 @@ every future résumé and cover letter can cite it the same way they cite your
 résumé today. The rule doesn't loosen — hunt still refuses anything you didn't
 say. It just stops pretending your résumé is the only place you've said things.
 
+The notebook is bigger than any one résumé on purpose, which raises the question
+of what to draw from it for a given job. A person who has shipped ML pipelines,
+run a family office and framed houses is not three résumés — they are one person
+whose relevant half changes per posting. So the notebook is **the whole store,
+and each application draws a slice of it**: hunt proposes which facts earn their
+place against this posting, and you decide, the same way you decide on a tailored
+bullet. What it must never become is a bank of claims the model dips into
+unsupervised — the fact still has to be one you wrote down, and the citation
+still has to resolve. It widens where provenance can point, not whether it has to.
+
+*Designed 2026-08-04 — see `docs/NOTEBOOK.md`.* Facts are atomic so that drawing
+on them is selection rather than extraction; intake is the refusal itself, which
+today names a problem and offers no move; "why this company" is a field on the
+application rather than a fact about you, because it expires; and a
+forward-looking claim has to cite both halves of its bridge, the work you did and
+what the posting says they need.
+
+**More than one way to reach someone.** Outreach assumes a single shape: a cold
+email to a recruiter or hiring manager, three steps, four days apart and then
+five. That is one path, and until now hunt presented it as *the* path. The copy
+says otherwise as of 2026-08-04; the defaults still don't. A referral, a former
+colleague, an alum, someone on the team who would forward a résumé — those are
+different messages on different cadences, and hunt has nowhere to record which
+one it is holding. `Contact.source` stores where a name came from, not how you
+know them, and `Outreach` has no channel field at all, so email is the only way a
+message can exist. Next: a relationship on the contact, a channel on the message,
+and cadences that follow from both — a warm intro does not need three nudges.
+
 **Which résumé version actually works.** "v3 got 4 interviews from 11 sends; v1
 got 0." Every application already pins the exact version sent and stamps when a
 reply, interview or decision landed. This is one join away, and nobody in this

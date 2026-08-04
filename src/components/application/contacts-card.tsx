@@ -46,8 +46,8 @@ export async function ContactsCard({ applicationId }: { applicationId: string })
 
       {contacts.length === 0 ? (
         <p className="px-4 py-3 text-sm leading-relaxed text-muted-foreground">
-          Nobody yet. Add the recruiter or hiring manager you already know about, or search the
-          company for them.
+          Nobody yet. Add whoever is worth writing to — a recruiter, the hiring manager, or someone
+          you already know there — or search the company for them.
         </p>
       ) : (
         <ul>

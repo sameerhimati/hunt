@@ -15,6 +15,14 @@ import { structureResume } from '@/lib/resume/parse/structure'
  * and that a wrapped bullet **shares its bullet's exact `x`** because the hanging
  * glyph is excluded from the geometry.
  *
+ * That second fact is true of all three samples and is *not* true in general —
+ * it holds only when the typesetter emitted the bullet glyph as its own text
+ * run. When the glyph is fused into the first run, `x` measures the glyph and
+ * the wrap sits ~12pt right of it. All three samples happening to agree is
+ * exactly how the parser came to depend on it; the real-world coordinates in
+ * "a heading that packs four fields onto one bullet-delimited line" below are
+ * here so the corpus can no longer agree with itself by accident.
+ *
  * They are literals rather than a runtime call to `readPdf` on purpose: a unit
  * test of the structurer should fail when the structurer breaks, not when pdf.js
  * changes its mind about a font id.
@@ -713,6 +721,59 @@ describe('structureResume degrades instead of throwing', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Bare-domain links. Every fixture above writes its links with a scheme, which
+// is a LaTeX-template habit and not how people write them — the first
+// real-world résumé put through this parser had none, and the banner came apart
+// on it.
+// ---------------------------------------------------------------------------
+
+/**
+ * A banner that writes its links the way a person does: no scheme, no `www.`,
+ * two of them, and the email on a separate baseline from the link list.
+ */
+const BARE_LINK_BANNER = documentOf([
+  line('Dana Okoye', 56.7, 205.6, 406.5, 24.79, 'f1'),
+  line('danaokoye.com · github.com/danaokoye · linkedin.com/in/danaokoye', 89.2, 94.6, 517.4, 9.96, 'f5'),
+  line('dana@example.com · Chicago, IL', 101.4, 94.6, 517.4, 9.96, 'f5'),
+  line('Experience', 157.6, 39.6, 107.7, 11.96, 'f1'),
+  line('Northwind 2022-01 – Present', 178.3, 39.6, 572.4, 10.91, 'f9'),
+  line('Platform Engineer', 191.8, 39.6, 572.4, 9.96, 'f11'),
+])
+
+describe('a banner whose links carry no scheme', () => {
+  it('does not file the link list as the headline', () => {
+    // The defect this pins: `isContactLine()` did not recognise a bare domain, so
+    // the link list was the first "non-contact" line and became `label`. A wrong
+    // headline is worse than an absent one — it renders into the PDF.
+    const basics = structureResume(BARE_LINK_BANNER).basics
+    expect(basics.label).toBeUndefined()
+  })
+
+  it('reads the first bare link as the URL', () => {
+    expect(structureResume(BARE_LINK_BANNER).basics.url).toBe('danaokoye.com')
+  })
+
+  it('still finds the email and the location beside the links', () => {
+    // The location is the regression risk in the fix, not the fix itself: once the
+    // link list counts as a contact line its links join the leftovers, and a
+    // one-word leftover with no role word in it is exactly what `location` looks
+    // for. Every link has to be removed, not just the one that became `url`.
+    const basics = structureResume(BARE_LINK_BANNER).basics
+    expect(basics.email).toBe('dana@example.com')
+    expect(basics.location).toBe('Chicago, IL')
+  })
+
+  it('keeps the name and the rest of the document intact', () => {
+    const content = structureResume(BARE_LINK_BANNER)
+    expect(content.basics.name).toBe('Dana Okoye')
+    expect(content.experience[0]).toMatchObject({
+      company: 'Northwind',
+      title: 'Platform Engineer',
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Known gaps, asserted so they cannot change silently in either direction
 // ---------------------------------------------------------------------------
 
@@ -735,5 +796,196 @@ describe('known gaps against the hand-labelled ground truth', () => {
     const entry = structureResume(doc).experience[0]
     expect(entry.title).toBe('Engineer Labs')
     expect(entry.company).toBe('Staff Developer')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Real-world PDF shapes the three sample fixtures do not contain
+// ---------------------------------------------------------------------------
+
+/**
+ * Coordinates below are measured from a real résumé (Sameer Himati's, the first
+ * outside-corpus PDF through this path), not invented. It broke the parser in
+ * two ways at once and both are pinned here.
+ */
+describe('a heading that packs four fields onto one bullet-delimited line', () => {
+  const HEADING = 'Fundmore.ai ML Engineer • Toronto • June 2021 – January 2023'
+
+  /** The bullet glyph is fused into the first text run, so `x` measures the glyph. */
+  function fundmore(): SourceDocument {
+    return documentOf([
+      line('EXPERIENCE', 92.99, 39.6, 120, 11.96, 'g_d0_f1'),
+      line(HEADING, 428.32, 39.6, 560, 9.96, 'g_d0_f10'),
+      line('Built document processing for mortgage origination:', 441.77, 40.82, 560, 9.96, 'g_d0_f5', true),
+      line('with field extraction via AWS Textract and per-field', 453.73, 53.19, 560, 9.96, 'g_d0_f6'),
+      line('to human review rather than letting the model guess.', 465.68, 53.55, 560, 9.96, 'g_d0_f3'),
+    ])
+  }
+
+  it('splits the employer, role, place and dates the author separated', () => {
+    expect(structureResume(fundmore()).experience[0]).toMatchObject({
+      company: 'Fundmore.ai',
+      title: 'ML Engineer',
+      location: 'Toronto',
+      start: '2021-06',
+      end: '2023-01',
+    })
+  })
+
+  /**
+   * The defect this whole section exists for: the continuations sit 12pt right
+   * of their bullet because `x` measures the fused glyph, so an exact-`x` rule
+   * treated them as new entries and opened phantom company and title fields.
+   */
+  it('rejoins continuations that sit right of a bullet whose glyph is fused', () => {
+    const entry = structureResume(fundmore()).experience[0]
+
+    expect(entry.bullets).toHaveLength(1)
+    expect(entry.bullets[0]).toContain('AWS Textract')
+    expect(entry.bullets[0]).toContain('letting the model guess')
+  })
+
+  it('rejoins across a change of font face, which inline emphasis causes', () => {
+    // f5 → f6 → f3 in one sentence, all at 9.96. Matching the face fails here.
+    const entry = structureResume(fundmore()).experience[0]
+    expect(entry.bullets[0]).toContain('per-field')
+  })
+
+  it('will not swallow the far column of a two-column layout', () => {
+    const doc = documentOf([
+      line('EXPERIENCE', 10, 40, 120, 12, 'f1'),
+      line('Acme 2019 – 2020', 24, 40, 560, 10, 'f2'),
+      line('Ran the pipeline', 38, 46, 220, 10, 'f3', true),
+      line('Unrelated right-column text', 38, 245.8, 560, 10, 'f3'),
+    ])
+
+    expect(structureResume(doc).experience[0].bullets[0]).toBe('Ran the pipeline')
+  })
+
+  it('will not swallow a heading that outdents below a bullet', () => {
+    const doc = documentOf([
+      line('EXPERIENCE', 10, 40, 120, 12, 'f1'),
+      line('Acme 2019 – 2020', 24, 40.82, 560, 10, 'f2'),
+      line('Ran the pipeline', 38, 40.82, 560, 10, 'f3', true),
+      line('Globex 2017 – 2019', 52, 39.6, 560, 10, 'f2'),
+    ])
+
+    expect(structureResume(doc).experience).toHaveLength(2)
+    expect(structureResume(doc).experience[0].bullets).toEqual(['Ran the pipeline'])
+  })
+})
+
+describe('bare places, fused titles and prose in a delimited heading', () => {
+  function headed(heading: string): SourceDocument {
+    return documentOf([
+      line('EXPERIENCE', 10, 40, 120, 12, 'f1'),
+      line(heading, 24, 39.6, 560, 9.96, 'f2'),
+      line('Did the work', 38, 40.82, 560, 9.96, 'f3', true),
+    ])
+  }
+
+  it('reads a comma-less city when the author delimited the fields', () => {
+    expect(structureResume(headed('Fundmore.ai ML Engineer • Toronto • June 2021 – January 2023'))
+      .experience[0].location).toBe('Toronto')
+  })
+
+  /** The guard that keeps a leading employer from being read as a place. */
+  it('never reads the first field as a place, however place-like it looks', () => {
+    const entry = structureResume(headed('Acme • Senior Engineer • 2019 – 2020')).experience[0]
+
+    expect(entry.company).toBe('Acme')
+    expect(entry.title).toBe('Senior Engineer')
+    expect(entry.location).toBeUndefined()
+  })
+
+  it.each([
+    ['Itamih Founder, AI Engineer • San Francisco • January 2026 – Present', 'Itamih', 'Founder, AI Engineer'],
+    ['Fend Technical Co-founder • San Francisco • June 2024 – January 2026', 'Fend', 'Technical Co-founder'],
+    ['Himathi Family Office Founder • Chicago • January 2023 – June 2024', 'Himathi Family Office', 'Founder'],
+  ])('splits the fused employer and role in %o', (heading, company, title) => {
+    expect(structureResume(headed(heading)).experience[0]).toMatchObject({ company, title })
+  })
+
+  /**
+   * The gate on the fused split. "Software Engineer" is the same shape as
+   * "Fend Technical Co-founder" and splitting it would invent an employer called
+   * "Software", so the split only runs where the author delimited the line.
+   */
+  it('leaves a plain job title alone when nothing delimited the heading', () => {
+    const doc = documentOf([
+      line('EXPERIENCE', 10, 40, 120, 12, 'f1'),
+      line('Software Engineer', 24, 40, 560, 10, 'f2'),
+      line('Did the work', 38, 40, 560, 10, 'f3', true),
+    ])
+    const entry = structureResume(doc).experience[0]
+
+    expect(entry.title).toBe('Software Engineer')
+    expect(entry.company).toBe('')
+  })
+
+  it('files a sentence under the heading as a bullet, never as the employer', () => {
+    const doc = documentOf([
+      line('EXPERIENCE', 10, 40, 120, 12, 'f1'),
+      line('Fend Technical Co-founder • San Francisco • June 2024 – January 2026', 24, 39.6, 560, 9.96, 'f2'),
+      line('Founding team of 2.', 38, 39.6, 560, 8.97, 'f12'),
+      line('Built the product end to end', 52, 40.82, 560, 9.96, 'f5', true),
+    ])
+    const entry = structureResume(doc).experience[0]
+
+    expect(entry.company).toBe('Fend')
+    expect(entry.bullets).toEqual(['Founding team of 2.', 'Built the product end to end'])
+  })
+
+  it('rejoins a wrapped sentence rather than filing each line separately', () => {
+    const doc = documentOf([
+      line('EXPERIENCE', 10, 40, 120, 12, 'f1'),
+      line('Itamih Founder • San Francisco • January 2026 – Present', 24, 39.6, 560, 9.96, 'f2'),
+      line('Bootstrapped and self-funded. Paid engagements building AI systems for businesses I already have direct access to: I find the problem', 38, 39.6, 560, 8.97, 'f12'),
+      line('myself, build it, and run it in production.', 52, 39.6, 560, 8.97, 'f12'),
+    ])
+
+    expect(structureResume(doc).experience[0].bullets).toEqual([
+      'Bootstrapped and self-funded. Paid engagements building AI systems for businesses I already have direct access to: I find the problem myself, build it, and run it in production.',
+    ])
+  })
+
+  it('keeps a capitalised name that ends in a stop out of the bullets', () => {
+    const doc = documentOf([
+      line('EXPERIENCE', 10, 40, 120, 12, 'f1'),
+      line('Platform Engineer 2019 – 2020', 24, 40, 560, 10, 'f2'),
+      line('Acme Inc.', 38, 40, 560, 10, 'f3'),
+      line('Did the work', 52, 40, 560, 10, 'f3', true),
+    ])
+    const entry = structureResume(doc).experience[0]
+
+    expect(entry.company).toBe('Acme Inc.')
+    expect(entry.bullets).toEqual(['Did the work'])
+  })
+})
+
+describe('known gap: prose is recognised line by line, not paragraph by paragraph', () => {
+  /**
+   * `isProse` judges each heading line on its own, so the *first* line of a
+   * wrapped sentence is only caught when it is long enough to be obviously a
+   * sentence — it does not end in a full stop, because the sentence has not
+   * ended. Below the word threshold the opening line is read as a name field and
+   * only the closing line becomes a bullet.
+   *
+   * Classifying joined paragraphs instead would fix it and would also merge the
+   * `Company` / `Title` pair of a two-line template that happens to share an
+   * indent and a type size, which is a worse failure on a far more common
+   * document. Pinned so the trade is a decision and not a surprise.
+   */
+  it('reads the opening line of a short wrapped sentence as a name field', () => {
+    const doc = documentOf([
+      line('EXPERIENCE', 10, 40, 120, 12, 'f1'),
+      line('Itamih Founder • San Francisco • January 2026 – Present', 24, 39.6, 560, 9.96, 'f2'),
+      line('Bootstrapped and self-funded. Paid engagements for', 38, 39.6, 560, 8.97, 'f12'),
+      line('businesses I already have access to.', 52, 39.6, 560, 8.97, 'f12'),
+    ])
+    const entry = structureResume(doc).experience[0]
+
+    expect(entry.bullets).toEqual(['businesses I already have access to.'])
+    expect(entry.company).toBe('Bootstrapped and self-funded. Paid engagements for')
   })
 })

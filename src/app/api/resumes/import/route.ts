@@ -95,11 +95,18 @@ export async function POST(request: Request) {
     try {
       const model = await importResumePdf(Buffer.from(bytes), llm)
       return ok(model, file.name, 'model')
-    } catch (error) {
+    } catch {
       // A key that is present but broken — expired, out of credit, wrong base
       // URL — used to lose the whole import. There is a good parse in hand, so
       // ship it and say which one it is.
-      if (!(error instanceof ResumeImportError)) throw error
+      //
+      // **Any** failure, not just a `ResumeImportError`. Narrowing to that one
+      // class made the guarantee above true for the tidy failures and false for
+      // every other: a provider that throws a bare `TypeError` on a dropped
+      // socket, an SDK that raises its own error type, a misconfigured endpoint
+      // answering HTML — each rethrew and cost the user an import that had
+      // already succeeded. The model is an enhancement on top of the keyless
+      // parse, and nothing an enhancement does may take the floor away.
       return ok(layout, file.name, 'layout')
     }
   } catch (error) {
