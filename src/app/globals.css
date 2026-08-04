@@ -143,6 +143,22 @@
     border-color: var(--border);
   }
 
+  /*
+   * hunt is a fixed-viewport shell: AppShell pins itself to `h-dvh` and every
+   * screen scrolls inside its own pane, so the document itself must never
+   * scroll. Saying so explicitly is not belt-and-braces — WebKit still lets
+   * <html> scroll across content that `overflow: hidden` merely clips, so the
+   * tailor screen's proposal list gave the page 1.5 screens of phantom scroll
+   * that dragged the whole shell off the top and left bare background behind
+   * it. Chromium reports no overflow at all, which is why this shipped.
+   */
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   body {
     background: var(--background);
     color: var(--foreground);
