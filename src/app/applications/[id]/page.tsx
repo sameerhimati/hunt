@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { AppShell } from '@/components/app-shell'
 import { ChecksPanel } from '@/components/application/checks-panel'
 import { ContactsCard } from '@/components/application/contacts-card'
+import { EditPosting } from '@/components/application/edit-posting'
 import { OutreachTimeline } from '@/components/application/outreach-timeline'
 import { PinnedResume } from '@/components/application/pinned-resume'
 import { StatusSelect } from '@/components/application/status-select'
@@ -109,6 +110,17 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
               ) : null}
             </p>
           </div>
+
+          <EditPosting
+            applicationId={application.id}
+            job={{
+              id: job.id,
+              title: job.title,
+              company: job.company,
+              location: job.location,
+              jdText: job.jdText,
+            }}
+          />
         </header>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
@@ -124,7 +136,8 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  No description saved. Paste it in and tailoring has something to cite.
+                  No description saved. Paste it in with <span className="font-medium">Edit</span>{' '}
+                  above and tailoring has something to cite.
                 </p>
               )}
 

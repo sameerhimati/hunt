@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { FakeScrapeAdapter } from '@/lib/adapters/scrape/fake'
 import { prisma } from '@/lib/db/client'
 import { FakeLlmProvider } from '@/lib/llm'
-import { createManualJob, identityFromPage, ingestJobUrl } from '@/lib/jobs/ingest'
+import { createManualJob, identityFromPage, ingestJobUrl, updateJob } from '@/lib/jobs/ingest'
 
 const URL_ONE = 'https://jobs.example.com/acme/staff-engineer'
 
@@ -109,5 +109,61 @@ describe('createManualJob', () => {
     const job = await createManualJob({ title: 'Staff Engineer', company: 'Linear' })
     expect(job.source).toBe('manual')
     expect(job.url).toBeNull()
+  })
+})
+
+describe('updateJob', () => {
+  it('fills in what import left blank', async () => {
+    const job = await createManualJob({ title: 'Product Engineer', company: 'Y Combinator' })
+    expect(job.location).toBeNull()
+
+    const fixed = await updateJob(job.id, {
+      title: job.title,
+      company: job.company,
+      location: 'San Francisco',
+      jdText: 'Location: San Francisco. You will build the software that runs YC.',
+    })
+
+    expect(fixed.location).toBe('San Francisco')
+    expect(fixed.jdText).toContain('runs YC')
+  })
+
+  it('holds the same floor as creating one', async () => {
+    const job = await createManualJob({ title: 'Product Engineer', company: 'Firecrawl' })
+
+    await expect(updateJob(job.id, { title: '   ', company: 'Firecrawl' })).rejects.toThrow(
+      /title and a company/,
+    )
+
+    // The bad save changed nothing.
+    const unchanged = await prisma.job.findUniqueOrThrow({ where: { id: job.id } })
+    expect(unchanged.title).toBe('Product Engineer')
+  })
+
+  it('leaves the source alone — editing a scrape does not make it typed', async () => {
+    const { url, scrape: adapter } = posting('source-survives-an-edit')
+    const scraped = await ingestJobUrl(url, { scrape: adapter, llm: null })
+    expect(scraped.source).not.toBe('manual')
+
+    const edited = await updateJob(scraped.id, {
+      title: 'Staff Engineer',
+      company: 'Acme',
+      location: 'Remote',
+    })
+
+    expect(edited.source).toBe(scraped.source)
+  })
+
+  it('stores the description verbatim, because the checks cite it', async () => {
+    const job = await createManualJob({ title: 'Context Engineer', company: 'PostHog' })
+    const pasted = 'Line one.\n\n  Line two, indented.\n'
+
+    const edited = await updateJob(job.id, {
+      title: job.title,
+      company: job.company,
+      jdText: pasted,
+    })
+
+    expect(edited.jdText).toBe(pasted.trim())
   })
 })
