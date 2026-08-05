@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { putPreview } from '@/lib/resume/preview-cache'
 import { LatexRenderError, renderToPdf } from '@/lib/resume/render'
 import { parseResumeContent } from '@/lib/resume/schema'
 
@@ -33,11 +34,17 @@ export async function POST(request: Request) {
       rawLatexOverride,
     })
 
-    return new NextResponse(new Uint8Array(pdf), {
+    const bytes = new Uint8Array(pdf)
+
+    return new NextResponse(bytes, {
       headers: {
         'content-type': 'application/pdf',
         // The preview is regenerated on every edit; caching it would show stale paper.
         'cache-control': 'no-store',
+        // Where to frame this render from. The body is the same bytes, but
+        // Safari will not display a PDF framed from a `blob:` URL — see
+        // `preview-cache.ts`. The editor frames this URL instead.
+        'x-hunt-preview-id': putPreview(bytes),
         // A header because the body is the PDF itself. The editor shows this
         // back to the user: tailoring only adds text, and a résumé that has
         // quietly grown a page should say so while it can still be fixed.

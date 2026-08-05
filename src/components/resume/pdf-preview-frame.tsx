@@ -1,7 +1,7 @@
 'use client'
 
 import { AlertTriangle } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { TEMPLATES } from '@/lib/resume/templates'
@@ -44,7 +44,6 @@ export function PdfPreviewFrame({
    * there, which is precisely the change worth noticing.
    */
   const [floor, setFloor] = useState<number | null>(null)
-  const objectUrl = useRef<string | null>(null)
 
   const grew = pages > 0 && floor !== null && pages > floor
 
@@ -73,12 +72,18 @@ export function PdfPreviewFrame({
           return
         }
 
-        const blob = await response.blob()
+        // Frame the render from its own URL, not from a blob of the body we
+        // just received. Safari does not display a PDF framed from `blob:` —
+        // it shows blank white paper while every status here reads "live".
+        const previewId = response.headers.get('x-hunt-preview-id')
         if (cancelled) return
 
-        if (objectUrl.current) URL.revokeObjectURL(objectUrl.current)
-        objectUrl.current = URL.createObjectURL(blob)
-        setUrl(objectUrl.current)
+        if (!previewId) {
+          setError('The renderer did not say where to read this preview from.')
+          return
+        }
+
+        setUrl(`/api/resumes/preview/${previewId}`)
         setError(null)
 
         // 0 means the renderer could not tell; show nothing rather than a guess.
@@ -99,12 +104,6 @@ export function PdfPreviewFrame({
       clearTimeout(timer)
     }
   }, [content, templateId, rawLatexOverride])
-
-  useEffect(() => {
-    return () => {
-      if (objectUrl.current) URL.revokeObjectURL(objectUrl.current)
-    }
-  }, [])
 
   return (
     <div data-testid="pdf-preview" className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-2/60">

@@ -15,8 +15,8 @@ import { ChangeInspector } from '@/components/tailor/change-inspector'
 import { CoverLetterTab } from '@/components/tailor/cover-letter-tab'
 import { DiffRow } from '@/components/tailor/diff-row'
 import { FabricationFlag } from '@/components/tailor/fabrication-flag'
+import { TailoringProgress } from '@/components/tailor/tailoring-progress'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { parseResumeContent, type ResumeContent } from '@/lib/resume/schema'
@@ -24,7 +24,6 @@ import { DEFAULT_TEMPLATE_ID } from '@/lib/resume/templates'
 import { renderTex } from '@/lib/resume/tex'
 import { applyChangesWithReport, type SkippedChange } from '@/lib/tailor/apply'
 import type { TailorChange, TailorRun } from '@/lib/tailor/types'
-import { cn } from '@/lib/utils'
 
 /**
  * The hero screen (`design/Tailoring.dc.html`, TAILORING-DIFF.md §2–§9).
@@ -829,14 +828,7 @@ export function TailorWorkspace({
           ) : null}
 
           {pending ? (
-            <ul className="mt-6 flex flex-col gap-2.5">
-              {[0, 1, 2].map((row) => (
-                <li key={row} className="flex items-start gap-2.5">
-                  <Skeleton className="size-[18px] rounded-full" />
-                  <Skeleton className={cn('h-10 flex-1', row === 1 && 'h-14')} />
-                </li>
-              ))}
-            </ul>
+            <TailoringProgress company={job.company} />
           ) : (
             <Button
               type="button"

@@ -13,7 +13,13 @@ const nextConfig: NextConfig = {
   // tracer can't follow. Pinning the root stops it from tracing the whole
   // project (and shipping it) as a precaution.
   outputFileTracingRoot: path.join(__dirname),
-  headers: () => Promise.resolve([{ source: '/:path*', headers: SECURITY_HEADERS }]),
+  headers: () =>
+    Promise.resolve([
+      { source: '/:path*', headers: SECURITY_HEADERS },
+      // Order matters: this is applied after the blanket rule and overrides it
+      // for one path.
+      { source: '/api/resumes/preview/:id', headers: PREVIEW_HEADERS },
+    ]),
 }
 
 /**
@@ -62,6 +68,30 @@ const SECURITY_HEADERS = [
   { key: 'Referrer-Policy', value: 'no-referrer' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },
+]
+
+/**
+ * The one document hunt frames: the rendered résumé preview.
+ *
+ * `frame-ancestors 'none'` and `X-Frame-Options: DENY` are right for every page
+ * here, and they are why the editor used to hand the `<iframe>` a `blob:` URL —
+ * a blob carries no response headers, so nothing forbade framing it. Safari
+ * will not display a PDF framed from a blob, so the bytes are served from a
+ * real URL now, and a real URL gets the blanket headers, which then refuse to
+ * be framed. Hence this override, scoped to exactly that path.
+ *
+ * It is narrower than the blanket policy, not wider: the PDF may be framed by
+ * this origin and by nothing else, and `default-src 'none'` means the document
+ * itself may not load or reach anything at all.
+ */
+const PREVIEW_HEADERS = [
+  {
+    key: 'Content-Security-Policy',
+    value: ["default-src 'none'", "frame-ancestors 'self'", "object-src 'none'"].join('; '),
+  },
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'no-referrer' },
 ]
 
 export default nextConfig

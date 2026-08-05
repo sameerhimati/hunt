@@ -157,6 +157,11 @@ export function NewApplicationDialog({
                 id="manual-jd"
                 data-testid="manual-jd"
                 rows={6}
+                // `field-sizing-content` ignores rows and grows to fit, which a
+                // whole job description turns into thousands of pixels. Cap it and
+                // let the box scroll: what you paste here you paste and glance at,
+                // and the full text is kept verbatim regardless of what's visible.
+                className="max-h-64"
                 placeholder="Paste the whole description — for a posting behind a login, or anywhere hunt cannot reach."
                 value={manual.jdText}
                 onChange={(event) => pastePosting(event.target.value)}

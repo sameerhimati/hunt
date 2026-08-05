@@ -209,3 +209,38 @@ export async function createManualJob(input: ManualJobInput) {
     },
   })
 }
+
+/**
+ * Correcting a posting hunt already stored.
+ *
+ * Everything before this could only *create* a job, which left the record hunt
+ * had at the moment of import as the record forever: a location skipped on the
+ * way in, a company the reader guessed wrong, a description pasted from a page
+ * that turned out to be the wrong one. Those are not edge cases — they are the
+ * ordinary result of typing into a form once, and the title propagates into
+ * cover letters and outreach, so being unable to fix it is expensive.
+ *
+ * Same floor as creating one: a job needs a title and a company. `jdText` is
+ * stored exactly as given, because it is the evidence tailoring and the checks
+ * cite — this rewrites the field, it never rewrites the text.
+ *
+ * `source` is deliberately untouched. It records how the posting *arrived*, and
+ * editing what a scraper read does not make it something you typed.
+ */
+export async function updateJob(jobId: string, input: ManualJobInput) {
+  const title = input.title.trim()
+  const company = input.company.trim()
+  if (!title || !company) {
+    throw new Error('A job needs at least a title and a company.')
+  }
+
+  return prisma.job.update({
+    where: { id: jobId },
+    data: {
+      title,
+      company,
+      location: input.location?.trim() || null,
+      jdText: input.jdText?.trim() ?? '',
+    },
+  })
+}
