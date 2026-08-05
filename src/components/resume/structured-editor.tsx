@@ -1,6 +1,6 @@
 'use client'
 
-import { Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -50,6 +50,88 @@ function Section({
       </header>
       {children}
     </section>
+  )
+}
+
+/**
+ * Reorders in place. A no-op past either end, so the buttons at the edges are
+ * simply disabled rather than silently doing something else.
+ */
+function move<T>(items: T[], from: number, to: number) {
+  if (to < 0 || to >= items.length) return
+  const [item] = items.splice(from, 1)
+  items.splice(to, 0, item)
+}
+
+/**
+ * Move up, move down, remove — on every repeatable entry.
+ *
+ * Before this, only a role could be removed. Skills groups, projects and custom
+ * sections could all be *added* and never taken away, which is worse than not
+ * being addable: one mis-click left a blank group wedged in the résumé with the
+ * raw-LaTeX tab as the only way out. Order was fixed at whatever import or the
+ * model produced, and on a résumé order is content — the top bullet of your
+ * current role is the one line everyone reads.
+ *
+ * Buttons rather than dragging. The board already establishes the rule that
+ * drag is an accelerator and never the only way through, and here the same
+ * argument is stronger: these lists nest three deep, and a keyboard path to
+ * "move this bullet up" has to exist regardless of what pointer gesture is
+ * added on top of it later.
+ */
+function EntryControls({
+  index,
+  count,
+  noun,
+  onMove,
+  onRemove,
+  compact,
+}: {
+  index: number
+  count: number
+  /** Named in the labels, so screen readers hear "Move bullet up", not "Move up". */
+  noun: string
+  onMove: (to: number) => void
+  onRemove: () => void
+  compact?: boolean
+}) {
+  const size = compact ? 'size-7' : 'size-8'
+
+  return (
+    <div className="flex shrink-0 items-center">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={size}
+        aria-label={`Move ${noun} up`}
+        disabled={index === 0}
+        onClick={() => onMove(index - 1)}
+      >
+        <ChevronUp size={14} aria-hidden="true" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={size}
+        aria-label={`Move ${noun} down`}
+        disabled={index === count - 1}
+        onClick={() => onMove(index + 1)}
+      >
+        <ChevronDown size={14} aria-hidden="true" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className={size}
+        aria-label={`Remove ${noun}`}
+        onClick={onRemove}
+      >
+        <Trash2 size={14} aria-hidden="true" />
+      </Button>
+    </div>
   )
 }
 
@@ -115,15 +197,18 @@ function Bullets({
             }}
             className="min-h-0 resize-y py-1.5 text-sm"
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="Remove bullet"
-            onClick={() => onChange(bullets.filter((_, i) => i !== index))}
-          >
-            <Trash2 size={14} aria-hidden="true" />
-          </Button>
+          <EntryControls
+            compact
+            noun="bullet"
+            index={index}
+            count={bullets.length}
+            onMove={(to) => {
+              const next = [...bullets]
+              move(next, index, to)
+              onChange(next)
+            }}
+            onRemove={() => onChange(bullets.filter((_, i) => i !== index))}
+          />
         </div>
       ))}
 
@@ -226,19 +311,21 @@ export function StructuredEditor({
             <div key={index} className="rounded-md border border-border/70 bg-surface-2/40 p-3">
               <div className="mb-2 flex items-center justify-between">
                 <span className="font-mono text-xs text-faint">experience[{index}]</span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Remove role"
-                  onClick={() =>
+                <EntryControls
+                  noun="role"
+                  index={index}
+                  count={content.experience.length}
+                  onMove={(to) =>
+                    edit((draft) => {
+                      move(draft.experience, index, to)
+                    })
+                  }
+                  onRemove={() =>
                     edit((draft) => {
                       draft.experience.splice(index, 1)
                     })
                   }
-                >
-                  <Trash2 size={14} aria-hidden="true" />
-                </Button>
+                />
               </div>
 
               <div className="space-y-2">
@@ -302,6 +389,25 @@ export function StructuredEditor({
         <div className="space-y-4">
           {content.education.map((school, index) => (
             <div key={index} className="space-y-2 rounded-md border border-border/70 bg-surface-2/40 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="font-mono text-xs text-faint">education[{index}]</span>
+                <EntryControls
+                  noun="school"
+                  index={index}
+                  count={content.education.length}
+                  onMove={(to) =>
+                    edit((draft) => {
+                      move(draft.education, index, to)
+                    })
+                  }
+                  onRemove={() =>
+                    edit((draft) => {
+                      draft.education.splice(index, 1)
+                    })
+                  }
+                />
+              </div>
+
               {(
                 [
                   ['School', 'institution'],
@@ -349,6 +455,25 @@ export function StructuredEditor({
         <div className="space-y-2">
           {content.skills.map((group, index) => (
             <div key={index} className="space-y-2 rounded-md border border-border/70 bg-surface-2/40 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="font-mono text-xs text-faint">skills[{index}]</span>
+                <EntryControls
+                  noun="group"
+                  index={index}
+                  count={content.skills.length}
+                  onMove={(to) =>
+                    edit((draft) => {
+                      move(draft.skills, index, to)
+                    })
+                  }
+                  onRemove={() =>
+                    edit((draft) => {
+                      draft.skills.splice(index, 1)
+                    })
+                  }
+                />
+              </div>
+
               <Field
                 label="Category"
                 path={`skills[${index}].category`}
@@ -399,6 +524,25 @@ export function StructuredEditor({
         <div className="space-y-4">
           {content.projects.map((project, index) => (
             <div key={index} className="rounded-md border border-border/70 bg-surface-2/40 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="font-mono text-xs text-faint">projects[{index}]</span>
+                <EntryControls
+                  noun="project"
+                  index={index}
+                  count={content.projects.length}
+                  onMove={(to) =>
+                    edit((draft) => {
+                      move(draft.projects, index, to)
+                    })
+                  }
+                  onRemove={() =>
+                    edit((draft) => {
+                      draft.projects.splice(index, 1)
+                    })
+                  }
+                />
+              </div>
+
               <div className="space-y-2">
                 {(
                   [
@@ -462,6 +606,25 @@ export function StructuredEditor({
 
           {content.custom.map((section, index) => (
             <div key={index} className="rounded-md border border-border/70 bg-surface-2/40 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="font-mono text-xs text-faint">custom[{index}]</span>
+                <EntryControls
+                  noun="section"
+                  index={index}
+                  count={content.custom.length}
+                  onMove={(to) =>
+                    edit((draft) => {
+                      move(draft.custom, index, to)
+                    })
+                  }
+                  onRemove={() =>
+                    edit((draft) => {
+                      draft.custom.splice(index, 1)
+                    })
+                  }
+                />
+              </div>
+
               <Field
                 label="Title"
                 path={`custom[${index}].title`}
